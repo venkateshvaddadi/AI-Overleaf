@@ -1,0 +1,32 @@
+{
+  "proj_spinet": {
+    "id": "proj_spinet",
+    "name": "SpiNet_QSM_Paper",
+    "description": "Model-based Deep Learning with Schatten p-norm Regularization for QSM",
+    "created_at": "2026-09-06 14:00",
+    "modified_at": "Just now",
+    "favorite": false,
+    "main_file": "main.tex",
+    "file_count": 3
+  },
+  "proj_1788706740_833e99": {
+    "id": "proj_1788706740_833e99",
+    "name": "MNSeg_Net__Medical_Physcis",
+    "description": "Imported LaTeX Template Archive",
+    "created_at": "2026-09-06 20:29",
+    "modified_at": "Just now",
+    "favorite": false,
+    "main_file": "response_to_reviewers.tex",
+    "file_count": 15
+  },
+  "proj_1788709298_dd641f": {
+    "id": "proj_1788709298_dd641f",
+    "name": "MNSeg_Net__Medical_Physcis___Revision5",
+    "description": "Imported LaTeX Template Archive",
+    "created_at": "2026-09-06 21:11",
+    "modified_at": "Just now",
+    "favorite": false,
+    "main_file": "supplementary_materials.tex",
+    "file_count": 15
+  }
+}

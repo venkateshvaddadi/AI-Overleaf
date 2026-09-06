@@ -1,0 +1,1011 @@
+\documentclass[12pt,letterpaper]{article}
+%\usepackage{fullpage}
+\usepackage[top=1.0cm, bottom=1.5cm, left=2.0cm, right=2.0cm]{geometry}
+\usepackage{amsmath,amsthm,amsfonts,amssymb,amscd}
+%\usepackage{lastpage}
+\usepackage{enumerate}
+\usepackage{enumitem} 
+\usepackage{fancyhdr}
+\usepackage{siunitx}
+%\usepackage{mathrsfs}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{subfig}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{comment}
+\usepackage{color}
+\pagenumbering{arabic}
+\usepackage[numbers,sort&compress]{natbib}
+\newcolumntype{P}[1]{>{\centering\arraybackslash}p{#1}}
+\usepackage{booktabs}
+%\pagestyle{fancyplain}
+\usepackage{multirow}
+
+\usepackage{xcolor,colortbl}
+
+\usepackage{float} 
+\usepackage{float}
+
+\usepackage[colorlinks=black]{hyperref}%
+\hypersetup{%
+  colorlinks=true,
+  linkcolor=red,
+  citecolor=red,
+  urlcolor = blue,
+ }
+ \DeclareRobustCommand{\rchi}{{\mathpalette\irchi\relax}}
+\newcommand{\irchi}[2]{\raisebox{\depth}{$#1\chi$}}
+\newcommand{\xmark}{\ding{55}}%
+
+
+ \usepackage{xr}
+\usepackage{xr}
+\externaldocument{supplementary_materials}
+ \begin{document}
+ 
+ \begin{center}
+
+Manuscript ID: Medical Physics: MS \#25-216R5  \\
+\vspace{3mm}
+\textbf{Performance Benchmarking of Deep Learning Models for Real-Time Median Nerve Segmentation and Cross-Sectional Area Measurement in Ultrasound Imaging}\\ 
+ \vspace{3mm}
+{\large{Vaddadi Venkatesh}, \large{Lokesh Bathala}, \large{Raji Susan Mathew}, and \large{Phaneendra K. Yalavarthy}}\\
+ \end{center}
+ 
+ \hline 
+ \vspace{2mm}
+ \begin{center}
+{\bf General comments to the Editor }
+\end{center}
+{\ } \\
+Dear Editor, \\
+{\ }\\
+Thank you for the opportunity to revise our manuscript. We would like to sincerely thank the Deputy Editor for the thoughtful and helpful review comments that improved the manuscript. We have revised the manuscript to address the concerns raised by the reviewers. We have also compiled a detailed response to the reviewers’ comments.\\
+{\ } \\
+Sincerely, \\ 
+The Authors 
+
+\begin{center}
+{{\bf Reply to the Review comments}}
+\end{center}
+{\it Overall reply}: \\
+
+\noindent We sincerely thank the Deputy Editor for encouraging and constructive comments, which helped in improving the content and presentation of the work. 
+The manuscript has been majorly revised as suggested in the review comments. 
+The major changes made to the manuscript are summarized as follows:
+
+\begin{enumerate}[leftmargin=*]
+
+ 
+
+\item \textbf{Reorganized the manuscript to clearly separate the Methods and Results sections, relocated all empirical tables and figures to the Results section, and refined the Introduction to focus on conceptual contributions rather than quantitative findings.}
+
+\item \textbf{Standardized statistical reporting by presenting both statistical significance (paired $t$-tests and multiplicity-adjusted Tukey’s HSD) and practical significance (Cohen’s $d$ with confidence intervals) for all inter-model comparisons (see  Tables~6-7 of the revised manuscript).}
+
+
+\item \textbf{Performed Two One-Sided Tests (TOST) equivalence analyses to formally assess performance equivalence between MNSeg-Net and U2Net for both segmentation (DSC) and CSA estimation (see Section~V.D. and  Tables~8-9 of the revised manuscript).}
+
+
+
+
+
+\end{enumerate}
+
+
+
+\begin{enumerate}[leftmargin=*]
+
+
+
+
+\end{enumerate}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\noindent All additions and modifications to the text of the previous version of the manuscript in light of the review comments have been indicated in  \textcolor{red}{red} color in the revised manuscript and rebuttal for easy following. 
+We hope that with these major revisions, the manuscript will be accepted for publication. Please note that we have carefully read the manuscript and made a few minor corrections in terms of grammar and reformatting of a few sentences; these were not highlighted to keep the focus on major revisions. \\
+
+\begin{center}
+{ ( \bf Comments by deputy editor are in {\it italics} and responses are in} normal font.) \\ 
+\end{center}
+%------------------
+\begin{center}
+{\bf Deputy Editor's Comments}
+\end{center}
+
+\begin{center}
+    {\bf General Comments}
+\end{center}
+
+
+
+
+\noindent {\it{Though the revised manuscript demonstrates substantial progress, several further amendments remain necessary: (1) rewrite the last two paragraphs of the Introduction to avoid duplicating content from the Discussion; (2) relocate the figure in the Introduction that illustrates the algorithm's architecture to the Methods section; (3) move tables and figures currently in the Methods that summarize findings to the Results section; (4) define the performance metric in the Methods before using it in the Results, ensuring that the definition of mean value is appropriate for evaluating the proposed algorithm; (5) apply multiplicity correction to all statistical significance tests involving multiple comparisons; (6) report effect size values for all comparisons to provide both statistical and practical significance; and (7) make all other necessary revisions (e.g., descriptions in the Results and the final contributions in the Discussion) after completing the full statistical analysis.
+
+
+When preparing the new manuscript, please follow the Journal's rules \footnote{\url{https://aapm.onlinelibrary.wiley.com/hub/journal/24734209/about/author-guidelines}}. For example, the authors should upload two versions of the revision: a clean version and a marked-up version. In the latter, please highlight the changes made in the manuscript using either red font or a colored background (e.g., yellow), and ensure the filename is distinct from that of the clean version. As a reminder, each reviewer's comment should include a point-by-point response in the response letter, and the filename should be either 'Response Letter' or 'Point-by-Point Response Letter'. Moreover, to help the review team locate the changes made in the revised manuscript, please include the corresponding line number and page number for the response in the response letter.}}\\
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+\noindent Thank you for your encouraging comments. Please see the overall reply at the beginning of this document, which summarizes the major revisions made to the revised manuscript. The responses to the specific comments are as follows.\\
+
+
+
+
+
+
+
+
+\begin{center}
+{\bf Specific Comments}
+\end{center}
+
+
+\noindent\textbf{Specific Comments:}
+
+\section*{Introduction}
+
+\begin{enumerate}
+    \item \textbf{Lines 173--194, page 6:} The Introduction section should concisely outline the expected contributions, while quantitative and detailed accomplishments should be reserved for the Discussion section. This separation ensures that the Introduction provides a clear rationale and sets the stage for the study, whereas the Discussion delivers evidence-based interpretation, contextualization, and analysis of the results.
+
+    
+    % \textcolor{red}{Completed.....}
+
+    \textbf{Response to Reviewer}:
+
+
+We sincerely thank the reviewer for this important structural suggestion. 
+
+We have revised the Introduction section carefully to separate the conceptual contributions of the study from quantitative outcomes. Specifically, the contributions paragraph has been rewritten to concisely describe the architectural design, evaluation framework, and clinical integration of MNSeg-Net without including numerical results, statistical outcomes, or performance claims. All quantitative findings, statistical analyses, and detailed performance comparisons have been retained and further emphasized in the Results and Discussion sections. This revision ensures a clearer narrative structure, wherein the Introduction establishes the motivation and expected contributions of the study, while the Discussion provides evidence-based interpretation and contextualization of the experimental results.
+
+
+\textcolor{blue}{The revised contributions paragraph has been incorporated in Section I (Introduction), page 6 of the updated manuscript.  For clarity, the revised text is reproduced below. }
+
+
+
+% \textbf{Existing lines:}
+
+% \begin{itemize}
+
+% \item \textbf{Proposed MNSeg-Net:} An efficient, lightweight deep learning model for fully automated segmentation of the median nerve from a single ultrasound frame, supporting real-time inference at up to 43 frames per second. The model introduces a novel lightweight architecture that combines a redesigned U2Net backbone with a multiscale feature fusion subnetwork to effectively capture contextual information and enhance feature representation. 
+
+
+% \item \textbf{Performance and validation:} MNSeg-Net efficiently segments the median nerve from wrist to elbow and enables accurate CSA estimation, matching the performance of expert sonographers. The model achieved state-of-the-art segmentation accuracy (94.7\% Dice similarity coefficient (DSC) at the wrist and 83.4\% DSC from the wrist to the elbow) using only 2.46M parameters. Compared to the 44M-parameter U2Net, statistical analysis showed no significant difference (paired t-test, $p = 0.911$, Cohen’s $d = -0.003$, mean difference = –0.001) and confirmed statistical equivalence across all tested margins ($\pm0.01$, $\pm0.03$, $\pm0.05$), demonstrating substantially higher computational efficiency.
+
+
+
+
+
+% \item \textbf{Clinical integration:} The proposed model was clinically validated on data from both healthy subjects and patients with mild and severe CTS. An end-to-end clinical setup, including a Python-based graphical user interface, was developed for real-time nerve segmentation, contour generation and CSA calculation. This system is currently in use for research purposes at a collaborating hospital.
+
+% \end{itemize}
+
+
+
+\textbf{Updated lines-1:}
+
+\textcolor{red}{The specific contributions of this study, encompassing architectural innovation, statistical validation, and clinical integration, are as follows:}
+
+\begin{itemize}
+
+\item \textcolor{red}{\textbf{Proposed MNSeg-Net Architecture:} Development of MNSeg-Net, a novel lightweight deep learning architecture designed for fully automated, real-time median nerve segmentation. The model integrates a computationally efficient redesigned U2Net backbone with a multi-scale feature fusion sub-network to effectively capture contextual information and enhance feature representation without adding the high computational overhead.}
+
+
+\item \textcolor{red}{\textbf{Comprehensive and Statistically Rigorous Evaluation:} A rigorous evaluation of the proposed model against state-of-the-art segmentation networks. This study establishes the effectiveness of lightweight architectures through extensive statistical analysis and demonstrated that high segmentation accuracy and cross-sectional area (CSA) estimation can be achieved with significantly reduced parameter counts.}
+
+\item \textcolor{red}{\textbf{Clinical Translation through Real-Time Integration:} Development and deployment of an end-to-end clinical workflow that integrates the deep learning model with real-time ultrasound data. This contribution includes a custom graphical interface for real-time visualization and automatic CSA computation, validated on a diverse dataset of healthy subjects and patients with carpal tunnel syndrome (CTS) to assess clinical feasibility.}
+
+
+
+\end{itemize}
+
+
+
+
+
+
+
+
+
+
+    
+    \item \textbf{Lines 195--203, page 6:} This paragraph should be placed before the section describing the study's expected contributions, which should remain as the final paragraph of the Introduction.
+
+
+    % \textcolor{red}{Completed.....}
+
+    \textbf{Response to Reviewer}:
+
+
+We thank the reviewer for this helpful suggestion. 
+
+The referenced paragraph describing the benchmark models has been moved to precede the section outlining the study’s expected contributions. 
+The Introduction now concludes with a clearly defined contributions paragraph, thereby improving the logical flow and ensuring that the expected contributions remain the final component of the Introduction.
+
+% \textcolor{blue}{The revised content has been incorporated in Section I (page 6) of the updated manuscript.}
+
+\textcolor{blue}{The paragraph previously located in Lines 195--203 (page 6) has been moved to the preceding section of the Introduction (page 6 in the revised manuscript), directly before the paragraph describing the study’s expected contributions. }
+
+\end{enumerate}
+
+\section*{Materials and Methods}
+
+\begin{enumerate}
+    \setcounter{enumi}{3}
+    
+    \item \textbf{Table 1, page 10:} All findings summarized in tables or figures should be placed in the Results section, the section for objectively presenting the results (see pp.~35--38 of Budgell, 2009). Relocate all such tables and figures to the Results section.
+
+
+    % Thank you for this important observation.
+    
+    % In accordance with the reviewer’s suggestion, all tables and figures that present experimental findings have been relocated to the \textit{Results} section. 
+
+\textbf{Response to Reviewer}:
+
+
+Thank you for this helpful structural suggestion.
+
+In accordance with the reviewer’s recommendation and the reporting guidelines described by Budgell (2009), we have relocated Table~1 (page 10) to the Results section. All tables and figures that summarize empirical findings are now presented exclusively within the Results section to ensure a clear separation between methodological description and objective reporting of outcomes.
+
+The Methods section now contains only procedural and implementation details, while all performance summaries, statistical comparisons, and quantitative findings are presented in the Results section.
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    %The manuscript structure has been revised to ensure that the \textit{Methods} section now strictly describes the experimental design and evaluation protocols, while the \textit{Results} section objectively presents all quantitative and qualitative findings. 
+    
+    %These modifications improve the logical flow of the manuscript and ensure compliance with standard reporting guidelines.
+    
+
+    
+    \item \textbf{Table 3, page 16:} When figures or tables present groups of results derived from random variables, please indicate statistically significant comparisons at a specified significance level directly within the figures/tables, as readers will want to understand how different groups compare. Be sure to clearly identify the reference baseline for each comparison. For example, an asterisk (*) should be placed at the benchmark to denote that the comparison against this benchmark is statistically significant. \textcolor{black}{Moreover, statistical significance must be determined after applying multiplicity correction whenever multiple comparisons are involved. Ensure that all figures and tables consistently conform to this requirement.}
+
+
+
+
+
+\textbf{Response to Reviewer}:
+
+Thank you for this important suggestion. We have carefully revised all relevant figures and tables to ensure that statistically significant comparisons are clearly indicated and consistently reported.
+
+Specifically, we have implemented the following revisions:
+
+\begin{enumerate}
+
+    \item \textbf{Clear Identification of Reference Baseline:}  
+    For segmentation performance comparisons, \textbf{MNSeg-Net} is explicitly defined as the reference baseline model. For CSA analyses, the clinician-annotated CSA (CSA\textsubscript{Act}) is designated as the reference baseline. This has now been clearly stated in the captions of all statistical tables.
+
+    \item \textbf{Statistical Significance Marking Within Tables:}  
+    Statistically significant differences are now indicated directly within the corresponding tables using an asterisk (*). The meaning of this notation is consistently defined in each table caption.
+
+
+    \item \textbf{Consistency Across All Tables and Figures:}  
+    The notation format, baseline definition, and significance criteria (adjusted $p < 0.05$) have been standardized across all statistical tables to ensure consistency and transparency.
+
+    \item \textcolor{black}{\textbf{Multiplicity Correction Applied:}  }
+    \textcolor{black}{All reported statistical significances reflect multiplicity-adjusted $p$-values obtained using one-way ANOVA followed by Tukey’s HSD post-hoc correction to control the family-wise error rate. This clarification has been explicitly added to the Statistical Analysis section and relevant table captions.}
+
+\item \textbf{Clarification on Reported Comparisons:}
+
+Although one-way ANOVA followed by Tukey’s HSD computes all possible pairwise comparisons among models, for clarity and relevance to the study objective, we report only comparisons against the predefined reference baseline (MNSeg-Net for DSC analysis and clinician-annotated CSA for CSA analysis). All reported $p$-values are multiplicity-adjusted and derived from the full Tukey HSD procedure applied across all models. Benchmark-to-benchmark comparisons were not included, as they are not central to the study’s primary objective of evaluating performance relative to the proposed method and clinical reference.
+
+\end{enumerate}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    \item \textbf{Table 3, page 16:} A complete statistical comparison must include both statistical significance and practical significance. All reported comparisons should therefore present both elements. To achieve this, add tables summarizing the improvements of the proposed approach relative to other algorithms in terms of effect sizes (e.g., Cohen's measures), or alternatively, include the effect size value for each comparison in brackets alongside the reported mean value within the same cell. Moreover, each comparison between two algorithms based on a given performance metric has its own effect size; ensure that the entire manuscript consistently conforms to this requirement.
+
+
+% \textcolor{red}{Need sir's verification.}
+
+\textbf{Response to Reviewer}:
+
+We sincerely thank the reviewer for this important comment regarding comprehensive statistical reporting.
+
+We would like to clarify that both statistical significance (paired t-tests and multiplicity-adjusted Tukey’s HSD tests) and practical significance (Cohen’s d effect sizes) were already computed and included in the previous version of the manuscript. However, these components were presented across separate tables, which may have reduced clarity and made the full statistical interpretation less immediately transparent.
+
+In response to the reviewer’s suggestion, we have substantially revised and consolidated the statistical reporting to ensure that each pairwise comparison explicitly presents both statistical and practical significance in a unified format throughout the manuscript.
+
+Specifically, the following revisions have been implemented:
+
+
+
+% We sincerely thank the reviewer for this valuable comment regarding comprehensive statistical reporting.
+
+% We would like to clarify that both statistical significance (paired t-tests and multiplicity-corrected Tukey’s HSD tests) and practical significance (Cohen’s d effect sizes) were already computed and reported in the previous version of the manuscript. However, these elements were presented across multiple tables (separate t-test tables and Tukey HSD tables), which may have made the statistical comparison less transparent.
+
+% In response to the reviewer’s suggestion, we have restructured and consolidated the statistical results to improve clarity, completeness, and consistency throughout the manuscript. Specifically:
+
+\textbf{Unified Presentation of Statistical and Practical Significance of Tables:}
+
+\begin{enumerate}
+    \item We have introduced unified summary tables for both DSC and CSA analyses that now report, for each pairwise comparison:
+    \begin{itemize}
+        \item Mean difference
+        \item Paired t-test p-value
+        \item Multiplicity-adjusted p-value (Tukey's HSD)
+        \item 95\% confidence intervals
+        \item Cohen's $d$ effect size with interpretation
+    \end{itemize}
+
+    
+    \item Redundant and fragmented statistical tables have been removed to avoid duplication and to ensure that each comparison includes both statistical and practical significance within a single, comprehensive presentation.
+    
+    \item The Results section has been revised to explicitly reference both adjusted p-values and effect sizes for every reported comparison, thereby ensuring full manuscript-wide consistency.
+\end{enumerate}
+
+
+ 
+
+Thus, while the statistical analyses themselves were already performed and included in the original submission, the current revision improves their structure and presentation to fully align with the reviewer’s recommendation.
+
+
+ 
+
+
+ 
+
+
+% \begin{table}[H]
+% \centering
+
+% \caption{
+% Comprehensive statistical comparison of segmentation models relative to the proposed MNSeg-Net (reference baseline) based on DSC. 
+% Mean differences and unadjusted p-values were computed using paired t-tests, and Cohen’s d values represent practical significance. 
+% Effect size interpretation: N = Negligible (\(d < 0.2\)), S = Small (\(0.2 \leq d < 0.5\)), 
+% M = Moderate (\(0.5 \leq d < 0.8\)), and L = Large (\(d \geq 0.8\)). 
+% Statistical significance was determined using multiplicity-corrected p-values from Tukey’s HSD test. 
+% An asterisk (*) denotes a statistically significant difference from MNSeg-Net at \( p < 0.05 \) after Tukey correction.
+% }
+
+% \scalebox{0.75}{
+% \begin{tabular}{lcccccc}
+% \hline
+% \textbf{Model} 
+% & \textbf{\shortstack{Mean\\Difference}} 
+% & \textbf{\shortstack{p-value\\(paired)}} 
+% & \textbf{\shortstack{Effect size\\Cohen’s d}} 
+% & \textbf{\shortstack{p-value\\(Tukey adj)}} 
+% & \textbf{95\% CI Lower} 
+% & \textbf{95\% CI Upper} \\
+% \hline
+
+% UNet$^{*}$ 
+% & 0.069 
+% & $8.70 \times 10^{-29}$ 
+% & 0.289 (S) 
+% & 0.000 
+% & -0.088 
+% & -0.049 \\
+
+% SegNet$^{*}$ 
+% & 0.034 
+% & $6.56 \times 10^{-10}$ 
+% & 0.160 (N) 
+% & 0.000 
+% & -0.053 
+% & -0.015 \\
+
+% ResUNet$^{*}$ 
+% & 0.054 
+% & $8.67 \times 10^{-19}$ 
+% & 0.229 (S) 
+% & 0.000 
+% & -0.073 
+% & -0.034 \\
+
+% Attention-UNet$^{*}$ 
+% & 0.063 
+% & $3.41 \times 10^{-23}$ 
+% & 0.257 (S) 
+% & 0.000 
+% & 0.044 
+% & 0.082 \\
+
+% UNet++$^{*}$ 
+% & 0.079 
+% & $4.06 \times 10^{-33}$ 
+% & 0.312 (S) 
+% & 0.000 
+% & -0.098 
+% & -0.059 \\
+
+% BASNet 
+% & 0.011 
+% & $4.00 \times 10^{-2}$ 
+% & 0.053 (N) 
+% & 0.738 
+% & -0.009 
+% & 0.030 \\
+
+% U2Net 
+% & -0.001 
+% & $9.11 \times 10^{-1}$ 
+% & -0.003 (N) 
+% & 1.000 
+% & -0.019 
+% & 0.020 \\
+
+% \hline
+% \end{tabular}}
+% \label{tab:stats_analysis_on_old_data_dsc}
+% \end{table}
+
+ 
+\begin{table}[H]
+\centering
+
+\caption{
+Comprehensive statistical comparison of segmentation models relative to the proposed MNSeg-Net (reference baseline) based on DSC. 
+Mean differences and unadjusted p-values were computed using paired t-tests, and Cohen’s d values represent practical significance. 
+Effect size interpretation: N = Negligible (\(d < 0.2\)), S = Small (\(0.2 \leq d < 0.5\)), 
+M = Moderate (\(0.5 \leq d < 0.8\)), and L = Large (\(d \geq 0.8\)). An asterisk (*) denotes a statistically significant difference from MNSeg-Net at \( p < 0.05 \) after Tukey correction.
+}
+
+\scalebox{0.75}{
+\begin{tabular}{lcccccc}
+\hline
+\textbf{Model} 
+& \textbf{\shortstack{Mean\\Difference}} 
+& \textbf{\shortstack{p-value\\(paired t-test)}} 
+& \textbf{\shortstack{Effect size\\Cohen’s d}} 
+& \textbf{\shortstack{p-value\\(Tukey adj)}} 
+& \textbf{95\% CI Lower} 
+& \textbf{95\% CI Upper} \\
+\hline
+
+\textcolor{red}{UNet$^{*}$} 
+& \textcolor{red}{0.069} 
+& \textcolor{red}{$8.70 \times 10^{-29}$} 
+& \textcolor{red}{0.289 (S)} 
+& \textcolor{red}{0.000} 
+& \textcolor{red}{-0.088} 
+& \textcolor{red}{-0.049} \\
+
+\textcolor{red}{SegNet$^{*}$} 
+& \textcolor{red}{0.034} 
+& \textcolor{red}{$6.56 \times 10^{-10}$} 
+& \textcolor{red}{0.160 (N)} 
+& \textcolor{red}{0.000} 
+& \textcolor{red}{-0.053} 
+& \textcolor{red}{-0.015} \\
+
+\textcolor{red}{ResUNet$^{*}$} 
+& \textcolor{red}{0.054} 
+& \textcolor{red}{$8.67 \times 10^{-19}$} 
+& \textcolor{red}{0.229 (S)} 
+& \textcolor{red}{0.000} 
+& \textcolor{red}{-0.073} 
+& \textcolor{red}{-0.034} \\
+
+\textcolor{red}{Attention-UNet$^{*}$} 
+& \textcolor{red}{0.063} 
+& \textcolor{red}{$3.41 \times 10^{-23}$} 
+& \textcolor{red}{0.257 (S)} 
+& \textcolor{red}{0.000} 
+& \textcolor{red}{0.044} 
+& \textcolor{red}{0.082} \\
+
+\textcolor{red}{UNet++$^{*}$} 
+& \textcolor{red}{0.079} 
+& \textcolor{red}{$4.06 \times 10^{-33}$} 
+& \textcolor{red}{0.312 (S)} 
+& \textcolor{red}{0.000} 
+& \textcolor{red}{-0.098} 
+& \textcolor{red}{-0.059} \\
+
+\textcolor{red}{BASNet} 
+& \textcolor{red}{0.011} 
+& \textcolor{red}{$4.00 \times 10^{-2}$} 
+& \textcolor{red}{0.053 (N)} 
+& \textcolor{red}{0.738} 
+& \textcolor{red}{-0.009} 
+& \textcolor{red}{0.030} \\
+
+\textcolor{red}{U2Net} 
+& \textcolor{red}{-0.001} 
+& \textcolor{red}{$9.11 \times 10^{-1}$} 
+& \textcolor{red}{-0.003 (N)} 
+& \textcolor{red}{1.000} 
+& \textcolor{red}{-0.019} 
+& \textcolor{red}{0.020} \\
+
+\hline
+\end{tabular}}
+\label{tab:stats_analysis_on_old_data_dsc}
+\end{table}
+ 
+
+% \begin{table}[H]
+% \centering
+
+% \caption{
+% Comprehensive statistical comparison of model-predicted CSA values relative to clinician-annotated CSA\textsubscript{Act} (reference baseline). 
+% Mean differences and unadjusted p-values were computed using paired t-tests, and Cohen’s d values represent practical significance. 
+% Effect size interpretation: N = Negligible (\(d < 0.2\)), S = Small (\(0.2 \leq d < 0.5\)), 
+% M = Moderate (\(0.5 \leq d < 0.8\)), and L = Large (\(d \geq 0.8\)). 
+% Statistical significance was determined using multiplicity-corrected p-values from Tukey’s HSD test. 
+% An asterisk (*) denotes a statistically significant difference from CSA\textsubscript{Act} at \( p < 0.05 \) after Tukey correction.
+% }
+
+% \scalebox{0.75}{
+% \begin{tabular}{lcccccc}
+% \hline
+% \textbf{Model} 
+% & \textbf{\shortstack{Mean Diff\\(CSA\textsubscript{Act} - CSA\textsubscript{Cal})}} 
+% & \textbf{\shortstack{p-value\\(paired)}} 
+% & \textbf{\shortstack{Effect size\\Cohen’s d}} 
+% & \textbf{\shortstack{p-value\\(Tukey adj)}} 
+% & \textbf{95\% CI Lower} 
+% & \textbf{95\% CI Upper} \\
+% \hline
+
+% UNet$^{*}$ 
+% & 0.538 
+% & $1.34 \times 10^{-13}$ 
+% & 0.192 (N) 
+% & 0.000 
+% & 0.321 
+% & 0.755 \\
+
+% SegNet 
+% & -0.186 
+% & $3.80 \times 10^{-3}$ 
+% & -0.075 (N) 
+% & 0.168 
+% & -0.403 
+% & 0.031 \\
+
+% ResUNet$^{*}$ 
+% & 0.659 
+% & $8.57 \times 10^{-23}$ 
+% & 0.255 (S) 
+% & 0.000 
+% & 0.442 
+% & 0.876 \\
+
+% Attention-UNet$^{*}$ 
+% & 0.694 
+% & $7.40 \times 10^{-22}$ 
+% & 0.249 (S) 
+% & 0.000 
+% & 0.477 
+% & 0.911 \\
+
+% UNet++$^{*}$ 
+% & 0.977 
+% & $3.99 \times 10^{-39}$ 
+% & 0.341 (S) 
+% & 0.000 
+% & 0.760 
+% & 1.194 \\
+
+% BASNet 
+% & -0.054 
+% & $3.41 \times 10^{-1}$ 
+% & -0.025 (N) 
+% & 0.999 
+% & -0.271 
+% & 0.163 \\
+
+% U2Net 
+% & 0.105 
+% & $3.88 \times 10^{-2}$ 
+% & 0.053 (N) 
+% & 0.882 
+% & -0.322 
+% & 0.112 \\
+
+% MNSeg-Net 
+% & -0.081 
+% & $1.14 \times 10^{-1}$ 
+% & -0.041 (N) 
+% & 0.976 
+% & -0.298 
+% & 0.136 \\
+
+% \hline
+% \end{tabular}}
+% \label{tab:stats_analysis_on_old_data_csa}
+
+% \end{table}
+
+\begin{table}[H]
+\centering
+
+\caption{
+Comprehensive statistical comparison of model-predicted CSA values relative to clinician-annotated CSA\textsubscript{Act} (reference baseline). 
+Mean differences and unadjusted p-values were computed using paired t-tests, and Cohen’s d values represent practical significance. 
+Effect size interpretation: N = Negligible (\(d < 0.2\)), S = Small (\(0.2 \leq d < 0.5\)), 
+M = Moderate (\(0.5 \leq d < 0.8\)), and L = Large (\(d \geq 0.8\)). 
+Statistical significance was determined using multiplicity-corrected p-values from Tukey’s HSD test. 
+An asterisk (*) denotes a statistically significant difference from CSA\textsubscript{Act} at \( p < 0.05 \) after Tukey correction.
+}
+
+\scalebox{0.75}{
+\begin{tabular}{lcccccc}
+\hline
+\textbf{Model} 
+& \textbf{\shortstack{Mean Diff\\(CSA\textsubscript{Act} - CSA\textsubscript{Cal})}} 
+& \textbf{\shortstack{p-value\\(paired)}} 
+& \textbf{\shortstack{Effect size\\Cohen’s d}} 
+& \textbf{\shortstack{p-value\\(Tukey adj)}} 
+& \textbf{95\% CI Lower} 
+& \textbf{95\% CI Upper} \\
+\hline
+
+\textcolor{red}{UNet$^{*}$} 
+& \textcolor{red}{0.538} 
+& \textcolor{red}{$1.34 \times 10^{-13}$} 
+& \textcolor{red}{0.192 (N)} 
+& \textcolor{red}{0.000} 
+& \textcolor{red}{0.321} 
+& \textcolor{red}{0.755} \\
+
+\textcolor{red}{SegNet} 
+& \textcolor{red}{-0.186} 
+& \textcolor{red}{$3.80 \times 10^{-3}$} 
+& \textcolor{red}{-0.075 (N)} 
+& \textcolor{red}{0.168} 
+& \textcolor{red}{-0.403} 
+& \textcolor{red}{0.031} \\
+
+\textcolor{red}{ResUNet$^{*}$} 
+& \textcolor{red}{0.659} 
+& \textcolor{red}{$8.57 \times 10^{-23}$} 
+& \textcolor{red}{0.255 (S)} 
+& \textcolor{red}{0.000} 
+& \textcolor{red}{0.442} 
+& \textcolor{red}{0.876} \\
+
+\textcolor{red}{Attention-UNet$^{*}$} 
+& \textcolor{red}{0.694} 
+& \textcolor{red}{$7.40 \times 10^{-22}$} 
+& \textcolor{red}{0.249 (S)} 
+& \textcolor{red}{0.000} 
+& \textcolor{red}{0.477} 
+& \textcolor{red}{0.911} \\
+
+\textcolor{red}{UNet++$^{*}$} 
+& \textcolor{red}{0.977} 
+& \textcolor{red}{$3.99 \times 10^{-39}$} 
+& \textcolor{red}{0.341 (S)} 
+& \textcolor{red}{0.000} 
+& \textcolor{red}{0.760} 
+& \textcolor{red}{1.194} \\
+
+\textcolor{red}{BASNet} 
+& \textcolor{red}{-0.054} 
+& \textcolor{red}{$3.41 \times 10^{-1}$} 
+& \textcolor{red}{-0.025 (N)} 
+& \textcolor{red}{0.999} 
+& \textcolor{red}{-0.271} 
+& \textcolor{red}{0.163} \\
+
+\textcolor{red}{U2Net} 
+& \textcolor{red}{0.105} 
+& \textcolor{red}{$3.88 \times 10^{-2}$} 
+& \textcolor{red}{0.053 (N)} 
+& \textcolor{red}{0.882} 
+& \textcolor{red}{-0.322} 
+& \textcolor{red}{0.112} \\
+
+\textcolor{red}{MNSeg-Net} 
+& \textcolor{red}{-0.081} 
+& \textcolor{red}{$1.14 \times 10^{-1}$} 
+& \textcolor{red}{-0.041 (N)} 
+& \textcolor{red}{0.976} 
+& \textcolor{red}{-0.298} 
+& \textcolor{red}{0.136} \\
+
+\hline
+\end{tabular}}
+\label{tab:stats_analysis_on_old_data_csa}
+
+\end{table}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\end{enumerate}
+
+\section*{Results}
+
+\begin{enumerate}
+    \setcounter{enumi}{6}
+    
+    \item \textbf{Lines 453--454, page 18:} \textcolor{black}{Multiplicity correction is required to prevent inflated Type I error resulting from multiple pairwise comparisons between the benchmarks and the proposed algorithm. Ensure that all text, tables, and figures involving multiple comparisons apply appropriate multiplicity corrections.}
+
+
+
+
+
+
+
+\textbf{Response to Reviewer:}
+
+Thank you for this important comment regarding multiplicity correction and the control of inflated Type I error arising from multiple pairwise comparisons.
+
+In response, we have carefully revised the statistical analysis to ensure that all multiple model comparisons apply appropriate multiplicity correction. Specifically, one-way ANOVA was first performed to assess overall group differences, followed by Tukey’s Honestly Significant Difference (HSD) post-hoc analysis for pairwise comparisons. Tukey’s HSD controls the family-wise error rate and therefore prevents inflation of Type I error due to multiple comparisons.
+
+Multiplicity-adjusted p-values derived from Tukey’s HSD are now explicitly reported in the following tables:
+
+\begin{itemize}
+
+    \item Table~\ref{tab:stats_analysis_on_old_data_dsc} (DSC inter-model comparisons; Table 4 in the revised manuscript)
+    \item Table~\ref{tab:stats_analysis_on_old_data_csa} (CSA inter-model comparisons; Table 5 in the revised manuscript)
+
+    \item Tables 1 and 2 of the Supplementary Material (limited training data experiments), and
+    \item Tables 3–5 of the Supplementary Material (perturbation analysis).
+
+\end{itemize}
+
+The Statistical Analysis subsection (Section II.H) has been updated to explicitly state that ANOVA followed by Tukey’s HSD was used whenever multiple model comparisons were performed. In addition, multiplicity-adjusted post-hoc comparisons for robustness and perturbation experiments are provided in the Supplementary Material and clearly referenced in the revised manuscript.
+
+We confirm that all reported multiple comparisons throughout the manuscript now consistently apply multiplicity correction to control the family-wise error rate.
+
+
+    
+% \textbf{Response to Reviewer:}
+
+% Thank you for this important comment regarding multiplicity correction and the control of inflated Type I error arising from multiple pairwise comparisons.
+
+% In response, we have carefully revised the statistical analysis to ensure that all multiple model comparisons apply appropriate multiplicity correction. All tables and corresponding text reporting multiple comparisons (Tables xx, xx and xx) now present multiplicity-adjusted p-values derived from Tukey’s HSD. Specifically, we first performed a Tukey’s Honestly Significant Difference (HSD) post-hoc analysis for pairwise comparisons. Tukey’s HSD controls the family-wise error rate and therefore prevents inflation of Type I error due to multiple comparisons. The Statistical Analysis subsection (Section II.X) has also been updated to explicitly state that Tukey’s HSD was used whenever multiple model comparisons were performed. In addition, for robustness analysis and perturbation experiments, multiplicity-adjusted post-hoc comparisons were available in the supplementary material, and this has been clearly indicated in the revised manuscript. We confirm that all reported multiple comparisons throughout the manuscript now consistently presenting the multiplicity correction to control the family-wise error rate.    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+    
+    \item \textbf{Line 458, page 18:} The definition of mean difference should be introduced in the Methods section before it is applied in the Results. Importantly, mean difference cannot be calculated as the arithmetic average of values from different performance metrics when those metrics have opposite evaluation goals (i.e., some are better with higher values, while others are better with lower values). Combining such metrics into a single average would yield a misleading measure, as it conflates outcomes aimed at opposite directions.
+ 
+
+ 
+\textbf{Response to Reviewer}:
+
+Thank you for this important clarification.
+
+We have now introduced a formal definition of the mean difference in the \textit{Statistical Analysis} subsection of the Methods section, prior to its use in the Results.
+
+\textbf{Definition and Interpretation of Mean Difference:}
+
+For the DSC evaluation metric, the mean difference was computed independently to quantify the average magnitude of deviation between MNSeg-Net and the corresponding reference model. For the CSA evaluation metric, the mean difference was computed independently to quantify the average magnitude of deviation between the clinician-annotated CSA and the model-predicted CSA.
+
+For segmentation metrics such as DSC, the mean difference was defined as:
+
+\[
+\text{Mean Difference} = \frac{1}{N} \sum_{i=1}^{N} (DSC_{MNSeg\text{-}Net_i} - DSC_{Reference_i}),
+\]
+where $N$ denotes the number of paired observations.
+
+For CSA analysis, the mean difference was defined as:
+\[
+\text{Mean Difference} = \frac{1}{N} \sum_{i=1}^{N} (CSA_{Act,i} - CSA_{Cal,i}),
+\]
+
+
+
+Importantly, the mean difference was used solely as a descriptive measure of average deviation and not as a criterion for statistical significance. Statistical significance was determined exclusively using paired $t$-tests and multiplicity-adjusted analyses. Although larger mean differences may increase the likelihood of statistical significance, formal inference depends on both the magnitude of the difference and its associated variability. We further clarify that mean differences were computed separately for each performance metric (e.g., DSC and CSA) and were not averaged across heterogeneous metrics with opposing optimization directions. This ensures that no misleading aggregation across metrics was performed. For CSA estimation specifically, smaller mean differences indicate closer agreement with clinician-annotated reference values, which is desirable for clinical reliability assessment.
+
+ \textcolor{blue}{The revised content has been incorporated as Section II.H (page 17) in the updated manuscript. For completeness, the same text is reproduced below  as following :}
+
+
+\textcolor{red}{ In addition, the mean difference was computed separately for DSC and CSA evaluation metrics to quantify the average paired deviation between models. For DSC, it represents the average paired difference between MNSeg-Net and the reference model, whereas for CSA it represents the average paired difference between clinician-annotated and model-predicted values. Mean differences were not aggregated across heterogeneous metrics with opposing optimization directions, and were used solely as descriptive measures of deviation.}
+
+% \textcolor{red}{In addition, the mean difference was formally defined and computed separately for each evaluation metric to quantify the average paired deviation between models. For segmentation performance (DSC), the mean difference was calculated as the average of paired differences between MNSeg-Net and the corresponding reference model across all test samples. For CSA analysis, the mean difference was computed as the average paired difference between clinician-annotated CSA and model-predicted CSA values. Importantly, mean differences were calculated independently for each metric and were not averaged across heterogeneous metrics with opposing optimization directions. The mean difference was used as a descriptive measure of average deviation, whereas statistical significance was determined exclusively using paired $t$-tests and multiplicity-adjusted analyses.}
+
+
+     
+     
+    \item \textbf{Line 470, page 19:} Repeated definitions of the same abbreviations should be avoided, and the manuscript must consistently adhere to this rule throughout.
+    
+    % \textcolor{red}{Completed.....}
+
+    \textbf{Response to Reviewer}:
+        
+    We thank the reviewer for this observation and apologize for the oversight.
+
+    The manuscript has been carefully revised to ensure that all abbreviations are defined only at their first occurrence and used consistently thereafter. Repeated definitions have been removed where necessary, and nomenclature consistency has been verified throughout the manuscript.
+
+    
+    \item \textbf{Table 4, page 19:} Perform an equivalence test to determine whether U2Net is statistically equivalent to the proposed algorithm. Given that U2Net's performance differs markedly from the other methods presented in the table, this issue should be addressed with greater care and detail in the Discussion section.
+
+    % \textcolor{red}{Completed.....}
+
+    % \textbf{Response to Reviewer}:
+        
+
+
+
+
+  
+
+ 
+
+
+ 
+
+\textbf{Response to Reviewer:}
+
+Thank you for this important suggestion.
+
+Although equivalence testing using the Two One-Sided Tests (TOST) procedure was previously reported in the manuscript, we have now performed an explicit inter-model equivalence analysis directly comparing U2Net and the proposed MNSegNet, as specifically requested. Furthermore, the Discussion section has been revised to explicitly address this equivalence finding and its implications for balancing computational efficiency with segmentation accuracy.
+
+
+
+
+
+
+\begin{table}[htbp]
+\centering
+{\color{red}
+% \caption{TOST equivalence results for MNSegNet vs U2Net (frame-level analysis).}
+
+\caption{Two One-Sided Tests (TOST) equivalence analysis of frame-level DSC between MNSegNet and U2Net. It reports the mean difference, 95\% confidence interval, and equivalence decisions under predefined DSC margins.}
+
+\label{tab:u2net_tost_equivalence_on_dsc}
+\renewcommand{\arraystretch}{1.15}
+\scalebox{0.7}{%
+\begin{tabular}{cccccc}
+\hline
+\textbf{\shortstack{Mean\\Difference}} 
+& \textbf{95\% CI Lower} 
+& \textbf{95\% CI Upper} 
+& \textbf{\shortstack{Equivalent\\ (margin=0.01)}} 
+& \textbf{\shortstack{Equivalent\\ (margin=0.03)}} 
+& \textbf{\shortstack{Equivalent\\ (margin=0.05)}} \\
+\hline
+$-0.0006$ & $-0.0066$ & $0.0055$ & Yes & Yes & Yes \\
+\hline
+\end{tabular}}
+}
+\end{table}
+
+ 
+
+ 
+
+\begin{table}[htbp]
+\centering
+\textcolor{red}{
+\caption{TOST equivalence analysis of frame-level CSA estimates between MNSegNet and U2Net. It reports the mean difference, 95\% confidence interval, and equivalence decisions under clinically defined CSA margins (in mm$^2$).}
+\label{tab:u2net_tost_equivalence_on_csa}
+\renewcommand{\arraystretch}{1.15}
+\scalebox{0.8}{
+\begin{tabular}{cccccc}
+\hline
+\textbf{\shortstack{Mean\\Difference}} 
+& \textbf{95\% CI Lower} 
+& \textbf{95\% CI Upper} 
+& \textbf{\shortstack{Equivalent\\ (margin=0.1)}} 
+& \textbf{\shortstack{Equivalent\\ (margin=0.3)}} 
+& \textbf{\shortstack{Equivalent\\ (margin=0.5)}} \\
+\hline
+$0.1852$ & $0.1359$ & $0.2346$ & No & Yes & Yes \\
+\hline
+\end{tabular}}}
+\end{table}
+
+
+
+To rigorously evaluate statistical equivalence in segmentation performance, we conducted frame-level TOST analysis using paired DSC values. The mean DSC difference between MNSegNet and U2Net was $-0.0006$, with a 95\% confidence interval of [$-0.0066$, $0.0055$]. While standard paired $t$-test analysis indicated no statistically significant difference, formal equivalence testing provides a stronger conclusion. TOST analysis confirmed statistical equivalence between MNSegNet and U2Net at predefined margins of $\pm 0.01$, $\pm 0.03$, and $\pm 0.05$ DSC. Notably, even under the strictest $\pm 0.01$ margin, equivalence was established. These results indicate that the observed difference lies well within clinically negligible bounds and that MNSegNet achieves segmentation performance statistically indistinguishable from the full-size U2Net. The results are summarized in Table~\ref{tab:u2net_tost_equivalence_on_dsc}. For completeness, we additionally performed TOST analysis on frame-level cross-sectional area (CSA) values computed by MNSegNet and U2Net. The mean CSA difference was $0.1852~\mathrm{mm}^2$, with a 95\% confidence interval of [$0.1359$, $0.2346$]. TOST analysis demonstrated statistical equivalence at clinically meaningful margins of $\pm 0.3~\mathrm{mm}^2$ and $\pm 0.5~\mathrm{mm}^2$, but not at the stricter $\pm 0.1~\mathrm{mm}^2$ margin. This indicates a small systematic shift between models; however, the magnitude of this shift remains modest relative to the overall CSA range and well below diagnostic thresholds used in clinical practice. These TOST  results on CSA comparison are summarized in Table~\ref{tab:u2net_tost_equivalence_on_csa}.
+
+These additional analyses strengthen the conclusion that MNSegNet achieves statistically equivalent performance to U2Net while operating with substantially reduced model complexity.
+
+
+
+
+
+\textcolor{blue}{The revised analysis has been incorporated into Discussion Section V.D (page 33) of the updated manuscript. The corresponding explanatory text and Tables~\ref{tab:u2net_tost_equivalence_on_dsc} and~\ref{tab:u2net_tost_equivalence_on_csa} are reproduced below in this response for clarity and ease of review.}
+
+
+ \textcolor{red}{To further examine inter-model equivalence between MNSegNet and U2Net, a dedicated TOST analysis was conducted. For the DSC metric, equivalence was established even under the strictest $\pm 0.01$ margin (Table~\ref{tab:u2net_tost_equivalence_on_dsc}), indicating that segmentation differences fall well within clinically negligible bounds. For CSA, equivalence was achieved at clinically meaningful thresholds of $\pm 0.3$ and $\pm 0.5~\mathrm{mm}^2$, although not at the stricter $\pm 0.1~\mathrm{mm}^2$ margin (Table~\ref{tab:u2net_tost_equivalence_on_csa}). This reflects only a minor systematic deviation between the two models, with magnitude substantially below diagnostic relevance. Collectively, these results confirm that MNSegNet achieves performance statistically equivalent to U2Net while maintaining a substantially more computationally efficient architecture.}
+
+\end{enumerate}
+
+
+
+
+
+\bibliography{ref}
+\bibliographystyle{unsrt}
+
+\end{document}

@@ -1,0 +1,2228 @@
+@article{pan2022,
+author = {Pan, Lin and Cai, Yanjing and Lin, Ning and Yang, Linxin and Zheng, Shaohua and Huang, Liqin},
+title = {A two-stage network with prior knowledge guidance for medullary thyroid carcinoma recognition in ultrasound images},
+journal = {Medical Physics},
+volume = {49},
+number = {4},
+pages = {2413-2426},
+keywords = {computer-aided diagnosis, MTC, thyroid nodule, ultrasound},
+doi = {https://doi.org/10.1002/mp.15492},
+url = {https://aapm.onlinelibrary.wiley.com/doi/abs/10.1002/mp.15492},
+eprint = {https://aapm.onlinelibrary.wiley.com/doi/pdf/10.1002/mp.15492},
+abstract = {Abstract Purpose Accurate recognition of medullary thyroid carcinoma (MTC) is of great importance in medical diagnosis, as MTC is rare but second-most malignant thyroid cancers with a high case-fatality ratio.1 But there is a lower recognition rate on distinguishing MTC from other thyroid nodules in ultrasound images, even by experienced experts. This paper introduces the computer-aided method to tackle the challenge of recognizing MTC from ultrasound images, including limited MTC samples, and ambiguities among MTC, benign nodules, and papillary thyroid carcinoma (PTC). Methods The recognition of MTC based on large MTC samples of ultrasound images has never been explored, as only one existing work presented a relevant dataset with a limited 21 MTC samples. This study proposes a novel method for primarily differentiating MTC samples from benign nodules and PTC that is the most common thyroid cancer. Our method is a two-stage schema with two important components including a cascaded coarse-to-fine segmentation network and a knowledge-based classification network. The cascaded coarse-to-fine segmentation network incorporates two U-Net++ networks for improving the segmentation results of thyroid nodules. Meanwhile, our knowledge-based classification network extracts and fuses semantic features of solid tissues and calcification for better recognizing the segmented nodules from the ultrasound images. In our experiments, dice similarity coefficient (DSC), intersection over union (IoU), precision, recall, and Hausdorff distance (HD) are adopted for evaluating the segmentation results of thyroid nodules, and accuracy, precision, recall, and F1-score are used for classification evaluation. Results We present a well-annotated dataset including samples of 248 MTC, 240 benign nodules, and 239 PTC. For thyroid nodule segmentation, our designed cascaded segmentation network attains values of 0.776 DSC, 0.689 IoU, 0.778 precision, and 0.821 recall, respectively. By incorporating prior knowledge, our method achieves a mean accuracy of 82.1\% in classifying thyroid nodules of MTC, PTC, and benign ones. Especially, our method gains the higher performance in recognizing MTC with an accuracy of 86.8\%, compared to nearly 70\% diagnosis accuracy of experienced doctors. The experimental results on our Fujian Provincial Hospital dataset further validate the efficiency of our proposed method. Conclusions Our proposed two-stage method incorporates pipelines of thyroid nodules segmentation and classification of MTC, individually. Quantitative and qualitative results indicate that our proposed model achieves accurate segmentation of thyroid nodules. The results also validate that our learning-based framework facilitates the recognition of MTC, which gains better classification accuracy than experienced doctors.},
+year = {2022}
+}
+
+@article{stenosismedphys,
+author = {Shi, Fengxin and Zhu, Dongming and Zhi, Jia and Hou, Guocun and Cui, Yaoyao and Wang, Xiaocong},
+title = {Automatic calculation method for stenosis ratio based on dialysis access ultrasound image segmentation},
+journal = {Medical Physics},
+volume = {n/a},
+number = {n/a},
+pages = {},
+keywords = {dialysis access, stenosis ratio calculation, ultrasound image segmentation},
+doi = {https://doi.org/10.1002/mp.17579},
+url = {https://aapm.onlinelibrary.wiley.com/doi/abs/10.1002/mp.17579},
+eprint = {https://aapm.onlinelibrary.wiley.com/doi/pdf/10.1002/mp.17579},
+abstract = {Abstract Background Dialysis Access (DA) stenosis impacts hemodialysis efficiency and patient health, necessitating exams for early lesion detection. Ultrasound is widely used due to its non-invasive, cost-effective nature. Assessing all patients in large hemodialysis facilities strains resources and relies on operator expertise. Furthermore, it heavily relies on the experience and expertise of the operator. Therefore, it is essential to explore methods for the automatic analysis of DA ultrasound images to accurately calculate the stenosis ratios, thereby enhancing both diagnostic accuracy and treatment efficiency. Purpose This study is aimed at employing image segmentation networks to conduct precise segmentation of the ultrasound images of DA lumens and automatically classify the types of stenosis. The segmentation outcomes are processed by means of morphological processing techniques for the automatic calculation of the DA stenosis ratio, thus enhancing the daily diagnostic efficiency of physicians and providing a substantial quantitative foundation for clinical decision-making. Methods Firstly, our study introduces a deep neural network-based approach for vascular lumen segmentation and classification, termed Vessel Lumen Segmentation and Classification-Net (VLSC-Net), aimed at the precise segmentation of the DA lumen in ultrasound images. We conducted comparative analyses of our network against U-Net, TransUNet, MultiResUnet, and ResUNet using metrics such as mean Intersection over Union (mIoU), Dice score, Accuracy, Hausdorff Distance (HD), and Average Symmetric Surface Distance (ASSD). A five-fold cross-validation was performed on a dataset comprising 1710 images for both comparison experiments and ablation studies; specifically, the training set included 1368 images while the test set contained 342 images. The significance of observed differences was assessed using the Mann-Whitney U-test. To prevent the increase in the chance of making a Type I error (false positive) that occurs when many simultaneous tests are being conducted, we used the Bonferroni correction to address the problem of multiple comparisons. Since we did four groups of comparisons, the significance level (α\$\alpha\$) is adjusted by dividing it by 4. Secondly, we utilized morphological processing alongside feature extraction techniques to accurately delineate the edges of the lumen. This facilitated precise measurements of critical stenosis segment parameters. Finally, we automatically calculated the Long-axis Diameter Stenosis Ratio (LDSR) and Short-axis Area Stenosis Ratio (SASR) utilizing methods from the European Carotid Surgery Trial based on parameters derived from these calculations. Results VLSC-Net demonstrated superior performance compared with traditional segmentation methods, effectively handling image artifacts while maintaining a compact structure. The mIoU, Dice score, Accuracy, HD, and ASSD were 0.9563, 0.9777, 0.9976, 4.542, and 0.460, respectively, and showed significant differences from the results of U-Net (p<\$\,<\$ 0.0125). An evaluation involving 1710 images from 62 patients indicated that our method delivers high-precision and reliable stenosis ratio and classification outcomes within an average processing time of 164 ms. Furthermore, the average errors for LDSR and SASR were found to be 1.4\% and 7.8\%, respectively. Conclusions Our approach greatly enhances diagnostic efficiency for medical personnel, offering reliable and objective evidence for clinical assessment and decision-making in DA stenosis treatment, thereby reducing the risk of complications associated with DA stenosis.}
+}
+
+
+@ARTICLE{sarkarims,
+  author={Roy, Ayush and Pramanik, Payel and Sarkar, Ram},
+  journal={IEEE Transactions on Instrumentation and Measurement}, 
+  title={EU2-Net: A Parameter Efficient Ensemble Model With Attention-Aided Triple Feature Fusion for Tumor Segmentation in Breast Ultrasound Images}, 
+  year={2024},
+  volume={73},
+  number={},
+  pages={1-7},
+  keywords={Image segmentation;Ultrasonic imaging;Feature extraction;Breast;Decoding;Information filters;Training;Breast cancer;deep learning;ensemble learning;feature fusion;U-Net;ultrasound images},
+  doi={10.1109/TIM.2024.3421436}}
+
+
+
+@ARTICLE{needleims,
+  author={Jiang, Zhongliang and Li, Xuesong and Chu, Xiangyu and Karlas, Angelos and Bi, Yuan and Cheng, Yingsheng and Samuel Au, K. W. and Navab, Nassir},
+  journal={IEEE Transactions on Instrumentation and Measurement}, 
+  title={Needle Segmentation Using GAN: Restoring Thin Instrument Visibility in Robotic Ultrasound}, 
+  year={2024},
+  volume={73},
+  pages={1-11},
+  keywords={Needles;Image segmentation;Three-dimensional displays;Generators;Training;Probes;Feature extraction;Ultrasonic imaging;Biomedical imaging;Real-time systems;Medical robotics;needle segmentation;robotic ultrasound (US);ultrasound segmentation},
+  doi={10.1109/TIM.2024.3451569}}
+
+
+@ARTICLE{wangtnnls,
+  author={Wang, Jinting and Tang, Yujiao and Xiao, Yang and Zhou, Joey Tianyi and Fang, Zhiwen and Yang, Feng},
+  journal={IEEE Transactions on Neural Networks and Learning Systems}, 
+  title={GREnet: Gradually REcurrent Network With Curriculum Learning for 2-D Medical Image Segmentation}, 
+  year={2024},
+  volume={35},
+  number={7},
+  pages={10018-10032},
+  keywords={Image segmentation;Biomedical imaging;Lesions;Task analysis;Training;Medical diagnostic imaging;Knowledge engineering;Curriculum learning;data-driven curriculum;gradually recurrent network;medical image segmentation},
+  doi={10.1109/TNNLS.2023.3238381}}
+
+@article{ferreira2012imagej,
+  title={ImageJ user guide},
+  author={Ferreira, Tiago and Rasband, Wayne},
+  journal={Imagej/fiji},
+  volume={1},
+  pages={155--161},
+  year={2012}
+}
+
+@article{loshchilov2017decoupled,
+  title={Decoupled weight decay regularization},
+  author={Loshchilov, Ilya and Hutter, Frank},
+  journal={arXiv preprint arXiv:1711.05101},
+  year={2017}
+}
+
+@inproceedings{jadon2020survey,
+  title={A survey of loss functions for semantic segmentation},
+  author={Jadon, Shruti},
+  booktitle={2020 IEEE conference on computational intelligence in bioinformatics and computational biology (CIBCB)},
+  pages={1--7},
+  year={2020},
+  organization={IEEE}
+}
+
+
+@inproceedings{wu2013online,
+  title={Online object tracking: A benchmark},
+  author={Wu, Yi and Lim, Jongwoo and Yang, Ming-Hsuan},
+  booktitle={Proceedings of the IEEE conference on computer vision and pattern recognition},
+  pages={2411--2418},
+  year={2013}
+}
+
+@article{chen2021transunet,
+  title={Transunet: Transformers make strong encoders for medical image segmentation},
+  author={Chen, Jieneng and Lu, Yongyi and Yu, Qihang and Luo, Xiangde and Adeli, Ehsan and Wang, Yan and Lu, Le and Yuille, Alan L and Zhou, Yuyin},
+  journal={arXiv preprint arXiv:2102.04306},
+  year={2021}
+}
+
+@inproceedings{xu2019lstm,
+  title={Lstm multi-modal unet for brain tumor segmentation},
+  author={Xu, Fan and Ma, Haoyu and Sun, Junxiao and Wu, Rui and Liu, Xu and Kong, Youyong},
+  booktitle={2019 IEEE 4th international conference on image, vision and computing (ICIVC)},
+  pages={236--240},
+  year={2019},
+  organization={IEEE}
+}
+
+@article{dunnhofer2020siam,
+  title={Siam-U-Net: encoder-decoder siamese network for knee cartilage tracking in ultrasound images},
+  author={Dunnhofer, Matteo and Antico, Maria and Sasazawa, Fumio and Takeda, Yu and Camps, Saskia and Martinel, Niki and Micheloni, Christian and Carneiro, Gustavo and Fontanarosa, Davide},
+  journal={Medical Image Analysis},
+  volume={60},
+  pages={101631},
+  year={2020},
+  publisher={Elsevier}
+}
+
+@article{oktay2018attention,
+  title={Attention u-net: Learning where to look for the pancreas},
+  author={Oktay, Ozan and Schlemper, Jo and Folgoc, Loic Le and Lee, Matthew and Heinrich, Mattias and Misawa, Kazunari and Mori, Kensaku and McDonagh, Steven and Hammerla, Nils Y and Kainz, Bernhard and others},
+  journal={arXiv preprint arXiv:1804.03999},
+  year={2018}
+}
+
+@inproceedings{zhou2018unet++,
+  title={Unet++: A nested u-net architecture for medical image segmentation},
+  author={Zhou, Zongwei and Rahman Siddiquee, Md Mahfuzur and Tajbakhsh, Nima and Liang, Jianming},
+  booktitle={Deep Learning in Medical Image Analysis and Multimodal Learning for Clinical Decision Support: 4th International Workshop, DLMIA 2018, and 8th International Workshop, ML-CDS 2018, Held in Conjunction with MICCAI 2018, Granada, Spain, September 20, 2018, Proceedings 4},
+  pages={3--11},
+  year={2018},
+  organization={Springer}
+}
+
+
+@article{al2023vision,
+  title={Vision transformer architecture and applications in digital health: a tutorial and survey},
+  author={Al-Hammuri, Khalid and Gebali, Fayez and Kanan, Awos and Chelvan, Ilamparithi Thirumarai},
+  journal={Visual Computing for Industry, Biomedicine, and Art},
+  volume={6},
+  number={1},
+  pages={1--28},
+  year={2023},
+  publisher={SpringerOpen}
+}
+
+@article{liu2023recent,
+  title={Recent progress in transformer-based medical image analysis},
+  author={Liu, Zhaoshan and Lv, Qiujie and Yang, Ziduo and Li, Yifan and Lee, Chau Hung and Shen, Lei},
+  journal={Computers in Biology and Medicine},
+  pages={107268},
+  year={2023},
+  publisher={Elsevier}
+}
+
+@inproceedings{arnab2021vivit,
+  title={Vivit: A video vision transformer},
+  author={Arnab, Anurag and Dehghani, Mostafa and Heigold, Georg and Sun, Chen and Lu{\v{c}}i{\'c}, Mario and Schmid, Cordelia},
+  booktitle={Proceedings of the IEEE/CVF international conference on computer vision},
+  pages={6836--6846},
+  year={2021}
+}
+
+@inproceedings{chen2021pre,
+  title={Pre-trained image processing transformer},
+  author={Chen, Hanting and Wang, Yunhe and Guo, Tianyu and Xu, Chang and Deng, Yiping and Liu, Zhenhua and Ma, Siwei and Xu, Chunjing and Xu, Chao and Gao, Wen},
+  booktitle={Proceedings of the IEEE/CVF conference on computer vision and pattern recognition},
+  pages={12299--12310},
+  year={2021}
+}
+
+@article{kumar2021colorization,
+  title={Colorization transformer},
+  author={Kumar, Manoj and Weissenborn, Dirk and Kalchbrenner, Nal},
+  journal={arXiv preprint arXiv:2102.04432},
+  year={2021}
+}
+
+@inproceedings{zheng2021rethinking,
+  title={Rethinking semantic segmentation from a sequence-to-sequence perspective with transformers},
+  author={Zheng, Sixiao and Lu, Jiachen and Zhao, Hengshuang and Zhu, Xiatian and Luo, Zekun and Wang, Yabiao and Fu, Yanwei and Feng, Jianfeng and Xiang, Tao and Torr, Philip HS and others},
+  booktitle={Proceedings of the IEEE/CVF conference on computer vision and pattern recognition},
+  pages={6881--6890},
+  year={2021}
+}
+
+@article{zhu2020deformable,
+  title={Deformable detr: Deformable transformers for end-to-end object detection},
+  author={Zhu, Xizhou and Su, Weijie and Lu, Lewei and Li, Bin and Wang, Xiaogang and Dai, Jifeng},
+  journal={arXiv preprint arXiv:2010.04159},
+  year={2020}
+}
+
+@article{li2023dfenet,
+  title={DFENet: A dual-branch feature enhanced network integrating transformers and convolutional feature learning for multimodal medical image fusion},
+  author={Li, Weisheng and Zhang, Yin and Wang, Guofen and Huang, Yuping and Li, Ruyue},
+  journal={Biomedical Signal Processing and Control},
+  volume={80},
+  pages={104402},
+  year={2023},
+  publisher={Elsevier}
+}
+
+@article{tang2022matr,
+  title={MATR: Multimodal medical image fusion via multiscale adaptive transformer},
+  author={Tang, Wei and He, Fazhi and Liu, Yu and Duan, Yansong},
+  journal={IEEE Transactions on Image Processing},
+  volume={31},
+  pages={5134--5149},
+  year={2022},
+  publisher={IEEE}
+}
+
+@article{li2023multiib,
+  title={MultiIB-TransUNet: Transformer with multiple information bottleneck blocks for CT and ultrasound image segmentation},
+  author={Li, Guangju and Jin, Dehu and Yu, Qi and Zheng, Yuanjie and Qi, Meng},
+  journal={Medical Physics},
+  year={2023},
+  publisher={Wiley Online Library}
+}
+
+@inproceedings{tao2021spine,
+  title={Spine-transformers: Vertebra detection and localization in arbitrary field-of-view spine ct with transformers},
+  author={Tao, Rong and Zheng, Guoyan},
+  booktitle={Medical Image Computing and Computer Assisted Intervention--MICCAI 2021: 24th International Conference, Strasbourg, France, September 27--October 1, 2021, Proceedings, Part III 24},
+  pages={93--103},
+  year={2021},
+  organization={Springer}
+}
+
+@inproceedings{kong2021ct,
+  title={Ct-cad: Context-aware transformers for end-to-end chest abnormality detection on x-rays},
+  author={Kong, Qiran and Wu, Yirui and Yuan, Chi and Wang, Yongli},
+  booktitle={2021 IEEE International Conference on Bioinformatics and Biomedicine (BIBM)},
+  pages={1385--1388},
+  year={2021},
+  organization={IEEE}
+}
+@inproceedings{ma2021transformer,
+  title={Transformer network for significant stenosis detection in CCTA of coronary arteries},
+  author={Ma, Xinghua and Luo, Gongning and Wang, Wei and Wang, Kuanquan},
+  booktitle={Medical Image Computing and Computer Assisted Intervention--MICCAI 2021: 24th International Conference, Strasbourg, France, September 27--October 1, 2021, Proceedings, Part VI 24},
+  pages={516--525},
+  year={2021},
+  organization={Springer}
+}
+
+@inproceedings{shen2021cotr,
+  title={COTR: Convolution in transformer network for end to end polyp detection},
+  author={Shen, Zhiqiang and Fu, Rongda and Lin, Chaonan and Zheng, Shaohua},
+  booktitle={2021 7th International Conference on Computer and Communications (ICCC)},
+  pages={1757--1761},
+  year={2021},
+  organization={IEEE}
+}
+
+
+@article{hobson2012ultrasonography,
+  title={Ultrasonography in the diagnosis of peripheral nerve disease},
+  author={Hobson-Webb, Lisa D and Padua, Luca and Martinoli, Carlo},
+  journal={Expert Opinion on Medical Diagnostics},
+  volume={6},
+  number={5},
+  pages={457--471},
+  year={2012},
+  publisher={Taylor \& Francis}
+}
+
+@article{suk2013ultrasonography,
+  title={Ultrasonography of peripheral nerves},
+  author={Suk, Jung Im and Walker, Francis O and Cartwright, Michael S},
+  journal={Current neurology and neuroscience reports},
+  volume={13},
+  pages={1--9},
+  year={2013},
+  publisher={Springer}
+}
+
+@article{hochman2004nerves,
+  title={Nerves in a pinch: imaging of nerve compression syndromes},
+  author={Hochman, Mary G and Zilberfarb, Jeffrey L},
+  journal={Radiologic Clinics},
+  volume={42},
+  number={1},
+  pages={221--245},
+  year={2004},
+  publisher={Elsevier}
+}
+
+
+@article{lange2011skin,
+  title={Skin temperature measured by infrared thermography after specific ultrasound-guided blocking of the musculocutaneous, radial, ulnar, and median nerves in the upper extremity},
+  author={Lange, KHW and Jansen, T and Asghar, S and Kristensen, PL and Skj{\o}nnemand, M and N{\o}rgaard, P},
+  journal={British journal of anaesthesia},
+  volume={106},
+  number={6},
+  pages={887--895},
+  year={2011},
+  publisher={Oxford University Press}
+}
+
+
+@article{marhofer2005ultrasound,
+  title={Ultrasound guidance in regional anaesthesia},
+  author={Marhofer, P and Greher, M and Kapral, S},
+  journal={British journal of anaesthesia},
+  volume={94},
+  number={1},
+  pages={7--17},
+  year={2005},
+  publisher={Oxford University Press}
+}
+
+
+@article{hobson2009median,
+  title={Median nerve ultrasonography in carpal tunnel syndrome: findings from two laboratories},
+  author={Hobson-Webb, Lisa D and Padua, Luca},
+  journal={Muscle \& nerve},
+  volume={40},
+  number={1},
+  pages={94--97},
+  year={2009},
+  publisher={Wiley Online Library}
+}
+
+
+@article{ehler2017median,
+  title={Median nerve ultrasonography in carpal tunnel syndrome},
+  author={Ehler, Edvard},
+  journal={Clinical Neurophysiology Practice},
+  volume={2},
+  pages={186},
+  year={2017},
+  publisher={Elsevier}
+}
+
+
+@article{dai2023sk,
+  title={SK-Unet++: An improved Unet++ network with adaptive receptive fields for automatic segmentation of ultrasound thyroid nodule images},
+  author={Dai, Hong and Xie, Wufei and Xia, E},
+  journal={Medical Physics},
+  year={2023},
+  publisher={Wiley Online Library}
+}
+
+
+
+@article{andre2011smart,
+  title={A smart atlas for endomicroscopy using automated video retrieval},
+  author={Andr{\'e}, Barbara and Vercauteren, Tom and Buchner, Anna M and Wallace, Michael B and Ayache, Nicholas},
+  journal={Medical image analysis},
+  volume={15},
+  number={4},
+  pages={460--476},
+  year={2011},
+  publisher={Elsevier}
+}
+
+
+@ARTICLE{heuser07,
+  author={Heuser, Andrew and Kourtev, Hristian and Winter, Scott and Fensterheim, Devin and Burdea, Grigore and Hentz, Vincent and Forducey, Pamela},
+  journal={IEEE Transactions on Neural Systems and Rehabilitation Engineering}, 
+  title={Telerehabilitation Using the Rutgers Master II Glove Following Carpal Tunnel Release Surgery: Proof-of-Concept}, 
+  year={2007},
+  volume={15},
+  number={1},
+  pages={43-49},
+  doi={10.1109/TNSRE.2007.891393}}
+
+
+@ARTICLE{ulnar23,
+  author={Chu, Xiaolei and Song, Xizi and Li, Ruixin and Li, Qi and Li, Qingwen and Gu, Xiaosong and Ming, Dong},
+  journal={IEEE Transactions on Neural Systems and Rehabilitation Engineering}, 
+  title={Multielectrode Array-Based Percutaneous Nerve Stimulation Strategy With Ultrasound Guidance for Ulnar Nerve Injury}, 
+  year={2023},
+  volume={31},
+  number={},
+  pages={1502-1510},
+  doi={10.1109/TNSRE.2023.3247164}}
+
+@ARTICLE{coy18,
+  author={Avendaño-Coy, Juan and Serrano-Muñoz, Diego and Taylor, Julian and Goicoechea-García, Carlos and Gómez-Soriano, Julio},
+  journal={IEEE Transactions on Neural Systems and Rehabilitation Engineering}, 
+  title={Peripheral Nerve Conduction Block by High-Frequency Alternating Currents: A Systematic Review}, 
+  year={2018},
+  volume={26},
+  number={6},
+  pages={1131-1140},
+  doi={10.1109/TNSRE.2018.2833141}}
+
+
+@article{bathala2014normal,
+  title={Normal values of median nerve cross-sectional area obtained by ultrasound along its course in the arm with electrophysiological correlations, in 100 Asian subjects},
+  author={Bathala, Lokesh and Kumar, Pavan and Kumar, Krishna and Shaik, Ahammad Basha and Visser, Leo H},
+  journal={Muscle \& Nerve},
+  volume={49},
+  number={2},
+  pages={284--286},
+  year={2014},
+  publisher={Wiley Online Library}
+}
+
+@inproceedings{truong2021transferable,
+  title={How transferable are self-supervised features in medical image classification tasks?},
+  author={Truong, Tuan and Mohammadi, Sadegh and Lenga, Matthias},
+  booktitle={Machine Learning for Health},
+  pages={54--74},
+  year={2021},
+  organization={PMLR}
+}
+
+@article{krishnamurthy2021evaluating,
+  title={Evaluating deep neural network architectures with transfer learning for pneumonitis diagnosis},
+  author={Krishnamurthy, Surya and Srinivasan, Kathiravan and Qaisar, Saeed Mian and Vincent, PM Durai Raj and Chang, Chuan-Yu},
+  journal={Computational and Mathematical Methods in Medicine},
+  volume={2021},
+  pages={1--12},
+  year={2021},
+  publisher={Hindawi Limited}
+}
+
+@article{matsoukas2021time,
+  title={Is it time to replace cnns with transformers for medical images?},
+  author={Matsoukas, Christos and Haslum, Johan Fredin and S{\"o}derberg, Magnus and Smith, Kevin},
+  journal={arXiv preprint arXiv:2108.09038},
+  year={2021}
+}
+
+@inproceedings{long2021dssr,
+  title={E-dssr: efficient dynamic surgical scene reconstruction with transformer-based stereoscopic depth perception},
+  author={Long, Yonghao and Li, Zhaoshuo and Yee, Chi Hang and Ng, Chi Fai and Taylor, Russell H and Unberath, Mathias and Dou, Qi},
+  booktitle={Medical Image Computing and Computer Assisted Intervention--MICCAI 2021: 24th International Conference, Strasbourg, France, September 27--October 1, 2021, Proceedings, Part IV 24},
+  pages={415--425},
+  year={2021},
+  organization={Springer}
+}
+
+@inproceedings{reynaud2021ultrasound,
+  title={Ultrasound video transformers for cardiac ejection fraction estimation},
+  author={Reynaud, Hadrien and Vlontzos, Athanasios and Hou, Benjamin and Beqiri, Arian and Leeson, Paul and Kainz, Bernhard},
+  booktitle={Medical Image Computing and Computer Assisted Intervention--MICCAI 2021: 24th International Conference, Strasbourg, France, September 27--October 1, 2021, Proceedings, Part VI 24},
+  pages={495--505},
+  year={2021},
+  organization={Springer}
+}
+
+@inproceedings{czempiel2021opera,
+  title={Opera: Attention-regularized transformers for surgical phase recognition},
+  author={Czempiel, Tobias and Paschali, Magdalini and Ostler, Daniel and Kim, Seong Tae and Busam, Benjamin and Navab, Nassir},
+  booktitle={Medical Image Computing and Computer Assisted Intervention--MICCAI 2021: 24th International Conference, Strasbourg, France, September 27--October 1, 2021, Proceedings, Part IV 24},
+  pages={604--614},
+  year={2021},
+  organization={Springer}
+}
+
+@article{kondo2021lapformer,
+  title={Lapformer: surgical tool detection in laparoscopic surgical video using transformer architecture},
+  author={Kondo, Satoshi},
+  journal={Computer Methods in Biomechanics and Biomedical Engineering: Imaging \& Visualization},
+  volume={9},
+  number={3},
+  pages={302--307},
+  year={2021},
+  publisher={Taylor \& Francis}
+}
+
+@inproceedings{ji2021progressively,
+  title={Progressively normalized self-attention network for video polyp segmentation},
+  author={Ji, Ge-Peng and Chou, Yu-Cheng and Fan, Deng-Ping and Chen, Geng and Fu, Huazhu and Jha, Debesh and Shao, Ling},
+  booktitle={International Conference on Medical Image Computing and Computer-Assisted Intervention},
+  pages={142--152},
+  year={2021},
+  organization={Springer}
+}
+
+
+@article{he2022transformers,
+  title={Transformers in medical image analysis},
+  author={He, Kelei and Gan, Chen and Li, Zhuoyuan and Rekik, Islem and Yin, Zihao and Ji, Wen and Gao, Yang and Wang, Qian and Zhang, Junfeng and Shen, Dinggang},
+journal={Intelligent Medicine},
+volume={3},
+  number={1},
+  pages={59--78},
+  year={2023},
+  publisher={Elsevier}
+}
+
+
+@article{he2023hctnet,
+  title={HCTNet: A hybrid CNN-transformer network for breast ultrasound image segmentation},
+  author={He, Qiqi and Yang, Qiuju and Xie, Minghao},
+  journal={Computers in Biology and Medicine},
+  volume={155},
+  pages={106629},
+  year={2023},
+  publisher={Elsevier}
+}
+
+
+@article{tao2022local,
+  title={Local and Context-Attention Adaptive LCA-Net for Thyroid Nodule Segmentation in Ultrasound Images},
+  author={Tao, Zhen and Dang, Hua and Shi, Yueting and Wang, Weijiang and Wang, Xiaohua and Ren, Shiwei},
+  journal={Sensors},
+  volume={22},
+  number={16},
+  pages={5984},
+  year={2022},
+  publisher={MDPI}
+}
+
+
+
+@article{bahdanau2014neural,
+  title={Neural machine translation by jointly learning to align and translate},
+  author={Bahdanau, Dzmitry and Cho, Kyunghyun and Bengio, Yoshua},
+  journal={arXiv preprint arXiv:1409.0473},
+  year={2014}
+}
+
+
+@inproceedings{deng2021transbridge,
+  title={Transbridge: A lightweight transformer for left ventricle segmentation in echocardiography},
+  author={Deng, Kaizhong and Meng, Yanda and Gao, Dongxu and Bridge, Joshua and Shen, Yaochun and Lip, Gregory and Zhao, Yitian and Zheng, Yalin},
+  booktitle={Simplifying Medical Ultrasound: Second International Workshop, ASMUS 2021, Held in Conjunction with MICCAI 2021, Strasbourg, France, September 27, 2021, Proceedings 2},
+  pages={63--72},
+  year={2021},
+  organization={Springer}
+}
+
+
+@article{li2023transforming,
+  title={Transforming medical imaging with Transformers? A comparative review of key properties, current progresses, and future perspectives},
+  author={Li, Jun and Chen, Junyu and Tang, Yucheng and Wang, Ce and Landman, Bennett A and Zhou, S Kevin},
+  journal={Medical image analysis},
+  pages={102762},
+  year={2023},
+  publisher={Elsevier}
+}
+
+@article{naseer2021intriguing,
+  title={Intriguing properties of vision transformers},
+  author={Naseer, Muhammad Muzammal and Ranasinghe, Kanchana and Khan, Salman H and Hayat, Munawar and Shahbaz Khan, Fahad and Yang, Ming-Hsuan},
+  journal={Advances in Neural Information Processing Systems},
+  volume={34},
+  pages={23296--23308},
+  year={2021}
+}
+
+@article{avola2021ultrasound,
+  title={Ultrasound medical imaging techniques: a survey},
+  author={Avola, Danilo and Cinque, Luigi and Fagioli, Alessio and Foresti, Gianluca and Mecca, Alessio},
+  journal={ACM Computing Surveys (CSUR)},
+  volume={54},
+  number={3},
+  pages={1--38},
+  year={2021},
+  publisher={ACM New York, NY, USA}
+}
+
+
+@article{shamshad2023transformers,
+  title={Transformers in medical imaging: A survey},
+  author={Shamshad, Fahad and Khan, Salman and Zamir, Syed Waqas and Khan, Muhammad Haris and Hayat, Munawar and Khan, Fahad Shahbaz and Fu, Huazhu},
+  journal={Medical Image Analysis},
+    volume={88},
+  pages={102802},
+  year={2023},
+  publisher={Elsevier}
+}
+
+
+@article{bathala2013ultrasonographic,
+  title={Ultrasonographic cross-sectional area normal values of the ulnar nerve along its course in the arm with electrophysiological correlations in 100 Asian subjects},
+  author={Bathala, Lokesh and Kumar, Pavan and Kumar, Krishna and Visser, Leo H},
+  journal={Muscle \& nerve},
+  volume={47},
+  number={5},
+  pages={673--676},
+  year={2013},
+  publisher={Wiley Online Library}
+}
+
+
+@book{kremkau2002diagnostic,
+  title={Diagnostic ultrasound: principles and instruments},
+  author={Kremkau, Frederick W},
+  year={2002},
+  publisher={Saunders}
+}
+
+
+@inproceedings{lin2017focal,
+  title={Focal loss for dense object detection},
+  author={Lin, Tsung-Yi and Goyal, Priya and Girshick, Ross and He, Kaiming and Doll{\'a}r, Piotr},
+  booktitle={Proceedings of the IEEE international conference on computer vision},
+  pages={2980--2988},
+  year={2017}
+}
+
+@inproceedings{chen2018encoder,
+  title={Encoder-decoder with atrous separable convolution for semantic image segmentation},
+  author={Chen, Liang-Chieh and Zhu, Yukun and Papandreou, George and Schroff, Florian and Adam, Hartwig},
+  booktitle={Proceedings of the European conference on computer vision (ECCV)},
+  pages={801--818},
+  year={2018}
+}
+
+@article{wang2020mnt,
+  title={MNT-DeepSL: Median nerve tracking from carpal tunnel ultrasound images with deep similarity learning and analysis on continuous wrist motions},
+  author={Wang, You-Wei and Chang, Ruey-Feng and Horng, Yi-Shiung and Chen, Chii-Jen},
+  journal={Computerized Medical Imaging and Graphics},
+  volume={80},
+  pages={101687},
+  year={2020},
+  publisher={Elsevier}
+}
+@article{horng2020deepnerve,
+  title={Deepnerve: A new convolutional neural network for the localization and segmentation of the median nerve in ultrasound image sequences},
+  author={Horng, Ming-Huwi and Yang, Cheng-Wei and Sun, Yung-Nien and Yang, Tai-Hua},
+  journal={Ultrasound in Medicine \& Biology},
+  volume={46},
+  number={9},
+  pages={2439--2452},
+  year={2020},
+  publisher={Elsevier}
+}
+@inproceedings{ronneberger2015u,
+  title={U-net: Convolutional networks for biomedical image segmentation},
+  author={Ronneberger, Olaf and Fischer, Philipp and Brox, Thomas},
+  booktitle={International Conference on Medical image computing and computer-assisted intervention},
+  pages={234--241},
+  year={2015},
+  organization={Springer}
+}
+@article{festen2021automated,
+  title={Automated Segmentation of the Median Nerve in the Carpal Tunnel using U-Net},
+  author={Festen, Raymond T and Schrier, Verena JMM and Amadio, Peter C},
+  journal={Ultrasound in Medicine \& Biology},
+  volume={47},
+  number={7},
+  pages={1964--1969},
+  year={2021},
+  publisher={Elsevier}
+}
+@article{di2022deep,
+  title={A deep learning approach to median nerve evaluation in ultrasound images of carpal tunnel inlet},
+  author={Di Cosmo, Mariachiara and Fiorentino, Maria Chiara and Villani, Francesca Pia and Frontoni, Emanuele and Smerilli, Gianluca and Filippucci, Emilio and Moccia, Sara},
+  journal={Medical \& Biological Engineering \& Computing},
+    volume={60},
+  pages={3255--3264},
+  year={2022},
+  publisher={Springer}
+}
+@inproceedings{he2017mask,
+  title={Mask r-cnn},
+  author={He, Kaiming and Gkioxari, Georgia and Doll{\'a}r, Piotr and Girshick, Ross},
+  booktitle={Proceedings of the IEEE international conference on computer vision},
+  pages={2961--2969},
+  year={2017}
+}
+@article{wu2021automated,
+  title={Automated Segmentation of Median Nerve in Dynamic Sonography Using Deep Learning: Evaluation of Model Performance},
+  author={Wu, Chueh-Hung and Syu, Wei-Ting and Lin, Meng-Ting and Yeh, Cheng-Liang and Boudier-Rev{\'e}ret, Mathieu and Hsiao, Ming-Yen and Kuo, Po-Ling},
+  journal={Diagnostics},
+  volume={11},
+  number={10},
+  pages={1893},
+  year={2021},
+  publisher={MDPI}
+}
+
+@article{hafiane2017deep,
+  title={Deep learning with spatiotemporal consistency for nerve segmentation in ultrasound images},
+  author={Hafiane, Adel and Vieyres, Pierre and Delbos, Alain},
+  journal={arXiv preprint arXiv:1706.05870},
+  year={2017}
+}
+
+@article{hadjerci2016computer,
+  title={Computer-aided detection system for nerve identification using ultrasound images: a comparative study},
+  author={Hadjerci, Oussama and Hafiane, Adel and Conte, Donatello and Makris, Pascal and Vieyres, Pierre and Delbos, Alain},
+  journal={Informatics in Medicine Unlocked},
+  volume={3},
+  pages={29--43},
+  year={2016},
+  publisher={Elsevier}
+}
+
+@inproceedings{hadjerci2015ultrasound,
+  title={Ultrasound median nerve localization by classification based on despeckle filtering and feature selection},
+  author={Hadjerci, Oussama and Hafiane, Adel and Conte, Donatello and Makris, Pascal and Vieyres, Pierre and Delbos, Alain},
+  booktitle={2015 IEEE International Conference on Image Processing (ICIP)},
+  pages={4155--4159},
+  year={2015},
+  organization={IEEE}
+}
+
+
+@article{tsui2010ultrasound,
+  title={Ultrasound imaging for regional anesthesia in infants, children, and adolescents: a review of current literature and its application in the practice of extremity and trunk blocks},
+  author={Tsui, Ban CH and Suresh, Santhanam and Warner, David S},
+  journal={The Journal of the American Society of Anesthesiologists},
+  volume={112},
+  number={2},
+  pages={473--492},
+  year={2010},
+  publisher={The American Society of Anesthesiologists}
+}
+
+@inproceedings{milovic_automated_ndi,
+  title={Automatic, Non-Regularized Nonlinear Dipole Inversion for Fast and Robust Quantitative Susceptibility Mapping},
+  author={ Milovic,Carlos and  Shmueli, Karin},
+  booktitle={ Proceedings of the 29th Annual Meeting ISMRM},
+  year={2021}
+}
+
+
+@ARTICLE{liu2009calculation,
+  title={Calculation of susceptibility through multiple orientation sampling (COSMOS): a method for conditioning the inverse problem from measured magnetic field map to susceptibility source image in MRI},
+  author={Liu, Tian and Spincemaille, Pascal and De Rochefort, Ludovic and Kressler, Bryan and Wang, Yi},
+  journal={Magnetic Resonance in Medicine: An Official Journal of the International Society for Magnetic Resonance in Medicine},
+  volume={61},
+  number={1},
+  pages={196--204},
+  year={2009},
+  publisher={Wiley Online Library}
+}
+
+@inproceedings{saputra2019distilling,
+  title={Distilling knowledge from a deep pose regressor network},
+  author={Saputra, Muhamad Risqi U and de Gusmao, Pedro PB and Almalioglu, Yasin and Markham, Andrew and Trigoni, Niki},
+  booktitle={Proceedings of the IEEE/CVF International Conference on Computer Vision},
+  pages={263--272},
+  year={2019}
+}
+@article{hinton2015distilling,
+  title={Distilling the knowledge in a neural network},
+  author={Hinton, Geoffrey and Vinyals, Oriol and Dean, Jeff},
+  journal={arXiv preprint arXiv:1503.02531},
+  year={2015}
+}
+
+@article{yoon2018quantitative,
+  title={Quantitative susceptibility mapping using deep neural network: QSMnet},
+  author={Yoon, Jaeyeon and Gong, Enhao and Chatnuntawech, Itthi and Bilgic, Berkin and Lee, Jingu and Jung, Woojin and Ko, Jingyu and Jung, Hosan and Setsompop, Kawin and Zaharchuk, Greg and others},
+  journal={Neuroimage},
+  volume={179},
+  pages={199--206},
+  year={2018},
+  publisher={Elsevier}
+}
+
+@inproceedings{he2016deep,
+  title={Deep residual learning for image recognition},
+  author={He, Kaiming and Zhang, Xiangyu and Ren, Shaoqing and Sun, Jian},
+  booktitle={Proceedings of the IEEE conference on computer vision and pattern recognition},
+  pages={770--778},
+  year={2016}
+}
+
+@inproceedings{szegedy2015going,
+  title={Going deeper with convolutions},
+  author={Szegedy, Christian and Liu, Wei and Jia, Yangqing and Sermanet, Pierre and Reed, Scott and Anguelov, Dragomir and Erhan, Dumitru and Vanhoucke, Vincent and Rabinovich, Andrew},
+  booktitle={Proceedings of the IEEE conference on computer vision and pattern recognition},
+  pages={1--9},
+  year={2015}
+}
+
+@inproceedings{kim2017learning,
+  title={Learning to discover cross-domain relations with generative adversarial networks},
+  author={Kim, Taeksoo and Cha, Moonsu and Kim, Hyunsoo and Lee, Jung Kwon and Kim, Jiwon},
+  booktitle={International Conference on Machine Learning},
+  pages={1857--1865},
+  year={2017},
+  organization={PMLR}
+}
+
+@article{paszke2019pytorch,
+  title={PyTorch: An Imperative Style, High-Performance Deep Learning Library},
+  author={Paszke, Adam and Gross, Sam and Massa, Francisco and Lerer, Adam and Bradbury, James and Chanan, Gregory and Killeen, Trevor and Lin, Zeming and Gimelshein, Natalia and Antiga, Luca and others},
+  journal={Advances in Neural Information Processing Systems},
+  volume={32},
+  pages={8026--8037},
+  year={2019}
+}
+
+@article{kingma2014adam,
+  title={Adam: A method for stochastic optimization},
+  author={Kingma, Diederik P and Ba, Jimmy},
+  journal={arXiv preprint arXiv:1412.6980},
+  year={2014}
+}
+
+@article{gao2021xqsm,
+  title={xQSM: quantitative susceptibility mapping with octave convolutional and noise-regularized neural networks},
+  author={Gao, Yang and Zhu, Xuanyu and Moffat, Bradford A and Glarin, Rebecca and Wilman, Alan H and Pike, G Bruce and Crozier, Stuart and Liu, Feng and Sun, Hongfu},
+  journal={NMR in Biomedicine},
+  volume={34},
+  number={3},
+  pages={e4461},
+  year={2021},
+  publisher={Wiley Online Library}
+}
+
+@article{feng2021modl,
+  title={MoDL-QSM: Model-based deep learning for quantitative susceptibility mapping},
+  author={Feng, Ruimin and Zhao, Jiayi and Wang, He and Yang, Baofeng and Feng, Jie and Shi, Yuting and Zhang, Ming and Liu, Chunlei and Zhang, Yuyao and Zhuang, Jie and others},
+  journal={NeuroImage},
+  volume={240},
+  pages={118376},
+  year={2021},
+  publisher={Elsevier}
+}
+
+@inproceedings{ioffe2015batch,
+  title={Batch normalization: Accelerating deep network training by reducing internal covariate shift},
+  author={Ioffe, Sergey and Szegedy, Christian},
+  booktitle={International conference on machine learning},
+  pages={448--456},
+  year={2015},
+  organization={PMLR}
+}
+
+@article{polak2020nonlinear,
+  title={Nonlinear dipole inversion (NDI) enables robust quantitative susceptibility mapping (QSM)},
+  author={Polak, Daniel and Chatnuntawech, Itthi and Yoon, Jaeyeon and Iyer, Siddharth Srinivasan and Milovic, Carlos and Lee, Jongho and Bachert, Peter and Adalsteinsson, Elfar and Setsompop, Kawin and Bilgic, Berkin},
+  journal={NMR in Biomedicine},
+  volume={33},
+  number={12},
+  pages={e4271},
+  year={2020},
+  publisher={Wiley Online Library}
+}
+
+@inproceedings{maas2013rectifier,
+  title={Rectifier nonlinearities improve neural network acoustic models},
+  author={Maas, Andrew L and Hannun, Awni Y and Ng, Andrew Y},
+  booktitle={Proc. icml},
+  volume={30},
+  number={1},
+  pages={3},
+  year={2013},
+  organization={Citeseer}
+}
+
+@article{liu2013nonlinear,
+  title={Nonlinear formulation of the magnetic field to source relationship for robust quantitative susceptibility mapping},
+  author={Liu, Tian and Wisnieff, Cynthia and Lou, Min and Chen, Weiwei and Spincemaille, Pascal and Wang, Yi},
+  journal={Magnetic resonance in medicine},
+  volume={69},
+  number={2},
+  pages={467--476},
+  year={2013},
+  publisher={Wiley Online Library}
+}
+
+@article{shmueli2009magnetic,
+  title={Magnetic susceptibility mapping of brain tissue in vivo using MRI phase data},
+  author={Shmueli, Karin and de Zwart, Jacco A and van Gelderen, Peter and Li, Tie-Qiang and Dodd, Stephen J and Duyn, Jeff H},
+  journal={Magnetic Resonance in Medicine: An Official Journal of the International Society for Magnetic Resonance in Medicine},
+  volume={62},
+  number={6},
+  pages={1510--1522},
+  year={2009},
+  publisher={Wiley Online Library}
+}
+
+@article{gudbjartsson1995rician,
+  title={The Rician distribution of noisy MRI data},
+  author={Gudbjartsson, H{\'a}kon and Patz, Samuel},
+  journal={Magnetic resonance in medicine},
+  volume={34},
+  number={6},
+  pages={910--914},
+  year={1995},
+  publisher={Wiley Online Library}
+}
+
+@article{liu2012morphology,
+  title={Morphology enabled dipole inversion for quantitative susceptibility mapping using structural consistency between the magnitude image and the susceptibility map},
+  author={Liu, Jing and Liu, Tian and de Rochefort, Ludovic and Ledoux, James and Khalidov, Ildar and Chen, Weiwei and Tsiouris, A John and Wisnieff, Cynthia and Spincemaille, Pascal and Prince, Martin R and others},
+  journal={Neuroimage},
+  volume={59},
+  number={3},
+  pages={2560--2568},
+  year={2012},
+  publisher={Elsevier}
+}
+
+@article{langkammer2018quantitative,
+  title={Quantitative susceptibility mapping: report from the 2016 reconstruction challenge},
+  author={Langkammer, Christian and Schweser, Ferdinand and Shmueli, Karin and Kames, Christian and Li, Xu and Guo, Li and Milovic, Carlos and Kim, Jinsuh and Wei, Hongjiang and Bredies, Kristian and others},
+  journal={Magnetic resonance in medicine},
+  volume={79},
+  number={3},
+  pages={1661--1673},
+  year={2018},
+  publisher={Wiley Online Library}
+}
+
+
+@inproceedings{yoon2020fedmix,
+  title={FedMix: Approximation of Mixup under Mean Augmented Federated Learning},
+  author={Yoon, Tehrim and Shin, Sumin and Hwang, Sung Ju and Yang, Eunho},
+  booktitle={International Conference on Learning Representations},
+  year={2020}
+}
+
+@misc{codelink,
+  title = {{TTC-QSM} [Code]},
+  year = {2023},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+ howpublished = {\url{https://github.com/NaveenPaluru/TTC-QSM}},
+  }
+  
+  @inproceedings{zhang2018mixup,
+  title={mixup: Beyond Empirical Risk Minimization},
+  author={Zhang, Hongyi and Cisse, Moustapha and Dauphin, Yann N and Lopez-Paz, David},
+  booktitle={International Conference on Learning Representations},
+  year={2018}
+}
+
+@inproceedings{shu2019sensitivity,
+  title={Sensitivity analysis of deep neural networks},
+  author={Shu, Hai and Zhu, Hongtu},
+  booktitle={Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume={33},
+  number={01},
+  pages={4943--4950},
+  year={2019}
+}
+
+@article{lee2010sensitivity,
+  title={Sensitivity of MRI resonance frequency to the orientation of brain tissue microstructure},
+  author={Lee, Jongho and Shmueli, Karin and Fukunaga, Masaki and van Gelderen, Peter and Merkle, Hellmut and Silva, Afonso C and Duyn, Jeff H},
+  journal={Proceedings of the National Academy of Sciences},
+  volume={107},
+  number={11},
+  pages={5130--5135},
+  year={2010},
+  publisher={National Acad Sciences}
+}
+
+@inproceedings{ram2017deepfuse,
+  title={Deepfuse: A deep unsupervised approach for exposure fusion with extreme exposure image pairs},
+  author={Ram Prabhakar, K and Sai Srikar, V and Venkatesh Babu, R},
+  booktitle={Proceedings of the IEEE international conference on computer vision},
+  pages={4714--4722},
+  year={2017}
+}
+
+@article{liu2011high,
+  title={High-field (9.4 T) MRI of brain dysmyelination by quantitative mapping of magnetic susceptibility},
+  author={Liu, Chunlei and Li, Wei and Johnson, G Allan and Wu, Bing},
+  journal={Neuroimage},
+  volume={56},
+  number={3},
+  pages={930--938},
+  year={2011},
+  publisher={Elsevier}
+}
+
+@article{awasthi2019pa,
+  title={PA-Fuse: deep supervised approach for the fusion of photoacoustic images with distinct reconstruction characteristics},
+  author={Awasthi, Navchetan and Prabhakar, K Ram and Kalva, Sandeep Kumar and Pramanik, Manojit and Babu, R Venkatesh and Yalavarthy, Phaneendra K},
+  journal={Biomedical optics express},
+  volume={10},
+  number={5},
+  pages={2227--2243},
+  year={2019},
+  publisher={Optical Society of America}
+}
+
+@article{wharton2012fiber,
+  title={Fiber orientation-dependent white matter contrast in gradient echo MRI},
+  author={Wharton, Samuel and Bowtell, Richard},
+  journal={Proceedings of the National Academy of Sciences},
+  volume={109},
+  number={45},
+  pages={18559--18564},
+  year={2012},
+  publisher={National Acad Sciences}
+}
+
+@article{langkammer2012quantitative,
+  title={Quantitative susceptibility mapping (QSM) as a means to measure brain iron? A post mortem validation study},
+  author={Langkammer, Christian and Schweser, Ferdinand and Krebs, Nikolaus and Deistung, Andreas and Goessler, Walter and Scheurer, Eva and Sommer, Karsten and Reishofer, Gernot and Yen, Kathrin and Fazekas, Franz and others},
+  journal={Neuroimage},
+  volume={62},
+  number={3},
+  pages={1593--1599},
+  year={2012},
+  publisher={Elsevier}
+}
+
+@article{wang2017clinical,
+  title={Clinical quantitative susceptibility mapping (QSM): Biometal imaging and its emerging roles in patient care},
+  author={Wang, Yi and Spincemaille, Pascal and Liu, Zhe and Dimov, Alexey and Deh, Kofi and Li, Jianqi and Zhang, Yan and Yao, Yihao and Gillen, Kelly M and Wilman, Alan H and others},
+  journal={Journal of magnetic resonance imaging},
+  volume={46},
+  number={4},
+  pages={951--971},
+  year={2017},
+  publisher={Wiley Online Library}
+}
+
+@article{deistung2013quantitative,
+  title={Quantitative susceptibility mapping differentiates between blood depositions and calcifications in patients with glioblastoma},
+  author={Deistung, Andreas and Schweser, Ferdinand and Wiestler, Benedikt and Abello, Mario and Roethke, Matthias and Sahm, Felix and Wick, Wolfgang and Nagel, Armin Michael and Heiland, Sabine and Schlemmer, Heinz-Peter and others},
+  journal={PloS one},
+  volume={8},
+  number={3},
+  pages={e57924},
+  year={2013},
+  publisher={Public Library of Science}
+}
+
+@article{chen2014intracranial,
+  title={Intracranial calcifications and hemorrhages: characterization with quantitative susceptibility mapping},
+  author={Chen, Weiwei and Zhu, Wenzhen and Kovanlikaya, IIhami and Kovanlikaya, Arzu and Liu, Tian and Wang, Shuai and Salustri, Carlo and Wang, Yi},
+  journal={Radiology},
+  volume={270},
+  number={2},
+  pages={496--505},
+  year={2014},
+  publisher={Radiological Society of North America}
+}
+
+@book{jackson2007classical,
+  title={Classical electrodynamics},
+  author={Jackson, John David},
+  year={2007},
+  publisher={John Wiley \& Sons}
+}
+
+@article{wang2015quantitative,
+  title={Quantitative susceptibility mapping (QSM): decoding MRI data for a tissue magnetic biomarker},
+  author={Wang, Yi and Liu, Tian},
+  journal={Magnetic resonance in medicine},
+  volume={73},
+  number={1},
+  pages={82--101},
+  year={2015},
+  publisher={Wiley Online Library}
+}
+
+@article{li2004quantifying,
+  title={Quantifying arbitrary magnetic susceptibility distributions with MR},
+  author={Li, Lin and Leigh, John S},
+  journal={Magnetic Resonance in Medicine: An Official Journal of the International Society for Magnetic Resonance in Medicine},
+  volume={51},
+  number={5},
+  pages={1077--1082},
+  year={2004},
+  publisher={Wiley Online Library}
+}
+
+@article{liu2015susceptibility,
+  title={Susceptibility-weighted imaging and quantitative susceptibility mapping in the brain},
+  author={Liu, Chunlei and Li, Wei and Tong, Karen A and Yeom, Kristen W and Kuzminski, Samuel},
+  journal={Journal of magnetic resonance imaging},
+  volume={42},
+  number={1},
+  pages={23--41},
+  year={2015},
+  publisher={Wiley Online Library}
+}
+
+@article{smith2002fast,
+  title={Fast robust automated brain extraction},
+  author={Smith, Stephen M},
+  journal={Human brain mapping},
+  volume={17},
+  number={3},
+  pages={143--155},
+  year={2002},
+  publisher={Wiley Online Library}
+}
+
+@article{li2011quantitative,
+  title={Quantitative susceptibility mapping of human brain reflects spatial variation in tissue composition},
+  author={Li, Wei and Wu, Bing and Liu, Chunlei},
+  journal={Neuroimage},
+  volume={55},
+  number={4},
+  pages={1645--1656},
+  year={2011},
+  publisher={Elsevier}
+}
+
+@article{wu2012whole,
+  title={Whole brain susceptibility mapping using compressed sensing},
+  author={Wu, Bing and Li, Wei and Guidon, Arnaud and Liu, Chunlei},
+  journal={Magnetic resonance in medicine},
+  volume={67},
+  number={1},
+  pages={137--147},
+  year={2012},
+  publisher={Wiley Online Library}
+}
+
+@article{jenkinson2002improved,
+  title={Improved optimization for the robust and accurate linear registration and motion correction of brain images},
+  author={Jenkinson, Mark and Bannister, Peter and Brady, Michael and Smith, Stephen},
+  journal={Neuroimage},
+  volume={17},
+  number={2},
+  pages={825--841},
+  year={2002},
+  publisher={Elsevier}
+}
+
+@article{jenkinson2001global,
+  title={A global optimisation method for robust affine registration of brain images},
+  author={Jenkinson, Mark and Smith, Stephen},
+  journal={Medical image analysis},
+  volume={5},
+  number={2},
+  pages={143--156},
+  year={2001},
+  publisher={Elsevier}
+}
+
+@article{bilgic2014fast,
+  title={Fast image reconstruction with L2-regularization},
+  author={Bilgic, Berkin and Chatnuntawech, Itthi and Fan, Audrey P and Setsompop, Kawin and Cauley, Stephen F and Wald, Lawrence L and Adalsteinsson, Elfar},
+  journal={Journal of magnetic resonance imaging},
+  volume={40},
+  number={1},
+  pages={181--191},
+  year={2014},
+  publisher={Wiley Online Library}
+}
+
+@article{de2010quantitative,
+  title={Quantitative susceptibility map reconstruction from MR phase data using bayesian regularization: validation and application to brain imaging},
+  author={de Rochefort, Ludovic and Liu, Tian and Kressler, Bryan and Liu, Jing and Spincemaille, Pascal and Lebon, Vincent and Wu, Jianlin and Wang, Yi},
+  journal={Magnetic Resonance in Medicine: An Official Journal of the International Society for Magnetic Resonance in Medicine},
+  volume={63},
+  number={1},
+  pages={194--206},
+  year={2010},
+  publisher={Wiley Online Library}
+}
+
+@article{li2015method,
+  title={A method for estimating and removing streaking artifacts in quantitative susceptibility mapping},
+  author={Li, Wei and Wang, Nian and Yu, Fang and Han, Hui and Cao, Wei and Romero, Rebecca and Tantiwongkosi, Bundhit and Duong, Timothy Q and Liu, Chunlei},
+  journal={Neuroimage},
+  volume={108},
+  pages={111--122},
+  year={2015},
+  publisher={Elsevier}
+}
+
+@article{wharton2010susceptibility,
+  title={Susceptibility mapping in the human brain using threshold-based k-space division},
+  author={Wharton, Sam and Sch{\"a}fer, Andreas and Bowtell, Richard},
+  journal={Magnetic resonance in medicine},
+  volume={63},
+  number={5},
+  pages={1292--1304},
+  year={2010},
+  publisher={Wiley Online Library}
+}
+
+@article{rasmussen2018deepqsm,
+  title={DeepQSM-using deep learning to solve the dipole inversion for MRI susceptibility mapping},
+  author={Rasmussen, Kasper Gade B{\o}tker and Kristensen, Mads and Blendal, Rasmus Guldhammer and {\O}stergaard, Lasse Riis and Plocharski, Maciej and O’Brien, Kieran and Langkammer, Christian and Janke, Andrew and Barth, Markus and Bollmann, Steffen},
+  journal={BioRxiv},
+  pages={278036},
+  year={2018},
+  publisher={Cold Spring Harbor Laboratory}
+}
+
+@article{jung2020exploring,
+  title={Exploring linearity of deep neural network trained QSM: QSMnet+},
+  author={Jung, Woojin and Yoon, Jaeyeon and Ji, Sooyeon and Choi, Joon Yul and Kim, Jae Myung and Nam, Yoonho and Kim, Eung Yeop and Lee, Jongho},
+  journal={Neuroimage},
+  volume={211},
+  pages={116619},
+  year={2020},
+  publisher={Elsevier}
+}
+
+@article{gong2018accurate,
+  title={Accurate and efficient QSM reconstruction using deep learning},
+  author={Gong, Enhao and Bilgic, Berkin and Setsompop, Kawin and Fan, Audrey and Zaharchuk, Greg and Pauly, John},
+  journal={P roc. Intl. Soc. Mag. Reson. Med},
+  volume={26},
+  pages={0189},
+  year={2018}
+}
+
+@article{chen2020qsmgan,
+  title={QSMGAN: improved quantitative susceptibility mapping using 3D generative adversarial networks with increased receptive field},
+  author={Chen, Yicheng and Jakary, Angela and Avadiappan, Sivakami and Hess, Christopher P and Lupo, Janine M},
+  journal={NeuroImage},
+  volume={207},
+  pages={116389},
+  year={2020},
+  publisher={Elsevier}
+}
+
+@inproceedings{lai2020learned,
+  title={Learned Proximal Networks for Quantitative Susceptibility Mapping},
+  author={Lai, Kuo-Wei and Aggarwal, Manisha and van Zijl, Peter and Li, Xu and Sulam, Jeremias},
+  booktitle={International Conference on Medical Image Computing and Computer-Assisted Intervention},
+  pages={125--135},
+  year={2020},
+  organization={Springer}
+}
+
+
+@article{haacke2015quantitative,
+  title={Quantitative susceptibility mapping: current status and future directions},
+  author={Haacke, E Mark and Liu, Saifeng and Buch, Sagar and Zheng, Weili and Wu, Dongmei and Ye, Yongquan},
+  journal={Magnetic resonance imaging},
+  volume={33},
+  number={1},
+  pages={1--25},
+  year={2015},
+  publisher={Elsevier}
+}
+
+@article{jung2020overview,
+  title={Overview of quantitative susceptibility mapping using deep learning: Current status, challenges and opportunities},
+  author={Jung, Woojin and Bollmann, Steffen and Lee, Jongho},
+  journal={NMR in Biomedicine},
+  pages={e4292},
+  year={2020},
+  publisher={Wiley Online Library}
+}
+
+@article{liu2015quantitative,
+  title={Quantitative susceptibility mapping: contrast mechanisms and clinical applications},
+  author={Liu, Chunlei and Wei, Hongjiang and Gong, Nan-Jie and Cronin, Matthew and Dibb, Russel and Decker, Kyle},
+  journal={Tomography},
+  volume={1},
+  number={1},
+  pages={3--17},
+  year={2015},
+  publisher={Multidisciplinary Digital Publishing Institute}
+}
+
+
+
+@inproceedings{hubara2016binarized,
+  title={Binarized neural networks},
+  author={Hubara, Itay and Courbariaux, Matthieu and Soudry, Daniel and El-Yaniv, Ran and Bengio, Yoshua},
+  booktitle={Proceedings of the 30th international conference on neural information processing systems},
+  pages={4114--4122},
+  year={2016},
+  organization={Citeseer}
+}
+
+@ARTICLE {yoon2021kd,
+author = {L. Wang and K. Yoon},
+journal = {IEEE Transactions on Pattern Analysis & Machine Intelligence},
+title = {Knowledge Distillation and Student-Teacher Learning for Visual Intelligence: A Review and New Outlooks},
+year = {2021},
+volume = {},
+number = {01},
+issn = {1939-3539},
+pages = {1-1},
+doi = {10.1109/TPAMI.2021.3055564},
+}
+
+
+
+
+
+@article{blalock2020state,
+  title={What is the state of neural network pruning?},
+  author={Blalock, Davis and Ortiz, Jose Javier Gonzalez and Frankle, Jonathan and Guttag, John},
+  journal={arXiv preprint arXiv:2003.03033},
+  year={2020}
+}
+
+@ARTICLE{paluru2021tnnls,
+  author={N. {Paluru} and A. {Dayal} and H. B. {Jenssen} and T. {Sakinis} and L. R. {Cenkeramaddi} and J. {Prakash} and P. K. {Yalavarthy}},
+  journal={IEEE Transactions on Neural Networks and Learning Systems}, 
+  title={Anam-Net: Anamorphic Depth Embedding-Based Lightweight CNN for Segmentation of Anomalies in COVID-19 Chest CT Images}, 
+  year={2021},
+  volume={32},
+  number={3},
+  pages={932-946}}}
+
+@article{chen2020qsmgan,
+  title={QSMGAN: improved quantitative susceptibility mapping using 3D generative adversarial networks with increased receptive field},
+  author={Chen, Yicheng and Jakary, Angela and Avadiappan, Sivakami and Hess, Christopher P and Lupo, Janine M},
+  journal={NeuroImage},
+  volume={207},
+  pages={116389},
+  year={2020},
+  publisher={Elsevier}
+}
+
+@article{wang2022data,
+  title={A data-driven deep learning pipeline for quantitative susceptibility mapping (QSM)},
+  author={Wang, Zuojun and Xia, Peng and Huang, Fan and Wei, Hongjiang and Hui, Edward Sai-Kam and Mak, Henry Ka-Fung and Cao, Peng},
+  journal={Magnetic Resonance Imaging},
+  volume={88},
+  pages={89--100},
+  year={2022},
+  publisher={Elsevier}
+}
+
+@article{gao2022instant,
+  title={Instant tissue field and magnetic susceptibility mapping from MRI raw phase using Laplacian enhanced deep neural networks},
+  author={Gao, Yang and Xiong, Zhuang and Fazlollahi, Amir and Nestor, Peter J and Vegh, Viktor and Nasrallah, Fatima and Winter, Craig and Pike, G Bruce and Crozier, Stuart and Liu, Feng and others},
+  journal={NeuroImage},
+  volume={259},
+  pages={119410},
+  year={2022},
+  publisher={Elsevier}
+}
+
+@article{gao2021accelerating,
+  title={Accelerating quantitative susceptibility and R2* mapping using incoherent undersampling and deep neural network reconstruction},
+  author={Gao, Yang and Cloos, Martijn and Liu, Feng and Crozier, Stuart and Pike, G Bruce and Sun, Hongfu},
+  journal={Neuroimage},
+  volume={240},
+  pages={118404},
+  year={2021},
+  publisher={Elsevier}
+}
+
+@article{li2021meta,
+  title={Meta-Learning Based Interactively Connected Clique U-Net for Quantitative Susceptibility Mapping},
+  author={Li, Zheng and Li, Jun and Wang, Chaoyue and Lu, Zhiyang and Wang, Jun and He, Hongjian and Shi, Jun},
+  journal={IEEE Transactions on Computational Imaging},
+  volume={7},
+  pages={1385--1399},
+  year={2021},
+  publisher={IEEE}
+}
+
+@article{oh2022unsupervised,
+  title={Unsupervised resolution-agnostic quantitative susceptibility mapping using adaptive instance normalization},
+  author={Oh, Gyutaek and Bae, Hyokyoung and Ahn, Hyun-Seo and Park, Sung-Hong and Moon, Won-Jin and Ye, Jong Chul},
+  journal={Medical Image Analysis},
+  volume={79},
+  pages={102477},
+  year={2022},
+  publisher={Elsevier}
+}
+
+@article{he2022learn,
+  title={Learn Less, Infer More: Learning in the Fourier Domain for Quantitative Susceptibility Mapping},
+  author={He, Junjie and Wang, Lihui and Cao, Ying and Wang, Rongpin and Zhu, Yuemin},
+  journal={Frontiers in Neuroscience},
+  volume={16},
+  year={2022},
+  publisher={Frontiers Media SA}
+}
+
+@inproceedings{mcmahan2017communication,
+  title={Communication-efficient learning of deep networks from decentralized data},
+  author={McMahan, Brendan and Moore, Eider and Ramage, Daniel and Hampson, Seth and y Arcas, Blaise Aguera},
+  booktitle={Artificial intelligence and statistics},
+  pages={1273--1282},
+  year={2017},
+  organization={PMLR}
+}
+
+
+@article{choudhary2020advancing,
+  title={Advancing medical imaging informatics by deep learning-based domain adaptation},
+  author={Choudhary, Anirudh and Tong, Li and Zhu, Yuanda and Wang, May D},
+  journal={Yearbook of medical informatics},
+  volume={29},
+  number={01},
+  pages={129--138},
+  year={2020},
+  publisher={Georg Thieme Verlag KG}
+}
+
+@article{zhang2020fidelity,
+  title={Fidelity imposed network edit (FINE) for solving ill-posed image reconstruction},
+  author={Zhang, Jinwei and Liu, Zhe and Zhang, Shun and Zhang, Hang and Spincemaille, Pascal and Nguyen, Thanh D and Sabuncu, Mert R and Wang, Yi},
+  journal={Neuroimage},
+  volume={211},
+  pages={116579},
+  year={2020},
+  publisher={Elsevier}
+}
+
+@article{feng2021modl,
+  title={MoDL-QSM: Model-based deep learning for quantitative susceptibility mapping},
+  author={Feng, Ruimin and Zhao, Jiayi and Wang, He and Yang, Baofeng and Feng, Jie and Shi, Yuting and Zhang, Ming and Liu, Chunlei and Zhang, Yuyao and Zhuang, Jie and others},
+  journal={NeuroImage},
+  volume={240},
+  pages={118376},
+  year={2021},
+  publisher={Elsevier}
+}
+
+@article{jung2022overview,
+  title={Overview of quantitative susceptibility mapping using deep learning: Current status, challenges and opportunities},
+  author={Jung, Woojin and Bollmann, Steffen and Lee, Jongho},
+  journal={NMR in Biomedicine},
+  volume={35},
+  number={4},
+  pages={e4292},
+  year={2022},
+  publisher={Wiley Online Library}
+}
+
+@article{cognolato2023nextqsm,
+  title={NeXtQSM—A complete deep learning pipeline for data-consistent Quantitative Susceptibility Mapping trained with hybrid data},
+  author={Cognolato, Francesco and O’Brien, Kieran and Jin, Jin and Robinson, Simon and Laun, Frederik B and Barth, Markus and Bollmann, Steffen},
+  journal={Medical Image Analysis},
+  volume={84},
+  pages={102700},
+  year={2023},
+  publisher={Elsevier}
+}
+
+@article{zhang2023laro,
+  title={LARO: Learned Acquisition and Reconstruction Optimization to accelerate Quantitative Susceptibility Mapping},
+  author={Zhang, Jinwei and Spincemaille, Pascal and Zhang, Hang and Nguyen, Thanh D and Li, Chao and Li, Jiahao and Kovanlikaya, Ilhami and Sabuncu, Mert R and Wang, Yi},
+  journal={NeuroImage},
+  pages={119886},
+  year={2023},
+  publisher={Elsevier}
+}
+
+
+@article{milovic20202016,
+  title={The 2016 QSM Challenge: Lessons learned and considerations for a future challenge design},
+  author={Milovic, Carlos and Tejos, Cristian and Acosta-Cabronero, Julio and {\"O}zbay, Pinar Senay and Schwesser, Ferdinand and Marques, Jose Pedro and Irarrazaval, Pablo and Bilgic, Berkin and Langkammer, Christian},
+  journal={Magnetic resonance in medicine},
+  volume={84},
+  number={3},
+  pages={1624--1637},
+  year={2020},
+  publisher={Wiley Online Library}
+}
+
+
+
+@article{qsm2021qsm,
+  title={QSM reconstruction challenge 2.0: Design and report of results},
+  author={QSM Challenge 2.0 Organization Committee and Bilgic, Berkin and Langkammer, Christian and Marques, Jos{\'e} P and Meineke, Jakob and Milovic, Carlos and Schweser, Ferdinand},
+  journal={Magnetic Resonance in Medicine},
+  volume={86},
+  number={3},
+  pages={1241--1255},
+  year={2021},
+  publisher={Wiley Online Library}
+}
+
+@inproceedings{wang2021end,
+  title={End-to-end video instance segmentation with transformers},
+  author={Wang, Yuqing and Xu, Zhaoliang and Wang, Xinlong and Shen, Chunhua and Cheng, Baoshan and Shen, Hao and Xia, Huaxia},
+  booktitle={Proceedings of the IEEE/CVF conference on computer vision and pattern recognition},
+  pages={8741--8750},
+  year={2021}
+}
+
+@article{kuhn1955hungarian,
+  title={The Hungarian method for the assignment problem},
+  author={Kuhn, Harold W},
+  journal={Naval research logistics quarterly},
+  volume={2},
+  number={1-2},
+  pages={83--97},
+  year={1955},
+  publisher={Wiley Online Library}
+}
+
+@inproceedings{dai2017deformable,
+  title={Deformable convolutional networks},
+  author={Dai, Jifeng and Qi, Haozhi and Xiong, Yuwen and Li, Yi and Zhang, Guodong and Hu, Han and Wei, Yichen},
+  booktitle={Proceedings of the IEEE international conference on computer vision},
+  pages={764--773},
+  year={2017}
+}
+
+@inproceedings{wu2018group,
+  title={Group normalization},
+  author={Wu, Yuxin and He, Kaiming},
+  booktitle={Proceedings of the European conference on computer vision (ECCV)},
+  pages={3--19},
+  year={2018}
+}
+
+@article{dosovitskiy2020image,
+  title={An image is worth 16x16 words: Transformers for image recognition at scale},
+  author={Dosovitskiy, Alexey and Beyer, Lucas and Kolesnikov, Alexander and Weissenborn, Dirk and Zhai, Xiaohua and Unterthiner, Thomas and Dehghani, Mostafa and Minderer, Matthias and Heigold, Georg and Gelly, Sylvain and others},
+  journal={arXiv preprint arXiv:2010.11929},
+  year={2020}
+}
+
+@book{ferreira2012imagej,
+  title={ImageJ User Guide: IJ 1.42 r},
+  author={Ferreira, Tiago and Rasband, Wayne},
+  year={2012},
+  publisher={National Institute of Health}
+}
+
+@inproceedings{carion2020end,
+  title={End-to-end object detection with transformers},
+  author={Carion, Nicolas and Massa, Francisco and Synnaeve, Gabriel and Usunier, Nicolas and Kirillov, Alexander and Zagoruyko, Sergey},
+  booktitle={Computer Vision--ECCV 2020: 16th European Conference, Glasgow, UK, August 23--28, 2020, Proceedings, Part I 16},
+  pages={213--229},
+  year={2020},
+  organization={Springer}
+}
+
+@inproceedings{hadjerci2015ultrasound,
+  title={Ultrasound median nerve localization by classification based on despeckle filtering and feature selection},
+  author={Hadjerci, Oussama and Hafiane, Adel and Conte, Donatello and Makris, Pascal and Vieyres, Pierre and Delbos, Alain},
+  booktitle={2015 IEEE International conference on image processing (ICIP)},
+  pages={4155--4159},
+  year={2015},
+  organization={IEEE}
+}
+
+@article{hadjerci2016computer,
+  title={Computer-aided detection system for nerve identification using ultrasound images: a comparative study},
+  author={Hadjerci, Oussama and Hafiane, Adel and Conte, Donatello and Makris, Pascal and Vieyres, Pierre and Delbos, Alain},
+  journal={Informatics in Medicine Unlocked},
+  volume={3},
+  pages={29--43},
+  year={2016},
+  publisher={Elsevier}
+}
+@article{hafiane2017deep,
+  title={Deep learning with spatiotemporal consistency for nerve segmentation in ultrasound images},
+  author={Hafiane, Adel and Vieyres, Pierre and Delbos, Alain},
+  journal={arXiv preprint arXiv:1706.05870},
+  year={2017}
+}
+
+@article{wang2020mnt,
+  title={MNT-DeepSL: Median nerve tracking from carpal tunnel ultrasound images with deep similarity learning and analysis on continuous wrist motions},
+  author={Wang, You-Wei and Chang, Ruey-Feng and Horng, Yi-Shiung and Chen, Chii-Jen},
+  journal={Computerized Medical Imaging and Graphics},
+  volume={80},
+  pages={101687},
+  year={2020},
+  publisher={Elsevier}
+}
+
+@article{festen2021automated,
+  title={Automated segmentation of the median nerve in the carpal tunnel using U-Net},
+  author={Festen, Raymond T and Schrier, Verena JMM and Amadio, Peter C},
+  journal={Ultrasound in medicine \& biology},
+  volume={47},
+  number={7},
+  pages={1964--1969},
+  year={2021},
+  publisher={Elsevier}
+}
+
+@article{horng2020deepnerve,
+  title={DeepNerve: a new convolutional neural network for the localization and segmentation of the median nerve in ultrasound image sequences},
+  author={Horng, Ming-Huwi and Yang, Cheng-Wei and Sun, Yung-Nien and Yang, Tai-Hua},
+  journal={Ultrasound in Medicine \& Biology},
+  volume={46},
+  number={9},
+  pages={2439--2452},
+  year={2020},
+  publisher={Elsevier}
+}
+
+@article{wu2021automated,
+  title={Automated segmentation of median nerve in dynamic sonography using deep learning: evaluation of model performance},
+  author={Wu, Chueh-Hung and Syu, Wei-Ting and Lin, Meng-Ting and Yeh, Cheng-Liang and Boudier-Rev{\'e}ret, Mathieu and Hsiao, Ming-Yen and Kuo, Po-Ling},
+  journal={Diagnostics},
+  volume={11},
+  number={10},
+  pages={1893},
+  year={2021},
+  publisher={MDPI}
+}
+@article{di2022deep,
+  title={A deep learning approach to median nerve evaluation in ultrasound images of carpal tunnel inlet},
+  author={Di Cosmo, Mariachiara and Fiorentino, Maria Chiara and Villani, Francesca Pia and Frontoni, Emanuele and Smerilli, Gianluca and Filippucci, Emilio and Moccia, Sara},
+  journal={Medical \& Biological Engineering \& Computing},
+  volume={60},
+  number={11},
+  pages={3255--3264},
+  year={2022},
+  publisher={Springer}
+}
+
+@inproceedings{ronneberger2015u,
+  title={U-net: Convolutional networks for biomedical image segmentation},
+  author={Ronneberger, Olaf and Fischer, Philipp and Brox, Thomas},
+  booktitle={Medical image computing and computer-assisted intervention--MICCAI 2015: 18th international conference, Munich, Germany, October 5-9, 2015, proceedings, part III 18},
+  pages={234--241},
+  year={2015},
+  organization={Springer}
+}
+
+@article{badrinarayanan2017segnet,
+  title={Segnet: A deep convolutional encoder-decoder architecture for image segmentation},
+  author={Badrinarayanan, Vijay and Kendall, Alex and Cipolla, Roberto},
+  journal={IEEE transactions on pattern analysis and machine intelligence},
+  volume={39},
+  number={12},
+  pages={2481--2495},
+  year={2017},
+  publisher={IEEE}
+}
+@article{oktay2018attention,
+  title={Attention u-net: Learning where to look for the pancreas},
+  author={Oktay, Ozan and Schlemper, Jo and Folgoc, Loic Le and Lee, Matthew and Heinrich, Mattias and Misawa, Kazunari and Mori, Kensaku and McDonagh, Steven and Hammerla, Nils Y and Kainz, Bernhard and others},
+  journal={arXiv preprint arXiv:1804.03999},
+  year={2018}
+}
+
+@inproceedings{zhou2018unet++,
+  title={Unet++: A nested u-net architecture for medical image segmentation},
+  author={Zhou, Zongwei and Rahman Siddiquee, Md Mahfuzur and Tajbakhsh, Nima and Liang, Jianming},
+  booktitle={Deep Learning in Medical Image Analysis and Multimodal Learning for Clinical Decision Support: 4th International Workshop, DLMIA 2018, and 8th International Workshop, ML-CDS 2018, Held in Conjunction with MICCAI 2018, Granada, Spain, September 20, 2018, Proceedings 4},
+  pages={3--11},
+  year={2018},
+  organization={Springer}
+}
+
+@inproceedings{qin2019basnet,
+  title={Basnet: Boundary-aware salient object detection},
+  author={Qin, Xuebin and Zhang, Zichen and Huang, Chenyang and Gao, Chao and Dehghan, Masood and Jagersand, Martin},
+  booktitle={Proceedings of the IEEE/CVF conference on computer vision and pattern recognition},
+  pages={7479--7489},
+  year={2019}
+}
+
+@article{qin2020u2,
+  title={U2-Net: Going deeper with nested U-structure for salient object detection},
+  author={Qin, Xuebin and Zhang, Zichen and Huang, Chenyang and Dehghan, Masood and Zaiane, Osmar R and Jagersand, Martin},
+  journal={Pattern recognition},
+  volume={106},
+  pages={107404},
+  year={2020},
+  publisher={Elsevier}
+}
+
+@article{diakogiannis2020resunet,
+  title={ResUNet-a: A deep learning framework for semantic segmentation of remotely sensed data},
+  author={Diakogiannis, Foivos I and Waldner, Fran{\c{c}}ois and Caccetta, Peter and Wu, Chen},
+  journal={ISPRS Journal of Photogrammetry and Remote Sensing},
+  volume={162},
+  pages={94--114},
+  year={2020},
+  publisher={Elsevier}
+}
+@article{paszke2019pytorch,
+  title={Pytorch: An imperative style, high-performance deep learning library},
+  author={Paszke, Adam and Gross, Sam and Massa, Francisco and Lerer, Adam and Bradbury, James and Chanan, Gregory and Killeen, Trevor and Lin, Zeming and Gimelshein, Natalia and Antiga, Luca and others},
+  journal={Advances in neural information processing systems},
+  volume={32},
+  year={2019}
+}
+
+@article{kingma2014adam,
+  title={Adam: A method for stochastic optimization},
+  author={Kingma, Diederik P and Ba, Jimmy},
+  journal={arXiv preprint arXiv:1412.6980},
+  year={2014}
+}
+
+@article{de2005tutorial,
+  title={A tutorial on the cross-entropy method},
+  author={De Boer, Pieter-Tjerk and Kroese, Dirk P and Mannor, Shie and Rubinstein, Reuven Y},
+  journal={Annals of operations research},
+  volume={134},
+  pages={19--67},
+  year={2005},
+  publisher={Springer}
+}
+
+
+
+
+
+
+@article{wang2004image,
+  title={Image quality assessment: from error visibility to structural similarity},
+  author={Wang, Zhou and Bovik, Alan C and Sheikh, Hamid R and Simoncelli, Eero P},
+  journal={IEEE transactions on image processing},
+  volume={13},
+  number={4},
+  pages={600--612},
+  year={2004},
+  publisher={IEEE}
+}
+
+@inproceedings{sudre2017generalised,
+  title={Generalised dice overlap as a deep learning loss function for highly unbalanced segmentations},
+  author={Sudre, Carole H and Li, Wenqi and Vercauteren, Tom and Ourselin, Sebastien and Jorge Cardoso, M},
+  booktitle={Deep Learning in Medical Image Analysis and Multimodal Learning for Clinical Decision Support: Third International Workshop, DLMIA 2017, and 7th International Workshop, ML-CDS 2017, Held in Conjunction with MICCAI 2017, Qu{\'e}bec City, QC, Canada, September 14, Proceedings 3},
+  pages={240--248},
+  year={2017},
+  organization={Springer}
+}
+
+
+@inproceedings{van2018quantitative,
+  title={Quantitative echocardiography: real-time quality estimation and view classification implemented on a mobile android device},
+  author={Van Woudenberg, Nathan and Liao, Zhibin and Abdi, Amir H and Girgis, Hani and Luong, Christina and Vaseli, Hooman and Behnami, Delaram and Zhang, Haotian and Gin, Kenneth and Rohling, Robert and others},
+  booktitle={Simulation, Image Processing, and Ultrasound Systems for Assisted Diagnosis and Navigation: International Workshops, POCUS 2018, BIVPCS 2018, CuRIOUS 2018, and CPM 2018, Held in Conjunction with MICCAI 2018, Granada, Spain, September 16--20, 2018, Proceedings},
+  pages={74--81},
+  year={2018},
+  organization={Springer}
+}
+
+
+@article{chen2015study,
+  title={A study of active learning methods for named entity recognition in clinical text},
+  author={Chen, Yukun and Lasko, Thomas A and Mei, Qiaozhu and Denny, Joshua C and Xu, Hua},
+  journal={Journal of biomedical informatics},
+  volume={58},
+  pages={11--18},
+  year={2015},
+  publisher={Elsevier}
+}
+@online{dey_active_learning,
+  author = {Dey, Arindam},
+  title = {A Gentle Introduction to Active Learning},
+  year = {2023},
+  month = {September},
+  day = {2},
+  url = {https://arindam-dey.medium.com/a-gentle-introduction-to-active-learning-e983b9d175cb}
+}
+@article{huttenlocher1993comparing,
+  title={Comparing images using the Hausdorff distance},
+  author={Huttenlocher, Daniel P and Klanderman, Gregory A. and Rucklidge, William J},
+  journal={IEEE Transactions on pattern analysis and machine intelligence},
+  volume={15},
+  number={9},
+  pages={850--863},
+  year={1993},
+  publisher={IEEE}
+}
+
+@article{zou2004statistical,
+  title={Statistical validation of image segmentation quality based on a spatial overlap index1: scientific reports},
+  author={Zou, Kelly H and Warfield, Simon K and Bharatha, Aditya and Tempany, Clare MC and Kaus, Michael R and Haker, Steven J and Wells III, William M and Jolesz, Ferenc A and Kikinis, Ron},
+  journal={Academic radiology},
+  volume={11},
+  number={2},
+  pages={178--189},
+  year={2004},
+  publisher={Elsevier}
+}
+
+@article{paszke2019pytorch,
+  title={Pytorch: An imperative style, high-performance deep learning library},
+  author={Paszke, Adam and Gross, Sam and Massa, Francisco and Lerer, Adam and Bradbury, James and Chanan, Gregory and Killeen, Trevor and Lin, Zeming and Gimelshein, Natalia and Antiga, Luca and others},
+  journal={Advances in neural information processing systems},
+  volume={32},
+  year={2019}
+}
+}
+
+@article{lu2022half,
+  title={Half-UNet: A simplified U-Net architecture for medical image segmentation},
+  author={Lu, Haoran and She, Yifei and Tie, Jun and Xu, Shengzhou},
+  journal={Frontiers in Neuroinformatics},
+  volume={16},
+  pages={911679},
+  year={2022},
+  publisher={Frontiers}
+}
+
+
+@ARTICLE{gujarati2023transformer,
+  author={Gujarati, Karan R. and Bathala, Lokesh and Venkatesh, Vaddadi and Mathew, Raji Susan and Yalavarthy, Phaneendra K.},
+  journal={IEEE Transactions on Ultrasonics, Ferroelectrics, and Frequency Control}, 
+  title={Transformer-Based Automated Segmentation of the Median Nerve in Ultrasound Videos of Wrist-to-Elbow Region}, 
+  year={2024},
+  volume={71},
+  number={1},
+  pages={56-69},
+  keywords={Transformers;Videos;Ultrasonic imaging;Image segmentation;Wrist;Task analysis;Visualization;Cross-sectional area (CSA);median nerve segmentation;ultrasound video;vision transformer (ViT)},
+  doi={10.1109/TUFFC.2023.3330539}}
+
+
+
+@article{yeh2023real,
+  title={Real-time automated segmentation of median nerve in dynamic ultrasonography using deep learning},
+  author={Yeh, Cheng-Liang and Wu, Chueh-Hung and Hsiao, Ming-Yen and Kuo, Po-Ling},
+  journal={Ultrasound in Medicine \& Biology},
+  volume={49},
+  number={5},
+  pages={1129--1136},
+  year={2023},
+  publisher={Elsevier}
+}
+@article{huang2022attention,
+  title={Attention-VGG16-UNet: a novel deep learning approach for automatic segmentation of the median nerve in ultrasound images},
+  author={Huang, Aiyue and Jiang, Li and Zhang, Jiangshan and Wang, Qing},
+  journal={Quantitative imaging in medicine and surgery},
+  volume={12},
+  number={6},
+  pages={3138},
+  year={2022},
+  publisher={AME Publications}
+}
+
+@misc{epiphan,
+  title = {{AV.Io HD Now Available: The New and Improved AV.Io HD+}},
+  howpublished = {Website},
+  organization = {Epiphan Video},
+  url = {https://www.epiphan.com/products/avio-hd/}
+}
+
+@misc{python_language_reference,
+  author = {{Python Software Foundation}},
+  title = {{Python Language Reference, Version 3.10}},
+  howpublished = {Website},
+  url = {https://www.python.org/}
+}
+
+@article{smerilli2022development,
+  title={Development of a convolutional neural network for the identification and the measurement of the median nerve on ultrasound images acquired at carpal tunnel level},
+  author={Smerilli, Gianluca and Cipolletta, Edoardo and Sartini, Gianmarco and Moscioni, Erica and Di Cosmo, Mariachiara and Fiorentino, Maria Chiara and Moccia, Sara and Frontoni, Emanuele and Grassi, Walter and Filippucci, Emilio},
+  journal={Arthritis Research \& Therapy},
+  volume={24},
+  number={1},
+  pages={38},
+  year={2022},
+  publisher={Springer}
+}
+
+
+@article{marhofer2005ultrasound,
+  title={Ultrasound guidance in regional anaesthesia},
+  author={Marhofer, P and Greher, M and Kapral, S},
+  journal={British journal of anaesthesia},
+  volume={94},
+  number={1},
+  pages={7--17},
+  year={2005},
+  publisher={Oxford University Press}
+}
+@misc{hopkins2007ultrasound,
+  title={Ultrasound guidance as a gold standard in regional anaesthesia},
+  author={Hopkins, PM},
+  journal={British journal of anaesthesia},
+  volume={98},
+  number={3},
+  pages={299--301},
+  year={2007},
+  publisher={Oxford University Press}
+}
+
+@article{hobson2009median,
+  title={Median nerve ultrasonography in carpal tunnel syndrome: findings from two laboratories},
+  author={Hobson-Webb, Lisa D and Padua, Luca},
+  journal={Muscle \& nerve},
+  volume={40},
+  number={1},
+  pages={94--97},
+  year={2009},
+  publisher={Wiley Online Library}
+}
+@article{ehler2017median,
+  title={Median nerve ultrasonography in carpal tunnel syndrome},
+  author={Ehler, Edvard},
+  journal={Clinical Neurophysiology Practice},
+  volume={2},
+  pages={186},
+  year={2017}
+}
+@article{soubeyrand2020anatomy,
+  title={Anatomy of the median nerve and its clinical applications},
+  author={Soubeyrand, M and Melhem, R and Protais, M and Artuso, M and Cr{\'e}z{\'e}, M},
+  journal={Hand Surgery and Rehabilitation},
+  volume={39},
+  number={1},
+  pages={2--18},
+  year={2020},
+  publisher={Elsevier}
+}
+@article{henry2015prevalence,
+  title={The prevalence of anatomical variations of the median nerve in the carpal tunnel: a systematic review and meta-analysis},
+  author={Henry, Brandon Michael and Zwinczewska, Helena and Roy, Joyeeta and Vikse, Jens and Ramakrishnan, Piravin Kumar and Walocha, Jerzy A and Tomaszewski, Krzysztof A},
+  journal={PLoS One},
+  volume={10},
+  number={8},
+  pages={e0136477},
+  year={2015},
+  publisher={Public Library of Science San Francisco, CA USA}
+}
+@article{agarwal2014cadaveric,
+  title={Cadaveric study of anatomical variations of the median nerve and persistent median artery at wrist},
+  author={Agarwal, Pawan and Gupta, Shivkant and Yadav, Prashant and Sharma, D},
+  journal={Indian journal of plastic surgery: official publication of the Association of Plastic Surgeons of India},
+  volume={47},
+  number={1},
+  pages={95},
+  year={2014}
+}
+@article{avendano2018peripheral,
+  title={Peripheral nerve conduction block by high-frequency alternating currents: a systematic review},
+  author={Avenda{\~n}o-Coy, Juan and Serrano-Mu{\~n}oz, Diego and Taylor, Julian and Goicoechea-Garc{\'\i}a, Carlos and G{\'o}mez-Soriano, Julio},
+  journal={IEEE Transactions on Neural Systems and Rehabilitation Engineering},
+  volume={26},
+  number={6},
+  pages={1131--1140},
+  year={2018},
+  publisher={IEEE}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@article{nkrumah2020ultrasonography,
+  title={Ultrasonography findings in severe carpal tunnel syndrome},
+  author={Nkrumah, Gideon and Blackburn, Alan R and Goitz, Robert J and Fowler, John R},
+  journal={Hand},
+  volume={15},
+  number={1},
+  pages={64--68},
+  year={2020},
+  publisher={SAGE Publications Sage CA: Los Angeles, CA}
+}
+@article{ghasemi2017determination,
+  title={Determination of cut-off point of cross-sectional area of median nerve at the wrist for diagnosing carpal tunnel syndrome},
+  author={Ghasemi, Majid and Masoumi, Sanaz and Ansari, Behnaz and Fereidan-Esfahani, Mahboobeh and Mousavi, Seyed Morteza},
+  journal={Iranian journal of neurology},
+  volume={16},
+  number={4},
+  pages={164},
+  year={2017}
+}
+@article{falsetti2022novel,
+  title={A novel ultrasonographic anthropometric-independent measurement of median nerve swelling in carpal tunnel syndrome: the “nerve/tendon ratio”(NTR)},
+  author={Falsetti, Paolo and Conticini, Edoardo and Baldi, Caterina and D’Ignazio, Emilio and Al Khayyat, Suhel Gabriele and Bardelli, Marco and Gentileschi, Stefano and D’Alessandro, Roberto and D’Alessandro, Miriana and Acciai, Caterina and others},
+  journal={Diagnostics},
+  volume={12},
+  number={11},
+  pages={2621},
+  year={2022},
+  publisher={MDPI}
+}
+@article{marhofer2005ultrasound,
+  title={Ultrasound guidance in regional anaesthesia},
+  author={Marhofer, P and Greher, M and Kapral, S},
+  journal={British journal of anaesthesia},
+  volume={94},
+  number={1},
+  pages={7--17},
+  year={2005},
+  publisher={Oxford University Press}
+}
+@misc{hopkins2007ultrasound,
+  title={Ultrasound guidance as a gold standard in regional anaesthesia},
+  author={Hopkins, PM},
+  journal={British journal of anaesthesia},
+  volume={98},
+  number={3},
+  pages={299--301},
+  year={2007},
+  publisher={Oxford University Press}
+}
+
+@article{hobson2009median,
+  title={Median nerve ultrasonography in carpal tunnel syndrome: findings from two laboratories},
+  author={Hobson-Webb, Lisa D and Padua, Luca},
+  journal={Muscle \& nerve},
+  volume={40},
+  number={1},
+  pages={94--97},
+  year={2009},
+  publisher={Wiley Online Library}
+}
+@article{ehler2017median,
+  title={Median nerve ultrasonography in carpal tunnel syndrome},
+  author={Ehler, Edvard},
+  journal={Clinical Neurophysiology Practice},
+  volume={2},
+  pages={186},
+  year={2017}
+}
+@article{soubeyrand2020anatomy,
+  title={Anatomy of the median nerve and its clinical applications},
+  author={Soubeyrand, M and Melhem, R and Protais, M and Artuso, M and Cr{\'e}z{\'e}, M},
+  journal={Hand Surgery and Rehabilitation},
+  volume={39},
+  number={1},
+  pages={2--18},
+  year={2020},
+  publisher={Elsevier}
+}
+@article{henry2015prevalence,
+  title={The prevalence of anatomical variations of the median nerve in the carpal tunnel: a systematic review and meta-analysis},
+  author={Henry, Brandon Michael and Zwinczewska, Helena and Roy, Joyeeta and Vikse, Jens and Ramakrishnan, Piravin Kumar and Walocha, Jerzy A and Tomaszewski, Krzysztof A},
+  journal={PLoS One},
+  volume={10},
+  number={8},
+  pages={e0136477},
+  year={2015},
+  publisher={Public Library of Science San Francisco, CA USA}
+}
+@article{agarwal2014cadaveric,
+  title={Cadaveric study of anatomical variations of the median nerve and persistent median artery at wrist},
+  author={Agarwal, Pawan and Gupta, Shivkant and Yadav, Prashant and Sharma, D},
+  journal={Indian journal of plastic surgery: official publication of the Association of Plastic Surgeons of India},
+  volume={47},
+  number={1},
+  pages={95},
+  year={2014}
+}
+@article{avendano2018peripheral,
+  title={Peripheral nerve conduction block by high-frequency alternating currents: a systematic review},
+  author={Avenda{\~n}o-Coy, Juan and Serrano-Mu{\~n}oz, Diego and Taylor, Julian and Goicoechea-Garc{\'\i}a, Carlos and G{\'o}mez-Soriano, Julio},
+  journal={IEEE Transactions on Neural Systems and Rehabilitation Engineering},
+  volume={26},
+  number={6},
+  pages={1131--1140},
+  year={2018},
+  publisher={IEEE}
+}
+
+
+@article{shao2022application,
+  title={Application of an improved U2-net model in ultrasound median neural image segmentation},
+  author={Shao, Jie and Zhou, Kun and Cai, Ye-Hua and Geng, Dao-Ying},
+  journal={Ultrasound in Medicine \& Biology},
+  volume={48},
+  number={12},
+  pages={2512--2520},
+  year={2022},
+  publisher={Elsevier}
+}
+
+@article{kim2022scale,
+  title={Scale-attentional U-Net for the segmentation of the median nerve in ultrasound images},
+  author={Kim, Beom Suk and Yu, Minhyeong and Kim, Sunwoo and Yoon, Joon Shik and Baek, Seungjun},
+  journal={Ultrasonography},
+  volume={41},
+  number={4},
+  pages={706--717},
+  year={2022},
+  publisher={Korean Society of Ultrasound in Medicine}
+}
+@article{moser2024automated,
+  title={Automated segmentation of the median nerve in patients with carpal tunnel syndrome},
+  author={Moser, Florentin and Muller, S{\'e}bastien and Lie, Torgrim and Lang{\o}, Thomas and Hoff, Mari},
+  journal={Scientific Reports},
+  volume={14},
+  number={1},
+  pages={16757},
+  year={2024},
+  publisher={Nature Publishing Group UK London}
+}
+
+@article{huang2022attention,
+  title={Attention-VGG16-UNet: a novel deep learning approach for automatic segmentation of the median nerve in ultrasound images},
+  author={Huang, Aiyue and Jiang, Li and Zhang, Jiangshan and Wang, Qing},
+  journal={Quantitative imaging in medicine and surgery},
+  volume={12},
+  number={6},
+  pages={3138},
+  year={2022}
+}
+
+@article{yeh2023real,
+  title={Real-time automated segmentation of median nerve in dynamic ultrasonography using deep learning},
+  author={Yeh, Cheng-Liang and Wu, Chueh-Hung and Hsiao, Ming-Yen and Kuo, Po-Ling},
+  journal={Ultrasound in Medicine \& Biology},
+  volume={49},
+  number={5},
+  pages={1129--1136},
+  year={2023},
+  publisher={Elsevier}
+}
+@article{wu2021automated,
+  title={Automated segmentation of median nerve in dynamic sonography using deep learning: Evaluation of model performance},
+  author={Wu, Chueh-Hung and Syu, Wei-Ting and Lin, Meng-Ting and Yeh, Cheng-Liang and Boudier-Rev{\'e}ret, Mathieu and Hsiao, Ming-Yen and Kuo, Po-Ling},
+  journal={Diagnostics},
+  volume={11},
+  number={10},
+  pages={1893},
+  year={2021},
+  publisher={MDPI}
+}
+@article{qin2020u2,
+  title={U2-Net: Going deeper with nested U-structure for salient object detection},
+  author={Qin, Xuebin and Zhang, Zichen and Huang, Chenyang and Dehghan, Masood and Zaiane, Osmar R and Jagersand, Martin},
+  journal={Pattern recognition},
+  volume={106},
+  pages={107404},
+  year={2020},
+  publisher={Elsevier}
+}
+
+
+@article{salahuddin2022transparency,
+  title={Transparency of deep neural networks for medical image analysis: A review of interpretability methods},
+  author={Salahuddin, Zohaib and Woodruff, Henry C and Chatterjee, Avishek and Lambin, Philippe},
+  journal={Computers in biology and medicine},
+  volume={140},
+  pages={105111},
+  year={2022},
+  publisher={Elsevier}
+}
+
+@inproceedings{woodland2023dimensionality,
+  title={Dimensionality reduction for improving out-of-distribution detection in medical image segmentation},
+  author={Woodland, McKell and Patel, Nihil and Al Taie, Mais and P. Yung, Joshua and J. Netherton, Tucker and B. Patel, Ankit and K. Brock, Kristy},
+  booktitle={International workshop on uncertainty for safe utilization of machine learning in medical imaging},
+  pages={147--156},
+  year={2023},
+  organization={Springer}
+}
+
+@book{budgell2009writing,
+  title={Writing a Biomedical Research Paper: A guide to structure and style},
+  author={Budgell, Brian Stephen},
+  year={2009},
+  publisher={Springer}
+}
+@article{jeffrey2025inference,
+  title={Inference time correction based on confidence and uncertainty for improved deep-learning model performance and explainability in medical image classification},
+  author={Jeffrey, Joel and RajKumar, Ashwin and Pandey, Sudhanshu and Bathala, Lokesh and Yalavarthy, Phaneendra K},
+  journal={Computerized Medical Imaging and Graphics},
+  volume={125},
+  pages={102630},
+  year={2025},
+  publisher={Elsevier}
+}
+
+
+
+
+
+%%%%%%%%%%%%
+
+@article{student1908probable,
+  title={The probable error of a mean},
+  author={Student},
+  journal={Biometrika},
+  volume={6},
+  number={1},
+  pages={1--25},
+  year={1908}
+}
+
+@book{cohen1988statistical,
+  title={Statistical Power Analysis for the Behavioral Sciences},
+  author={Cohen, Jacob},
+  edition={2nd},
+  publisher={Lawrence Erlbaum Associates},
+  year={1988}
+}
+
+@book{fisher1925statistical,
+  title={Statistical Methods for Research Workers},
+  author={Fisher, Ronald A.},
+  publisher={Oliver and Boyd},
+  year={1925}
+}
+
+@article{tukey1949comparing,
+  title={Comparing individual means in the analysis of variance},
+  author={Tukey, John W.},
+  journal={Biometrics},
+  volume={5},
+  number={2},
+  pages={99--114},
+  year={1949}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@article{schuirmann1987comparison,
+  title={A comparison of the two one-sided tests procedure and the power approach for assessing the equivalence of average bioavailability},
+  author={Schuirmann, Donald J},
+  journal={Journal of pharmacokinetics and biopharmaceutics},
+  volume={15},
+  number={6},
+  pages={657--680},
+  year={1987},
+  publisher={Springer}
+}
+
+
+
+
+
+
+
+
+
+
+
+

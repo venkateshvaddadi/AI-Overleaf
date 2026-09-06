@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI-Native LaTeX Research Workspace</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- KaTeX CSS for Math Equations -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- CodeMirror CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="dark-theme">
+
+  <!-- ========================================== -->
+  <!-- 1. HOME DASHBOARD VIEW                     -->
+  <!-- ========================================== -->
+  <div class="view-container active" id="view-dashboard">
+    <header class="dash-header">
+      <div class="brand">
+        <i class="fa-solid fa-graduation-cap logo-icon"></i>
+        <span class="app-name">AI-Overleaf Studio</span>
+        <span class="badge">Research Edition</span>
+      </div>
+
+      <div class="dash-search-bar">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="search-projects-input" placeholder="Search research projects, papers, or files...">
+      </div>
+
+      <div class="dash-actions">
+        <button id="btn-dash-new-proj" class="btn btn-primary">
+          <i class="fa-solid fa-plus"></i> New Project
+        </button>
+        <button id="btn-dash-import-zip" class="btn btn-secondary">
+          <i class="fa-solid fa-file-import"></i> Import (.zip)
+        </button>
+        <input type="file" id="zip-import-input" accept=".zip" style="display:none;">
+      </div>
+    </header>
+
+    <main class="dash-main">
+      <div class="dash-section-header">
+        <h2><i class="fa-solid fa-folder-open"></i> My Research Projects</h2>
+        <span class="proj-count-badge" id="proj-count-text">0 Projects</span>
+      </div>
+
+      <div class="projects-grid" id="projects-grid">
+        <!-- Dynamically rendered project cards -->
+      </div>
+    </main>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 2. LATEX EDITOR & WORKSPACE VIEW           -->
+  <!-- ========================================== -->
+  <div class="view-container" id="view-editor">
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <button id="btn-back-dashboard" class="btn btn-home-nav" title="Save & Return to Home Dashboard">
+          <i class="fa-solid fa-house"></i> Home
+        </button>
+
+        <div class="brand" id="brand-logo-home" title="Save & Return to Home Dashboard">
+          <i class="fa-solid fa-file-invoice logo-icon"></i>
+          <span class="app-name">AI-Overleaf</span>
+        </div>
+
+        <div class="project-info">
+          <i class="fa-solid fa-folder-open" style="color:var(--accent-amber);"></i>
+          <select id="project-selector" title="Select Active LaTeX Project">
+            <!-- Populated dynamically -->
+          </select>
+          <button id="btn-create-project" class="btn-sm" title="Create New Project"><i class="fa-solid fa-folder-plus"></i> New</button>
+          <button id="btn-rename-project" class="btn-sm" title="Rename Current Project"><i class="fa-solid fa-pen"></i></button>
+          <span class="save-status" id="save-status"><i class="fa-solid fa-circle-check"></i> Saved</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="model-select-wrapper">
+          <i class="fa-solid fa-microchip"></i>
+          <select id="model-select" title="Active Dual GPU Ollama LLM">
+            <option value="qwen2.5:32b">Qwen 2.5 (32B) - High Precision</option>
+            <option value="qwen2.5-coder:32b">Qwen 2.5 Coder (32B)</option>
+            <option value="deepseek-r1:32b">DeepSeek-R1 (32B - Reasoning)</option>
+            <option value="llama3.2-vision:11b">Llama 3.2 Vision (11B)</option>
+            <option value="llama3.3:70b">Llama 3.3 (70B)</option>
+          </select>
+        </div>
+
+        <button id="btn-compile" class="btn btn-primary" title="Recompile Document Preview (Ctrl+S)">
+          <i class="fa-solid fa-play"></i> Compile
+        </button>
+
+        <button id="btn-export-pdf" class="btn btn-pdf" title="Export Compiled PDF Document">
+          <i class="fa-solid fa-file-pdf"></i> Download PDF
+        </button>
+
+        <button id="btn-download" class="btn btn-secondary" title="Export .tex Source File">
+          <i class="fa-solid fa-file-arrow-down"></i> Export .tex
+        </button>
+
+        <button id="btn-settings" class="btn btn-icon" title="Ollama API Settings">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Viewport Layout -->
+    <main class="app-main">
+      <!-- Left Navigation Bar Strip -->
+      <nav class="side-nav">
+        <button class="nav-item active" data-tab="files" title="Project File Tree">
+          <i class="fa-solid fa-folder-tree"></i>
+          <span>Files</span>
+        </button>
+        <button class="nav-item" data-tab="translator" title="LaTeX AI Translator">
+          <i class="fa-solid fa-language"></i>
+          <span>Translate</span>
+        </button>
+        <button class="nav-item" data-tab="history" title="Version Control & Commits">
+          <i class="fa-solid fa-code-commit"></i>
+          <span>History</span>
+        </button>
+        <button class="nav-item" data-tab="ai-tools" title="LaTeX AI Assistant">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>AI Tools</span>
+        </button>
+      </nav>
+
+      <!-- Sidebar Drawer (Scrollable Panels) -->
+      <aside class="sidebar-drawer" id="sidebar-drawer">
+        <!-- File Explorer Tab -->
+        <div class="drawer-panel active" id="panel-files">
+          <div class="drawer-header">
+            <h3>Project Files</h3>
+            <div style="display:flex; gap:5px;">
+              <button class="btn-sm" id="btn-new-file" title="Create New File"><i class="fa-solid fa-plus"></i> New</button>
+              <button class="btn-sm" id="btn-upload-file" title="Upload Local Files"><i class="fa-solid fa-upload"></i> Upload</button>
+            </div>
+          </div>
+          <input type="file" id="file-upload-input" multiple style="display:none;">
+          <ul class="file-list" id="file-list">
+            <!-- Dynamically populated -->
+          </ul>
+        </div>
+
+        <!-- Translator Tab -->
+        <div class="drawer-panel" id="panel-translator">
+          <div class="drawer-header">
+            <h3><i class="fa-solid fa-language"></i> AI LaTeX Translator</h3>
+          </div>
+          <div class="translator-body">
+            <p class="help-text">Translates document prose while preserving LaTeX syntax (<code>\section</code>), equations (<code>$..$</code>), and citations (<code>\cite{}</code>).</p>
+            
+            <label for="target-lang">Target Language:</label>
+            <select id="target-lang">
+              <option value="Spanish">Spanish</option>
+              <option value="French">French</option>
+              <option value="German">German</option>
+              <option value="Chinese (Simplified)">Chinese (Simplified)</option>
+              <option value="Japanese">Japanese</option>
+              <option value="Italian">Italian</option>
+              <option value="Portuguese">Portuguese</option>
+              <option value="Hindi">Hindi</option>
+              <option value="Russian">Russian</option>
+            </select>
+
+            <button id="btn-translate" class="btn btn-accent full-width">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Translate & Review Diff
+            </button>
+
+            <div id="translate-progress" class="status-box hidden">
+              <i class="fa-solid fa-spinner fa-spin"></i> Translating with local LLM...
+            </div>
+          </div>
+        </div>
+
+        <!-- Version Control Tab -->
+        <div class="drawer-panel" id="panel-history">
+          <div class="drawer-header">
+            <h3><i class="fa-solid fa-code-commit"></i> Version Control</h3>
+          </div>
+          <div class="version-body">
+            <div class="commit-input-box">
+              <input type="text" id="commit-msg-input" placeholder="Commit message (e.g. Added Section 2)">
+              <button id="btn-create-commit" class="btn btn-secondary full-width">
+                <i class="fa-solid fa-plus"></i> Save Snapshot / Commit
+              </button>
+            </div>
+
+            <div class="commit-list-container">
+              <h4>Commit History Timeline</h4>
+              <div class="commit-timeline" id="commit-timeline">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Tools Tab -->
+        <div class="drawer-panel" id="panel-ai-tools">
+          <div class="drawer-header">
+            <h3><i class="fa-solid fa-wand-magic-sparkles"></i> AI Assistant Tools</h3>
+          </div>
+          <div class="ai-tools-body">
+            <div class="tool-card" id="tool-fix-errors">
+              <i class="fa-solid fa-bug"></i>
+              <div>
+                <h4>Auto-Fix Syntax Errors</h4>
+                <p>Finds & fixes unclosed brackets, missing packages, or bad syntax.</p>
+              </div>
+            </div>
+
+            <div class="tool-card" id="tool-gen-math">
+              <i class="fa-solid fa-calculator"></i>
+              <div>
+                <h4>Generate Math Formula</h4>
+                <p>Converts natural language math into LaTeX code.</p>
+              </div>
+            </div>
+
+            <div class="tool-card" id="tool-gen-table">
+              <i class="fa-solid fa-table"></i>
+              <div>
+                <h4>Generate Data Table</h4>
+                <p>Formats tabular data into LaTeX code.</p>
+              </div>
+            </div>
+
+            <div class="tool-card" id="tool-polish">
+              <i class="fa-solid fa-pen-nib"></i>
+              <div>
+                <h4>Academic Polish</h4>
+                <p>Refines writing tone to journal standards.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center Code Editor Section -->
+      <section class="editor-section">
+        <div class="section-toolbar">
+          <span class="file-name-indicator" id="active-file-indicator">main.tex</span>
+          <div class="editor-quick-tools">
+            <button title="Bold (\textbf)" onclick="insertLaTeX('\\textbf{', '}')"><b>B</b></button>
+            <button title="Italic (\textit)" onclick="insertLaTeX('\\textit{', '}')"><i>I</i></button>
+            <button title="Inline Math ($...$)" onclick="insertLaTeX('$', '$')"><i class="fa-solid fa-square-root-variable"></i></button>
+            <button title="Equation Environment" onclick="insertLaTeX('\\begin{equation}\n  ', '\n\\end{equation}')">\begin{eq}</button>
+            <button title="Table Environment" onclick="insertTableSnippet()">\begin{table}</button>
+          </div>
+        </div>
+
+        <div class="editor-container">
+          <textarea id="latex-code-editor"></textarea>
+        </div>
+      </section>
+
+      <!-- Right Document Preview Section -->
+      <section class="preview-section">
+        <div class="section-toolbar">
+          <div class="preview-tabs">
+            <button class="preview-tab active" data-target="pdf-preview">
+              <i class="fa-solid fa-file-pdf"></i> PDF View (<span id="pdf-file-label">main.tex</span>)
+            </button>
+            <button class="preview-tab" data-target="rendered-preview">
+              <i class="fa-solid fa-eye"></i> Quick HTML
+            </button>
+            <button class="preview-tab" data-target="compiler-log-pane">
+              <i class="fa-solid fa-terminal"></i> Compiler Log
+            </button>
+            <button class="preview-tab" data-target="diff-preview">
+              <i class="fa-solid fa-code-compare"></i> Diff View
+            </button>
+          </div>
+          <div class="zoom-controls">
+            <button id="btn-zoom-out" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
+            <span id="zoom-level">100%</span>
+            <button id="btn-zoom-in" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
+          </div>
+        </div>
+
+        <div class="preview-viewport">
+          <!-- Native PDF Viewer Pane -->
+          <div class="preview-pane active" id="pdf-preview" style="width:100%; height:100%;">
+            <iframe id="pdf-frame" style="width:100%; height:100%; border:none; background:#525659;" src="about:blank"></iframe>
+          </div>
+
+          <!-- Live HTML & KaTeX Render Pane -->
+          <div class="preview-pane" id="rendered-preview">
+            <div class="document-paper" id="paper-content">
+              <!-- Dynamically Compiled Paper Content -->
+            </div>
+          </div>
+
+          <!-- LaTeX Compiler Output Log Pane -->
+          <div class="preview-pane" id="compiler-log-pane" style="height:100%; overflow:auto;">
+            <pre id="compiler-log-output" style="padding:15px; font-family:'Fira Code', monospace; font-size:0.85rem; color:#f8f8f2; background:#1e1e2e; margin:0; min-height:100%; overflow:auto; white-space:pre-wrap;">Compiler log will appear here after compilation.</pre>
+          </div>
+
+          <!-- Version History Diff View Pane -->
+          <div class="preview-pane" id="diff-preview">
+            <div class="diff-container">
+              <div class="diff-header" id="diff-header-info">
+                Select two commits in the History tab to compare changes.
+              </div>
+              <div class="diff-content" id="diff-content-view">
+                <!-- Diff output rendered here -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 3. MODALS (Diff Review, Settings)          -->
+  <!-- ========================================== -->
+
+  <!-- AI Accept / Reject Diff Review Modal -->
+  <div class="modal-overlay" id="ai-diff-modal">
+    <div class="modal-box modal-lg">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-wand-magic-sparkles"></i> AI Proposal Review</h3>
+        <span class="badge" id="ai-diff-model-tag">Qwen 2.5 32B</span>
+        <button class="modal-close" onclick="closeModal('ai-diff-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="help-text" id="ai-diff-instruction">Review proposed AI modification before applying to document.</p>
+        <div class="diff-preview-box" id="ai-diff-content">
+          <!-- Rendered word-level diff -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="rejectAIDiff()">
+          <i class="fa-solid fa-xmark"></i> Reject Change
+        </button>
+        <button class="btn btn-primary" onclick="acceptAIDiff()">
+          <i class="fa-solid fa-check"></i> Accept Change
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for API Settings -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-gear"></i> Ollama Host Settings</h3>
+        <button class="modal-close" onclick="closeModal('settings-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="ollama-url-input">Ollama Server Base URL:</label>
+          <input type="text" id="ollama-url-input" value="http://127.0.0.1:11434">
+        </div>
+        <p class="help-text">Direct connection to your local Dual RTX 3090 inference backend.</p>
+        <button class="btn btn-primary" onclick="testOllamaConnection()">Test Connection</button>
+        <span id="conn-test-result"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/stex/stex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/diff@5.1.0/dist/diff.min.js"></script>
+  <!-- JSZip Library for Zip Template Extraction -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

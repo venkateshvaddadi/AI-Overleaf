@@ -1,0 +1,91 @@
+\documentclass[float=false, crop=false]{standalone}
+\usepackage{hyperref}
+\usepackage{comment}
+\documentstyle{report}
+%\oddsidemargin 1.0in
+\oddsidemargin 0.0in
+\topmargin -0.1in
+
+\pagestyle{empty}
+\textheight 8.5in
+\textwidth 6.5in
+
+\begin{document}
+%-----------------------------------------------------
+\vspace*{-0.9in}
+\begin{huge}
+\centerline{\bf Indian Institute of Science}
+\end{huge}
+%-----------------------------------------------------
+\vskip 0.08in
+\begin{large}
+\noindent
+{\sf Department of Computational and Data Sciences}   \hfill
+{\sf Office: +91-80-2293 2496 }\\
+%
+{\sf  Bangalore, India - 560012}   \hfill
+{\sf  FAX: +91-80-2360 2648}  \\
+\hrule
+\end{large}
+\begin{flushright}
+\today \\
+\end{flushright}
+
+\begin{large}
+%\vskip 0.1in
+\noindent
+To\\
+The Editor\\
+Medical Physics \\
+
+%\hfill
+
+
+%------------------------------>>>>>>   INPUT DATE
+
+%\vskip 0.1in
+\noindent
+Dear Editor,
+
+%\newcommand{\pp}{\vskip 0.10in}
+\par
+We would like to submit a majorly revised manuscript titled `\emph{Performance Benchmarking of Deep Learning Models for Real-Time Median Nerve Segmentation and Cross-Sectional Area Measurement in Ultrasound Imaging}' to be considered for Medical Physics. \\
+
+
+\noindent
+The main contributions of this work:
+
+\noindent
+1. Proposed an efficient, lightweight CNN model called MNSeg-Net for fully automated segmentation of the median nerve from a single ultrasound frame, supporting real-time inference at 43 frames per second.
+
+\noindent
+2. The model can efficiently segment the median nerve from wrist to elbow and calculate cross-sectional area (CSA), matching the performance of expert sonographers.
+
+\noindent
+3. Clinically validated the proposed model by testing on clinical data from normal subjects and patients with mild and severe carpal tunnel syndrome.
+
+\noindent
+4. Developed an end-to-end clinical system with a Python-based graphical user interface for real-time median nerve segmentation to assist sonographers. This setup is already in use for research at Aster-CMI Hospital.
+
+\noindent
+5. Introduced a novel lightweight architecture combining a redesigned U2Net as the main network with a multi-scale feature fusion sub-network module to effectively capture contextual information and enhance feature representation.
+
+\noindent
+6. Achieved state-of-the-art segmentation performance (94.7\% DSC at wrist, 83.4\% DSC from wrist to elbow) with only 2.46 million parameters, matching the accuracy of much larger models while being significantly more efficient.
+
+\noindent
+7. Demonstrated the model's ability to process up to 32 frames per second in a clinical setting with the developed system, including resizing, segmentation, contour generation, and CSA calculation. The developed codes are available as an open source for enthusiastic users at \href{https://github.com/venkateshvaddadi/Real-Time-Median-Nerve-Segmentation/}{https://github.com/venkateshvaddadi/Real-Time-Median-Nerve-Segmentation/}\\
+
+This work has not been submitted (or is under consideration) to any other publication. Please do not hesitate to contact me if you require further information on this submission.\\
+
+
+\noindent Sincerely,\\
+Phaneendra K. Yalavarthy, Ph.D. (Corresponding Author)\\
+Computational and Data Sciences\\ 
+Indian Institute of Science, Bangalore - 560012 India. \\
+Tel. No: +91-80-2293 2496; FAX: +91-80-2360 2648.\\
+E-mail: yalavarthy@iisc.ac.in\\
+Web: https://cds.iisc.ac.in/faculty/yalavarthy/
+%\hspace*{3.0in}   \\
+\end{large}
+\end{document}
