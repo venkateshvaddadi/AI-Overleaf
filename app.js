@@ -3067,8 +3067,9 @@ async function compileLaTeX() {
       const err = await res.json();
       const logOutput = document.getElementById('compiler-log-output');
       if (logOutput) logOutput.innerText = `❌ LaTeX Compilation Error:\n${err.error || ''}\n\n=== Compiler Log ===\n${err.log || ''}`;
-      if (statusBadge) statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-red)"></i> Compile Error';
+      if (statusBadge) statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-red)"></i> PDF (with errors)';
       if (typeof runLaTeXSyntaxDiagnostics === 'function') runLaTeXSyntaxDiagnostics(err.log || err.error);
+      ensurePdfViewActive();
     }
   } catch (e) {
     console.warn('Compilation error:', e);
