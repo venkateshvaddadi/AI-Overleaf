@@ -166,10 +166,21 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
 
         super().do_GET()
 
+    def read_body_json(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+        if content_length <= 0:
+            return {}
+        body = bytearray()
+        while len(body) < content_length:
+            chunk = self.rfile.read(min(content_length - len(body), 65536))
+            if not chunk:
+                break
+            body.extend(chunk)
+        return json.loads(body.decode('utf-8'))
+
     def do_POST(self):
         if self.path == '/api/projects/create':
-            content_length = int(self.headers.get('Content-Length', 0))
-            data = json.loads(self.rfile.read(content_length).decode('utf-8'))
+            data = self.read_body_json()
             name = data.get('name', 'New_Project').strip()
             description = data.get('description', 'LaTeX Research Paper').strip()
 
@@ -205,8 +216,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             return
 
         elif self.path == '/api/projects/save':
-            content_length = int(self.headers.get('Content-Length', 0))
-            data = json.loads(self.rfile.read(content_length).decode('utf-8'))
+            data = self.read_body_json()
             proj_id = data.get('id')
             files = data.get('files', {})
             main_file = data.get('main_file', 'main.tex')
@@ -255,8 +265,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             return
 
         elif self.path == '/api/projects/delete':
-            content_length = int(self.headers.get('Content-Length', 0))
-            data = json.loads(self.rfile.read(content_length).decode('utf-8'))
+            data = self.read_body_json()
             proj_id = data.get('id')
 
             metadata = load_metadata()
@@ -353,8 +362,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             return
 
         elif self.path == '/api/projects/toggle-favorite':
-            content_length = int(self.headers.get('Content-Length', 0))
-            data = json.loads(self.rfile.read(content_length).decode('utf-8'))
+            data = self.read_body_json()
             proj_id = data.get('id')
 
             metadata = load_metadata()
@@ -367,8 +375,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             return
 
         elif self.path == '/api/compile':
-            content_length = int(self.headers.get('Content-Length', 0))
-            data = json.loads(self.rfile.read(content_length).decode('utf-8'))
+            data = self.read_body_json()
             
             files = data.get('files', {})
             main_file = data.get('main_file', 'main.tex')
@@ -430,7 +437,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             return pdf_b, log_txt, err_txt
 
         def get_fallback_cached_pdf(log_txt, err_reason):
-            # 1. Try project-specific last compiled PDF
+            # ONLY return project-specific last compiled PDF to prevent cross-project PDF leakage
             if proj_id:
                 cache_path = os.path.join(DB_DIR, proj_id, 'last_compiled.pdf')
                 if os.path.exists(cache_path):
@@ -438,19 +445,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                         with open(cache_path, 'rb') as cf:
                             b = cf.read()
                             if b:
-                                return b, log_txt + f'\n\n⚠️ LaTeX Error ({err_reason}). Showing last compiled PDF preview while fixing error.', 'LaTeX errors'
-                    except Exception:
-                        pass
-
-            # 2. Search any existing PDF file in DB_DIR
-            for pid in os.listdir(DB_DIR):
-                cand = os.path.join(DB_DIR, pid, 'last_compiled.pdf')
-                if os.path.exists(cand):
-                    try:
-                        with open(cand, 'rb') as cf:
-                            b = cf.read()
-                            if b:
-                                return b, log_txt + f'\n\n⚠️ LaTeX Error ({err_reason}). Showing cached PDF preview while fixing error.', 'LaTeX errors'
+                                return b, log_txt + f'\n\n⚠️ LaTeX Warning ({err_reason}). Showing last compiled PDF preview for this project.', 'LaTeX errors'
                     except Exception:
                         pass
 
@@ -458,7 +453,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             import re, struct, zlib, base64
-            # Prioritize compiling the user's currently selected active .tex file if it contains \documentclass
+            # Determine primary compilation root document
             target_main_file = main_file
             is_active_root = target_main_file and target_main_file in files and isinstance(files.get(target_main_file), str) and '\\documentclass' in files[target_main_file]
             active_file_fallback = not is_active_root
@@ -501,17 +496,34 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
 
                 if is_binary or content == '[Binary Asset]':
                     found_disk = False
-                    for pid in os.listdir(DB_DIR):
-                        disk_p = os.path.join(DB_DIR, pid, filepath)
+                    if proj_id:
+                        disk_p = os.path.join(DB_DIR, proj_id, filepath)
                         if os.path.exists(disk_p) and os.path.isfile(disk_p):
                             shutil.copy2(disk_p, full_path)
                             found_disk = True
-                            break
+                    if not found_disk:
+                        for pid in os.listdir(DB_DIR):
+                            disk_p = os.path.join(DB_DIR, pid, filepath)
+                            if os.path.exists(disk_p) and os.path.isfile(disk_p):
+                                shutil.copy2(disk_p, full_path)
+                                found_disk = True
+                                break
                     if found_disk:
                         continue
 
                 with open(full_path, 'w', encoding='utf-8') as f:
                     f.write(content if isinstance(content, str) else '')
+
+            # Auto-include active sub-file into target_main_file if it's not referenced yet
+            if target_main_file and target_main_file in files and activeFile and activeFile != target_main_file and activeFile.endswith('.tex'):
+                main_txt = files.get(target_main_file, '')
+                clean_active = activeFile.replace('.tex', '')
+                if clean_active not in main_txt and activeFile not in main_txt:
+                    if '\\end{document}' in main_txt:
+                        sub_include = f"\n% Auto-included active sub-file: {activeFile}\n\\input{{{activeFile}}}\n\\end{{document}}"
+                        mod_main = main_txt.replace('\\end{document}', sub_include)
+                        with open(os.path.join(tmpdir, target_main_file), 'w', encoding='utf-8') as f:
+                            f.write(mod_main)
 
             main_filepath = os.path.join(tmpdir, target_main_file)
             pdf_filepath = os.path.splitext(main_filepath)[0] + '.pdf'
