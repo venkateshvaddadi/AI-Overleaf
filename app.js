@@ -80,19 +80,20 @@ async function fetchProjectsFromBackend(filterQuery = '') {
       // Update sidebar tab counts asynchronously
       updateSidebarCounts();
 
-      // F5 Refresh & Direct Hash Navigation Support:
-      let savedProjId = null;
+      // Direct Hash Navigation Support:
+      let hashProjId = null;
       const hash = window.location.hash;
       if (hash && hash.startsWith('#/project/')) {
-        savedProjId = hash.replace('#/project/', '');
-      } else {
-        savedProjId = localStorage.getItem('activeProjectId');
+        hashProjId = hash.replace('#/project/', '');
       }
 
-      if (savedProjId && currentDashTab === 'active' && projectsList.some(p => p.id === savedProjId)) {
-        if (!activeProject || activeProject.id !== savedProjId) {
-          await openProjectFromDashboard(savedProjId);
+      if (hashProjId && currentDashTab === 'active' && projectsList.some(p => p.id === hashProjId)) {
+        if (!activeProject || activeProject.id !== hashProjId) {
+          await openProjectFromDashboard(hashProjId);
         }
+      } else if (!hashProjId) {
+        // Ensure root URL stays on Home Dashboard view
+        switchView('home');
       }
     }
   } catch (e) {
