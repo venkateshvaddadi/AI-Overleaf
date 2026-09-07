@@ -147,7 +147,7 @@
         </div>
 
         <!-- Overleaf TeX Compiler Engine Selector (pdfLaTeX / XeLaTeX / LuaLaTeX / Tectonic) -->
-        <div class="model-select-wrapper" style="margin-right:6px;">
+        <div class="model-select-wrapper">
           <i class="fa-solid fa-gears" style="color:var(--accent-amber);"></i>
           <select id="compiler-engine-select" title="Overleaf TeX Compiler Engine Selection (pdfLaTeX, XeLaTeX, LuaLaTeX, Tectonic)" onchange="saveCompilerEnginePreference()">
             <option value="tectonic">Engine: Tectonic (Native Fast)</option>
@@ -156,26 +156,6 @@
             <option value="lualatex">Engine: LuaLaTeX (Lua Scripted)</option>
           </select>
         </div>
-        <!-- Workspace Layout Mode Switcher (Code Only | Split View | PDF Only) -->
-        <div class="editor-view-switcher" style="display:flex; align-items:center; gap:3px; background:var(--bg-sidebar); padding:3px; border-radius:8px; border:1px solid var(--border-color); margin-right:6px;">
-          <button id="btn-layout-editor" class="btn-layout-toggle" title="Full Code Editor Only View" onclick="setEditorLayoutMode('editor')">
-            <i class="fa-solid fa-code"></i> Code
-          </button>
-          <button id="btn-layout-split" class="btn-layout-toggle active" title="Dual Split Screen View (Code + PDF)" onclick="setEditorLayoutMode('split')">
-            <i class="fa-solid fa-columns"></i> Split
-          </button>
-          <button id="btn-layout-pdf" class="btn-layout-toggle" title="Full PDF / Preview Only View" onclick="setEditorLayoutMode('pdf')">
-            <i class="fa-solid fa-file-pdf"></i> PDF
-          </button>
-        </div>
-
-        <button id="btn-github-sync" class="btn btn-github" title="Sync Project to GitHub Private/Public Repository">
-          <i class="fa-brands fa-github"></i> GitHub Sync
-        </button>
-
-        <button id="btn-settings" class="btn btn-icon" title="Ollama API Settings">
-          <i class="fa-solid fa-gear"></i>
-        </button>
       </div>
     </header>
 
@@ -461,6 +441,27 @@
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
+            <!-- Workspace Layout Mode Switcher (Code Only | Split View | PDF Only) -->
+            <div class="editor-view-switcher" style="display:flex; align-items:center; gap:3px; background:var(--bg-sidebar); padding:2px 4px; border-radius:6px; border:1px solid var(--border-color);">
+              <button id="btn-layout-editor" class="btn-layout-toggle" title="Full Code Editor Only View" onclick="setEditorLayoutMode('editor')">
+                <i class="fa-solid fa-code"></i> Code
+              </button>
+              <button id="btn-layout-split" class="btn-layout-toggle active" title="Dual Split Screen View (Code + PDF)" onclick="setEditorLayoutMode('split')">
+                <i class="fa-solid fa-columns"></i> Split
+              </button>
+              <button id="btn-layout-pdf" class="btn-layout-toggle" title="Full PDF / Preview Only View" onclick="setEditorLayoutMode('pdf')">
+                <i class="fa-solid fa-file-pdf"></i> PDF
+              </button>
+            </div>
+
+            <button id="btn-github-sync" class="btn btn-sm btn-github" title="Sync Project to GitHub Private/Public Repository">
+              <i class="fa-brands fa-github"></i> GitHub Sync
+            </button>
+
+            <button id="btn-settings" class="btn btn-sm btn-icon" title="Ollama API Settings">
+              <i class="fa-solid fa-gear"></i>
+            </button>
+
             <button id="btn-compile" class="btn btn-sm btn-primary" title="Recompile Document Preview (Ctrl+S)">
               <i class="fa-solid fa-play"></i> Compile
             </button>
