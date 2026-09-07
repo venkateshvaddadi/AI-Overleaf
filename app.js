@@ -3476,6 +3476,15 @@ function initAITools() {
     if (promptText) runAITool(`Generate complete, compilable LaTeX \\begin{tikzpicture}...\\end{tikzpicture} block for: ${promptText}. Return ONLY raw LaTeX code.`, `TikZ Diagram: ${promptText}`);
   });
 
+  const toolEq = document.getElementById('tool-equation-analyzer');
+  if (toolEq) toolEq.addEventListener('click', runEquationAnalyzer);
+
+  const toolHealth = document.getElementById('tool-health-score');
+  if (toolHealth) toolHealth.addEventListener('click', calculatePaperHealthScore);
+
+  const toolRepair = document.getElementById('tool-auto-repair');
+  if (toolRepair) toolRepair.addEventListener('click', runAutomatedCompileFixLoop);
+
   const toolFix = document.getElementById('tool-fix-errors');
   if (toolFix) toolFix.addEventListener('click', () => runAITool('Fix any syntax, structural, or unclosed environment errors in this LaTeX document.', 'Auto-Fix Syntax Errors'));
 
@@ -3740,6 +3749,103 @@ async function runCitationAudit() {
   }
 
   alert(auditReport);
+}
+
+// PHASE 3: EQUATION & NOTATION ANALYZER
+function runEquationAnalyzer() {
+  if (!editor) return;
+
+  const currentCode = editor.getValue();
+  const eqMatches = Array.from(currentCode.matchAll(/\\begin\{(equation|align|gather)\*?\}([\s\S]*?)\\end\{\1\*?\}/g));
+  const inlineMatches = Array.from(currentCode.matchAll(/\$([^$]+)\$/g));
+
+  let mathReport = `🧮 EQUATION & NOTATION ANALYZER REPORT\n\n`;
+  mathReport += `✓ Display math environments found: ${eqMatches.length}\n`;
+  mathReport += `✓ Inline math expressions found: ${inlineMatches.length}\n\n`;
+
+  const missingLabels = eqMatches.filter(m => !m[2].includes('\\label{'));
+  if (missingLabels.length > 0) {
+    mathReport += `⚠️ EQUATIONS MISSING LABELS (${missingLabels.length}):\n  Equations should have \\label{eq:...} for cross-referencing.\n\n`;
+  } else {
+    mathReport += `✅ All display equations have valid \\label{} anchors.\n\n`;
+  }
+
+  // Check for common packages like amsmath, amssymb
+  const hasAms = currentCode.includes('amsmath') || currentCode.includes('amssymb');
+  if (!hasAms) {
+    mathReport += `ℹ️ Recommendation: Add \\usepackage{amsmath,amssymb} to preamble for advanced math symbols.\n`;
+  } else {
+    mathReport += `✅ Math preamble packages (amsmath/amssymb) detected.\n`;
+  }
+
+  alert(mathReport);
+}
+
+// PHASE 3: PAPER HEALTH SCORE & RESEARCH INTEGRITY PANEL
+function calculatePaperHealthScore() {
+  if (!editor) return;
+
+  const currentCode = editor.getValue();
+  let score = 100;
+  const breakdown = [];
+
+  // 1. Structure check
+  const hasTitle = currentCode.includes('\\title');
+  const hasAbstract = currentCode.includes('abstract');
+  const hasSection = currentCode.includes('\\section');
+
+  if (!hasTitle) { score -= 10; breakdown.push('❌ Missing \\title'); } else breakdown.push('✓ Title defined (+10)');
+  if (!hasAbstract) { score -= 15; breakdown.push('❌ Missing abstract environment'); } else breakdown.push('✓ Abstract environment present (+15)');
+  if (!hasSection) { score -= 15; breakdown.push('❌ Missing section structure'); } else breakdown.push('✓ Section hierarchy present (+15)');
+
+  // 2. Citation check
+  const hasCites = currentCode.includes('\\cite');
+  const hasBib = Object.keys(fileStore).some(f => f.endsWith('.bib'));
+  if (!hasCites) { score -= 15; breakdown.push('⚠️ No \\cite{} references'); } else breakdown.push('✓ Citations present (+15)');
+  if (!hasBib) { score -= 10; breakdown.push('⚠️ No .bib bibliography file'); } else breakdown.push('✓ Bibliography file detected (+10)');
+
+  // 3. Math & Figure check
+  const hasMath = currentCode.includes('$') || currentCode.includes('\\begin{equation}');
+  if (hasMath) breakdown.push('✓ Mathematical notation present (+10)');
+
+  score = Math.max(20, score);
+
+  let healthReport = `🔬 PAPER HEALTH SCORE: ${score} / 100\n\n`;
+  healthReport += `EVALUATION BREAKDOWN:\n${breakdown.map(b => `  ${b}`).join('\n')}\n\n`;
+  healthReport += `TOP ACTIONABLE SUGGESTIONS:\n`;
+  if (score >= 85) {
+    healthReport += `  • Excellent manuscript health! Ready for peer review simulation.`;
+  } else {
+    healthReport += `  • Address missing citations, add .bib file, and structure sections for higher score.`;
+  }
+
+  alert(healthReport);
+}
+
+// PHASE 4: AUTOMATED COMPILE-FIX-VERIFY LOOP
+async function runAutomatedCompileFixLoop() {
+  if (!editor) return;
+
+  alert('🔧 Running Automated Compile-Fix-Verify Loop...');
+
+  // Step 1: Run compilation pass
+  await saveCurrentProjectToBackend(true);
+  const resultLog = await compileLaTeX();
+
+  if (!lastCompilerLog || (!lastCompilerLog.includes('error:') && !lastCompilerLog.includes('! '))) {
+    alert('✅ Compilation is clean! No LaTeX errors detected.');
+    return;
+  }
+
+  // Step 2: Extract error and trigger context-aware AI repair
+  const model = document.getElementById('model-select').value;
+  const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://127.0.0.1:11434';
+  const code = editor.getValue();
+  const context = getAIContext();
+
+  const repairInstruction = `COMPILER ERROR DETECTED:\n${lastCompilerLog.slice(-1500)}\n\nAnalyze the LaTeX compilation error traceback above, identify the missing package, syntax typo, or unclosed environment, and provide a corrected replacement snippet for the manuscript.`;
+
+  runAITool(repairInstruction, 'Automated Compile-Fix Patch');
 }
 
 async function insertFigureAtCursor() {
