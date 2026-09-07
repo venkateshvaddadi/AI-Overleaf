@@ -396,6 +396,7 @@ function switchView(targetView, projId = null) {
       history.replaceState(null, '', ' ');
     }
     localStorage.removeItem('activeProjectId');
+    renderDashboard();
   } else {
     document.getElementById('view-editor').classList.add('active');
     ensurePdfViewActive();
@@ -497,6 +498,12 @@ function renderDashboard(filterQuery = '') {
   filtered.forEach(proj => {
     const card = document.createElement('div');
     card.className = 'project-card';
+    card.style.cursor = 'pointer';
+    card.onclick = (e) => {
+      if (!e.target.closest('button')) {
+        openProjectFromDashboard(proj.id);
+      }
+    };
 
     // Action buttons based on active tab state
     let actionButtonsHtml = '';
