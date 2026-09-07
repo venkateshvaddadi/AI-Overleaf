@@ -21,7 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initNavigation();
   initPreviewTabs();
   initVersionControl();
-  initTranslator();
   initAITools();
   initPdfInverseSearch();
 

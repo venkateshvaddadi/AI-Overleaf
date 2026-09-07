@@ -128,10 +128,6 @@
           <i class="fa-solid fa-folder-tree"></i>
           <span>Files</span>
         </button>
-        <button class="nav-item" data-tab="translator" title="LaTeX AI Translator">
-          <i class="fa-solid fa-language"></i>
-          <span>Translate</span>
-        </button>
         <button class="nav-item" data-tab="history" title="Version Control & Commits">
           <i class="fa-solid fa-code-commit"></i>
           <span>History</span>
@@ -157,37 +153,6 @@
           <ul class="file-list" id="file-list">
             <!-- Dynamically populated -->
           </ul>
-        </div>
-
-        <!-- Translator Tab -->
-        <div class="drawer-panel" id="panel-translator">
-          <div class="drawer-header">
-            <h3><i class="fa-solid fa-language"></i> AI LaTeX Translator</h3>
-          </div>
-          <div class="translator-body">
-            <p class="help-text">Translates document prose while preserving LaTeX syntax (<code>\section</code>), equations (<code>$..$</code>), and citations (<code>\cite{}</code>).</p>
-            
-            <label for="target-lang">Target Language:</label>
-            <select id="target-lang">
-              <option value="Spanish">Spanish</option>
-              <option value="French">French</option>
-              <option value="German">German</option>
-              <option value="Chinese (Simplified)">Chinese (Simplified)</option>
-              <option value="Japanese">Japanese</option>
-              <option value="Italian">Italian</option>
-              <option value="Portuguese">Portuguese</option>
-              <option value="Hindi">Hindi</option>
-              <option value="Russian">Russian</option>
-            </select>
-
-            <button id="btn-translate" class="btn btn-accent full-width">
-              <i class="fa-solid fa-wand-magic-sparkles"></i> Translate & Review Diff
-            </button>
-
-            <div id="translate-progress" class="status-box hidden">
-              <i class="fa-solid fa-spinner fa-spin"></i> Translating with local LLM...
-            </div>
-          </div>
         </div>
 
         <!-- Version Control Tab -->
