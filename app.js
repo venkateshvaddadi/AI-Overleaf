@@ -921,27 +921,54 @@ async function renameActiveProject() {
 // --- FILE & FOLDER STRUCTURE & DRAG-AND-DROP MANAGEMENT ---
 let expandedFolders = new Set(['figures', 'sections', 'chapters']);
 
-async function createNewFolder() {
-  let folderName = prompt('Enter New Folder Name (e.g. figures, sections, images):');
-  if (!folderName) return;
-  folderName = folderName.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
-  if (!folderName) return;
+function openNewFolderModal() {
+  const modal = document.getElementById('new-folder-modal');
+  const input = document.getElementById('new-foldername-input');
+  if (modal) modal.classList.add('active');
+  if (input) {
+    input.value = 'figures';
+    input.focus();
+    input.select();
+  }
+}
+
+function setFolderPreset(presetName) {
+  const input = document.getElementById('new-foldername-input');
+  if (input) {
+    input.value = presetName;
+    input.focus();
+  }
+}
+
+async function confirmCreateNewFolder() {
+  const input = document.getElementById('new-foldername-input');
+  if (!input) return;
+  let folderName = input.value.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  if (!folderName) {
+    alert('Please enter a valid folder name.');
+    return;
+  }
 
   const folderKey = `${folderName}/`;
   if (fileStore[folderKey]) {
-    alert(`Folder "${folderName}" already exists.`);
+    alert(`Folder "${folderName}" already exists in this project.`);
     return;
   }
 
   fileStore[folderKey] = '';
   expandedFolders.add(folderName);
 
+  closeModal('new-folder-modal');
   await saveCurrentProjectToBackend(true);
   renderFileList();
 
   if (typeof showToast === 'function') {
     showToast(`📁 Created folder "${folderName}/"`, 'success');
   }
+}
+
+async function createNewFolder() {
+  openNewFolderModal();
 }
 
 function renderFileList() {
@@ -1042,7 +1069,10 @@ function renderFileList() {
       if (childFiles.length === 0) {
         const emptyLi = document.createElement('li');
         emptyLi.className = 'empty-folder-notice';
-        emptyLi.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted); font-style:italic; padding-left:14px;">Empty folder (Drag files here)</span>`;
+        emptyLi.setAttribute('ondragover', 'handleFolderDragOver(event, this)');
+        emptyLi.setAttribute('ondragleave', 'handleFolderDragLeave(event, this)');
+        emptyLi.setAttribute('ondrop', `handleFolderDrop(event, '${folderPath}')`);
+        emptyLi.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted); font-style:italic; padding-left:14px;"><i class="fa-solid fa-cloud-arrow-up"></i> Empty folder (Drag &amp; drop files here)</span>`;
         subUl.appendChild(emptyLi);
       } else {
         childFiles.sort().forEach(fullPath => {

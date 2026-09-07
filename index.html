@@ -523,6 +523,40 @@
     </div>
   </div>
 
+  <!-- Interactive New Folder Creation Modal -->
+  <div class="modal-overlay" id="new-folder-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-folder-plus logo-icon"></i> Create New Folder</h3>
+        <button class="modal-close" onclick="closeModal('new-folder-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="new-foldername-input"><i class="fa-solid fa-folder-tree"></i> Folder Path / Name:</label>
+          <input type="text" id="new-foldername-input" placeholder="e.g. figures, sections, tables, bib" value="figures">
+          <p class="help-text" style="margin-top: 6px; font-size: 0.8rem; color: var(--text-muted);">
+            Create a folder to organize your LaTeX assets, figures, and sub-documents. You can drag and drop files into folders.
+          </p>
+        </div>
+
+        <div class="form-group" style="margin-top: 14px;">
+          <label><i class="fa-solid fa-lightbulb"></i> Recommended Structure Suggestions:</label>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
+            <button class="btn btn-sm btn-secondary" type="button" onclick="setFolderPreset('figures')"><i class="fa-solid fa-folder"></i> figures/</button>
+            <button class="btn btn-sm btn-secondary" type="button" onclick="setFolderPreset('sections')"><i class="fa-solid fa-folder"></i> sections/</button>
+            <button class="btn btn-sm btn-secondary" type="button" onclick="setFolderPreset('tables')"><i class="fa-solid fa-folder"></i> tables/</button>
+            <button class="btn btn-sm btn-secondary" type="button" onclick="setFolderPreset('bib')"><i class="fa-solid fa-folder"></i> bib/</button>
+            <button class="btn btn-sm btn-secondary" type="button" onclick="setFolderPreset('styles')"><i class="fa-solid fa-folder"></i> styles/</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('new-folder-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmCreateNewFolder()"><i class="fa-solid fa-folder-plus"></i> Create Folder</button>
+      </div>
+    </div>
+  </div>
+
   <!-- CSV to LaTeX Table Generator Modal -->
   <div class="modal-overlay" id="csv-table-modal">
     <div class="modal-box modal-lg">
