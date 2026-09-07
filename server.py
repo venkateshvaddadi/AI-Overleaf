@@ -380,6 +380,11 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             self.send_json(200, st)
             return
 
+        elif parsed.path == '/favicon.ico':
+            self.send_response(204)
+            self.end_headers()
+            return
+
         super().do_GET()
 
     def read_body_json(self):

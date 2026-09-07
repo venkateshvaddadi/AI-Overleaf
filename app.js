@@ -37,6 +37,19 @@ function sanitizeFileStore(rawFiles) {
   return clean;
 }
 
+function getSanitizedTextFilesPayload(files) {
+  if (!files || typeof files !== 'object') return {};
+  const clean = {};
+  Object.keys(files).forEach(k => {
+    const val = files[k];
+    if (typeof val === 'string' && val.startsWith('data:')) {
+      return;
+    }
+    clean[k] = val;
+  });
+  return clean;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initViewRouter();
   initDashboard();
@@ -213,14 +226,28 @@ async function createNewProjectFromDashboard() {
   }
 }
 
-async function saveCurrentProjectToBackend() {
+let _autoSaveTimer = null;
+
+async function saveCurrentProjectToBackend(immediate = false) {
   if (!activeProject || !editor) return;
 
   if (fileStore && activeFile) {
     fileStore[activeFile] = editor.getValue();
   }
 
+  if (!immediate) {
+    if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
+    _autoSaveTimer = setTimeout(() => _performSaveBackend(), 700);
+  } else {
+    if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
+    await _performSaveBackend();
+  }
+}
+
+async function _performSaveBackend() {
+  if (!activeProject || !editor) return;
   try {
+    const payloadFiles = getSanitizedTextFilesPayload(fileStore);
     const res = await fetch('/api/projects/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -228,12 +255,13 @@ async function saveCurrentProjectToBackend() {
         id: activeProject.id,
         name: activeProject.name,
         main_file: activeFile,
-        files: fileStore
+        files: payloadFiles
       })
     });
 
     if (res.ok) {
-      document.getElementById('save-status').innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved';
+      const statusEl = document.getElementById('save-status');
+      if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved';
     }
   } catch (e) {
     console.warn('Error saving to backend:', e);
@@ -1320,12 +1348,13 @@ async function compileLaTeX() {
   if (statusBadge) statusBadge.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Compiling PDF...';
 
   try {
+    const payloadFiles = getSanitizedTextFilesPayload(fileStore);
     const res = await fetch('/api/compile', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: activeProject ? activeProject.id : null,
-        files: fileStore,
+        files: payloadFiles,
         main_file: activeFile,
         title: title
       })
