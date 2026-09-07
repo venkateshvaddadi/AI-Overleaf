@@ -36,7 +36,7 @@ async function fetchProjectsFromBackend(filterQuery = '') {
     if (res.ok) {
       projectsList = await res.json();
       renderDashboard(filterQuery);
-      renderProjectSelector();
+      renderProjectTitle();
 
       // F5 Refresh & Direct Hash Navigation Support:
       let savedProjId = null;
@@ -66,7 +66,7 @@ async function openProjectFromDashboard(projId) {
       fileStore = activeProject.files || {};
       activeFile = activeProject.main_file || Object.keys(fileStore)[0] || 'main.tex';
 
-      renderProjectSelector();
+      renderProjectTitle();
       renderFileList();
 
       if (editor) {
@@ -394,36 +394,20 @@ async function handleDashboardZipImport(e) {
 
 // --- PROJECT MANAGEMENT IN EDITOR ---
 function initProjectManagement() {
-  const selector = document.getElementById('project-selector');
-  if (selector) {
-    selector.addEventListener('change', (e) => {
-      openProjectFromDashboard(e.target.value);
-    });
-  }
-
-  const btnCreateProj = document.getElementById('btn-create-project');
-  if (btnCreateProj) {
-    btnCreateProj.addEventListener('click', createNewProjectFromDashboard);
-  }
-
   const btnRenameProj = document.getElementById('btn-rename-project');
   if (btnRenameProj) {
     btnRenameProj.addEventListener('click', renameActiveProject);
   }
 }
 
-function renderProjectSelector() {
-  const selector = document.getElementById('project-selector');
-  if (!selector) return;
-  selector.innerHTML = '';
-  
-  projectsList.forEach(proj => {
-    const opt = document.createElement('option');
-    opt.value = proj.id;
-    opt.innerText = proj.name;
-    if (activeProject && proj.id === activeProject.id) opt.selected = true;
-    selector.appendChild(opt);
-  });
+function renderProjectTitle() {
+  const display = document.getElementById('project-title-display');
+  if (!display) return;
+  if (activeProject && activeProject.name) {
+    display.innerText = activeProject.name;
+  } else {
+    display.innerText = 'LaTeX Project';
+  }
 }
 
 async function renameActiveProject() {
@@ -433,6 +417,7 @@ async function renameActiveProject() {
   newProjName = newProjName.trim();
 
   activeProject.name = newProjName;
+  renderProjectTitle();
   await saveCurrentProjectToBackend();
   await fetchProjectsFromBackend();
 }

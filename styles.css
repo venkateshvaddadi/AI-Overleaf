@@ -169,6 +169,17 @@ body.dark-theme {
   width: 200px;
 }
 
+.project-title-display {
+  color: var(--text-main);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 0.9rem;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .save-status {
   font-size: 0.75rem;
   color: var(--accent-green);
