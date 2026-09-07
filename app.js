@@ -473,18 +473,73 @@ function renderFileList() {
 
 function switchActiveFile(filename) {
   if (!fileStore[filename]) return;
-  if (editor) fileStore[activeFile] = editor.getValue();
+  if (editor && !activeFile.match(/\.(png|jpg|jpeg|gif|svg|webp|pdf)$/i)) {
+    fileStore[activeFile] = editor.getValue();
+  }
   
   activeFile = filename;
-  if (editor) editor.setValue(fileStore[activeFile] || '');
+  const isImage = filename.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i);
+  
+  const cmWrapper = editor ? editor.getWrapperElement() : document.querySelector('.CodeMirror');
+  const imgViewer = document.getElementById('image-asset-viewer');
+
+  if (isImage) {
+    if (cmWrapper) cmWrapper.style.display = 'none';
+    if (imgViewer) {
+      imgViewer.classList.remove('hidden');
+      renderImageAssetView(filename);
+    }
+  } else {
+    if (imgViewer) imgViewer.classList.add('hidden');
+    if (cmWrapper) cmWrapper.style.display = 'block';
+    if (editor) {
+      editor.setValue(fileStore[activeFile] || '');
+      setTimeout(() => editor.refresh(), 50);
+    }
+  }
+
   const indicator = document.getElementById('active-file-indicator');
   if (indicator) indicator.innerText = activeFile;
   const pdfLabel = document.getElementById('pdf-file-label');
   if (pdfLabel) pdfLabel.innerText = activeFile;
+  
   renderFileList();
   ensurePdfViewActive();
   compileLaTeX();
   saveCurrentProjectToBackend();
+}
+
+function renderImageAssetView(filename) {
+  const imgElem = document.getElementById('img-asset-preview');
+  const titleElem = document.getElementById('img-asset-name');
+  const typeElem = document.getElementById('img-asset-type');
+  const infoElem = document.getElementById('img-asset-info');
+  const codeElem = document.getElementById('img-snippet-code');
+
+  if (titleElem) titleElem.innerText = filename;
+  const ext = filename.split('.').pop().toUpperCase();
+  if (typeElem) typeElem.innerText = ext;
+  if (codeElem) codeElem.innerText = `\\includegraphics[width=\\linewidth]{${filename}}`;
+
+  let src = fileStore[filename];
+  if (src && src.startsWith('data:')) {
+    if (imgElem) {
+      imgElem.src = src;
+      imgElem.onload = () => {
+        if (infoElem) infoElem.innerHTML = `<i class="fa-solid fa-circle-info"></i> Asset Info: ${imgElem.naturalWidth} × ${imgElem.naturalHeight} px`;
+      };
+    }
+  } else {
+    if (imgElem) imgElem.src = src || '';
+  }
+}
+
+function copyIncludeGraphicsCode() {
+  const codeElem = document.getElementById('img-snippet-code');
+  if (codeElem) {
+    navigator.clipboard.writeText(codeElem.innerText);
+    alert(`Copied code snippet to clipboard:\n${codeElem.innerText}`);
+  }
 }
 
 function createNewFile() {

@@ -268,6 +268,31 @@
 
         <div class="editor-container">
           <textarea id="latex-code-editor"></textarea>
+
+          <!-- Image Asset Viewer Canvas -->
+          <div id="image-asset-viewer" class="image-asset-viewer hidden">
+            <div class="image-asset-header">
+              <div class="image-asset-title">
+                <i class="fa-solid fa-file-image logo-icon"></i>
+                <span id="img-asset-name">Figure.jpg</span>
+                <span class="badge" id="img-asset-type">JPEG</span>
+              </div>
+              <div class="image-asset-actions">
+                <button class="btn btn-sm btn-primary" onclick="copyIncludeGraphicsCode()" title="Copy \includegraphics snippet">
+                  <i class="fa-solid fa-copy"></i> Copy \includegraphics
+                </button>
+              </div>
+            </div>
+            <div class="image-asset-body">
+              <div class="image-preview-canvas">
+                <img id="img-asset-preview" src="" alt="Image Asset Preview">
+              </div>
+            </div>
+            <div class="image-asset-footer">
+              <span id="img-asset-info"><i class="fa-solid fa-circle-info"></i> Asset Preview</span>
+              <code id="img-snippet-code">\includegraphics[width=\linewidth]{Figure.jpg}</code>
+            </div>
+          </div>
         </div>
       </section>
 
