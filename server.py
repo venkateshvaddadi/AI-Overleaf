@@ -849,33 +849,39 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             # Run Tectonic compilation with continue-on-errors flag
             if os.path.exists(TECTONIC_BIN):
                 log_output = ''
-                cmd = [TECTONIC_BIN, '-Z', 'continue-on-errors', '-k', '--only-cached', main_filepath]
-                res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
-                stdout_str = res.stdout.decode('utf-8', errors='ignore')
-                stderr_str = res.stderr.decode('utf-8', errors='ignore')
-                log_output = stdout_str + '\n' + stderr_str
+                try:
+                    cmd = [TECTONIC_BIN, '-Z', 'continue-on-errors', '-k', '--only-cached', main_filepath]
+                    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=12)
+                    stdout_str = res.stdout.decode('utf-8', errors='ignore')
+                    stderr_str = res.stderr.decode('utf-8', errors='ignore')
+                    log_output = stdout_str + '\n' + stderr_str
 
-                if not os.path.exists(pdf_filepath):
-                    missing_sty = re.findall(r"File [`']([^`']+\.sty)[`'] not found", log_output)
-                    if missing_sty:
-                        for m_sty in set(missing_sty):
-                            m_path = os.path.join(tmpdir, m_sty)
-                            m_name = os.path.splitext(m_sty)[0]
-                            if not os.path.exists(m_path):
-                                with open(m_path, 'w', encoding='utf-8') as fp:
-                                    fp.write(f'% Auto stub for {m_name}\n\\NeedsTeXFormat{{LaTeX2e}}\n\\ProvidesPackage{{{m_name}}}[2026/09/06 Auto Stub]\n')
-                        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
-                        log_output += '\n--- Re-try pass after stubbing missing packages ---\n' + res.stdout.decode('utf-8', errors='ignore') + res.stderr.decode('utf-8', errors='ignore')
+                    if not os.path.exists(pdf_filepath):
+                        missing_sty = re.findall(r"File [`']([^`']+\.sty)[`'] not found", log_output)
+                        if missing_sty:
+                            for m_sty in set(missing_sty):
+                                m_path = os.path.join(tmpdir, m_sty)
+                                m_name = os.path.splitext(m_sty)[0]
+                                if not os.path.exists(m_path):
+                                    with open(m_path, 'w', encoding='utf-8') as fp:
+                                        fp.write(f'% Auto stub for {m_name}\n\\NeedsTeXFormat{{LaTeX2e}}\n\\ProvidesPackage{{{m_name}}}[2026/09/06 Auto Stub]\n')
+                            try:
+                                res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=12)
+                                log_output += '\n--- Re-try pass after stubbing missing packages ---\n' + res.stdout.decode('utf-8', errors='ignore') + res.stderr.decode('utf-8', errors='ignore')
+                            except Exception:
+                                pass
 
-                if os.path.exists(pdf_filepath):
-                    has_err = res.returncode != 0 or 'error:' in log_output.lower() or '! ' in log_output or active_file_fallback
-                    with open(pdf_filepath, 'rb') as f:
-                        return save_and_return_pdf(f.read(), log_output, ('LaTeX errors' if has_err else None))
+                    if os.path.exists(pdf_filepath):
+                        has_err = res.returncode != 0 or 'error:' in log_output.lower() or '! ' in log_output or active_file_fallback
+                        with open(pdf_filepath, 'rb') as f:
+                            return save_and_return_pdf(f.read(), log_output, ('LaTeX errors' if has_err else None))
+                except Exception as e1:
+                    log_output += f'\nPass 1 notice: {e1}\n'
 
                 # 2. Full compilation pass if needed with continue-on-errors
                 try:
                     cmd = [TECTONIC_BIN, '-Z', 'continue-on-errors', '-k', main_filepath]
-                    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
+                    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
                     stdout_str = res.stdout.decode('utf-8', errors='ignore')
                     stderr_str = res.stderr.decode('utf-8', errors='ignore')
                     log_output += '\n--- Full Compilation Pass ---\n' + stdout_str + '\n' + stderr_str
@@ -889,8 +895,11 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                                 if not os.path.exists(m_path):
                                     with open(m_path, 'w', encoding='utf-8') as fp:
                                         fp.write(f'% Auto stub for {m_name}\n\\NeedsTeXFormat{{LaTeX2e}}\n\\ProvidesPackage{{{m_name}}}[2026/09/06 Auto Stub]\n')
-                            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
-                            log_output += '\n--- Re-try full pass after stubbing missing packages ---\n' + res.stdout.decode('utf-8', errors='ignore') + res.stderr.decode('utf-8', errors='ignore')
+                            try:
+                                res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
+                                log_output += '\n--- Re-try full pass after stubbing missing packages ---\n' + res.stdout.decode('utf-8', errors='ignore') + res.stderr.decode('utf-8', errors='ignore')
+                            except Exception:
+                                pass
 
                     if os.path.exists(pdf_filepath):
                         has_err = res.returncode != 0 or 'error:' in log_output.lower() or '! ' in log_output or active_file_fallback
@@ -906,14 +915,17 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                     if fallback_main:
                         fallback_path = os.path.join(tmpdir, fallback_main)
                         fallback_pdf = os.path.splitext(fallback_path)[0] + '.pdf'
-                        res = subprocess.run([TECTONIC_BIN, '-Z', 'continue-on-errors', '-k', fallback_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
-                        if os.path.exists(fallback_pdf):
-                            with open(fallback_pdf, 'rb') as f:
-                                return save_and_return_pdf(f.read(), log_output + f'\n--- Fallback PDF preview from {fallback_main} ---\n', 'LaTeX errors')
+                        try:
+                            res = subprocess.run([TECTONIC_BIN, '-Z', 'continue-on-errors', '-k', fallback_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
+                            if os.path.exists(fallback_pdf):
+                                with open(fallback_pdf, 'rb') as f:
+                                    return save_and_return_pdf(f.read(), log_output + f'\n--- Fallback PDF preview from {fallback_main} ---\n', 'LaTeX errors')
+                        except Exception:
+                            pass
 
-                    return get_fallback_cached_pdf(log_output, stderr_str or 'Compilation error')
-                except subprocess.TimeoutExpired:
-                    return get_fallback_cached_pdf(log_output + '\nCompilation timed out after 20 seconds.', 'Compilation timed out')
+                    return get_fallback_cached_pdf(log_output, 'Compilation error')
+                except Exception as e2:
+                    return get_fallback_cached_pdf(log_output + f'\nCompilation pass exception: {e2}', 'Compilation exception')
             elif os.path.exists('/usr/bin/pdflatex'):
                 try:
                     cmd = ['pdflatex', '-interaction=nonstopmode', '-output-directory', tmpdir, main_filepath]
@@ -940,7 +952,11 @@ if __name__ == '__main__':
     httpd = ThreadingHTTPServer(server_address, OverleafServer)
     httpd.daemon_threads = True
     print(f'Overleaf Multi-Threaded Native Compiler & Database Server running on port {PORT}')
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        pass
+    while True:
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            print(f"Server loop error: {e}")
+            time.sleep(1)
