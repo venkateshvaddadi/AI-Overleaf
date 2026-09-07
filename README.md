@@ -82,5 +82,6 @@ AI-Overleaf/
 
 ---
 
-## 📄 License
-Distributed under the MIT License. See `LICENSE` for more information.
+## 👨‍💻 Author & Attribution
+- **Author**: Venkatesh Vaddadi
+- **Repository**: [https://github.com/venkateshvaddadi/AI-Overleaf](https://github.com/venkateshvaddadi/AI-Overleaf)
