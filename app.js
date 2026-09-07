@@ -265,6 +265,113 @@ function hideProjectLoader() {
   }, 250);
 }
 
+// --- MULTI-USER REAL-TIME WORKSPACE SYNC ENGINE ---
+let liveSyncInterval = null;
+let lastKnownProjectVersion = 0;
+let lastKnownUpdatedAt = 0;
+let isLocalSaving = false;
+
+function initLiveWorkspaceSync() {
+  if (liveSyncInterval) clearInterval(liveSyncInterval);
+
+  liveSyncInterval = setInterval(async () => {
+    if (currentView !== 'editor' || !activeProject || !activeProject.id || isLocalSaving) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/projects?id=${activeProject.id}&meta_only=true`);
+      if (!res.ok) return;
+
+      const remoteMeta = await res.json();
+      const remoteVersion = remoteMeta.version || 0;
+      const remoteUpdatedAt = remoteMeta.updated_at || 0;
+      const remoteFilesList = remoteMeta.files || [];
+
+      const localFilesList = Object.keys(fileStore).filter(isUserContentFile);
+      const hasFileDifference = remoteFilesList.some(f => !localFilesList.includes(f)) ||
+                                localFilesList.some(f => !remoteFilesList.includes(f));
+
+      if (remoteVersion > lastKnownProjectVersion || remoteUpdatedAt > lastKnownUpdatedAt || hasFileDifference) {
+        await syncRemoteWorkspaceChanges(activeProject.id, remoteFilesList);
+        lastKnownProjectVersion = remoteVersion;
+        lastKnownUpdatedAt = remoteUpdatedAt;
+      }
+    } catch (err) {
+      console.warn('Live workspace sync polling exception:', err);
+    }
+  }, 2000);
+}
+
+async function syncRemoteWorkspaceChanges(projId, remoteFilesList) {
+  try {
+    const res = await fetch(`/api/projects?id=${projId}`);
+    if (!res.ok) return;
+
+    const fullProjData = await res.json();
+    const remoteFiles = fullProjData.files || {};
+
+    let filesAddedCount = 0;
+    let filesUpdatedCount = 0;
+    let filesDeletedCount = 0;
+    const addedFileNames = [];
+
+    // 1. Sync newly added or updated remote files into local fileStore
+    for (const [filePath, remoteContent] of Object.entries(remoteFiles)) {
+      if (!isUserContentFile(filePath)) continue;
+
+      if (!fileStore.hasOwnProperty(filePath)) {
+        fileStore[filePath] = remoteContent;
+        filesAddedCount++;
+        addedFileNames.push(filePath);
+      } else if (fileStore[filePath] !== remoteContent) {
+        if (filePath !== activeFile) {
+          fileStore[filePath] = remoteContent;
+          filesUpdatedCount++;
+        }
+      }
+    }
+
+    // 2. Remove files deleted remotely
+    for (const localFile of Object.keys(fileStore)) {
+      if (!isUserContentFile(localFile)) continue;
+      if (!remoteFiles.hasOwnProperty(localFile)) {
+        delete fileStore[localFile];
+        filesDeletedCount++;
+      }
+    }
+
+    if (filesAddedCount > 0 || filesUpdatedCount > 0 || filesDeletedCount > 0) {
+      addedFileNames.forEach(f => {
+        if (f.includes('/')) {
+          const parts = f.split('/');
+          parts.pop();
+          expandedFolders.add(parts.join('/'));
+        }
+      });
+
+      renderFileList();
+
+      if (typeof showToast === 'function') {
+        const addedMsg = filesAddedCount > 0 
+          ? `+${filesAddedCount} file(s) (${addedFileNames.slice(0, 2).join(', ')})`
+          : '';
+        const msg = `⚡ Synced: Received live updates from concurrent session! ${addedMsg}`;
+        showToast(msg, 'info');
+      }
+
+      if (editor) {
+        editor.refresh();
+        if (typeof runLaTeXSyntaxDiagnostics === 'function') {
+          runLaTeXSyntaxDiagnostics();
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Error syncing remote workspace changes:', err);
+  }
+}
+
 async function openProjectFromDashboard(projId, projNameHint) {
   try {
     let projName = projNameHint;
@@ -280,6 +387,8 @@ async function openProjectFromDashboard(projId, projNameHint) {
     if (res.ok) {
       activeProject = await res.json();
       fileStore = sanitizeFileStore(activeProject.files);
+      lastKnownProjectVersion = activeProject.version || 0;
+      lastKnownUpdatedAt = activeProject.updated_at || 0;
       const userKeys = Object.keys(fileStore);
       activeFile = (activeProject.main_file && isUserContentFile(activeProject.main_file)) ? activeProject.main_file : (userKeys[0] || 'main.tex');
 
@@ -383,6 +492,7 @@ async function saveCurrentProjectToBackend(immediate = false) {
 
 async function _performSaveBackend() {
   if (!activeProject || !editor) return;
+  isLocalSaving = true;
   try {
     const payloadFiles = getSanitizedTextFilesPayload(fileStore);
     const res = await fetch('/api/projects/save', {
@@ -397,11 +507,16 @@ async function _performSaveBackend() {
     });
 
     if (res.ok) {
+      const data = await res.json();
+      if (data.version) lastKnownProjectVersion = data.version;
+      if (data.updated_at) lastKnownUpdatedAt = data.updated_at;
       const statusEl = document.getElementById('save-status');
       if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved';
     }
   } catch (e) {
     console.warn('Error saving to backend:', e);
+  } finally {
+    isLocalSaving = false;
   }
 }
 
@@ -527,6 +642,7 @@ function switchView(targetView, projId = null) {
   document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
   
   if (targetView === 'home') {
+    if (liveSyncInterval) clearInterval(liveSyncInterval);
     document.getElementById('view-dashboard').classList.add('active');
     if (window.location.hash !== '') {
       history.replaceState(null, '', ' ');
@@ -542,6 +658,7 @@ function switchView(targetView, projId = null) {
       window.location.hash = `#/project/${idToSave}`;
       localStorage.setItem('activeProjectId', idToSave);
     }
+    initLiveWorkspaceSync();
     setTimeout(() => {
       if (editor) editor.refresh();
     }, 50);

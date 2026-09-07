@@ -24,7 +24,7 @@ def run_suite():
     print("=" * 80)
 
     passed_tests = 0
-    total_tests = 6
+    total_tests = 7
 
     # ---------------------------------------------------------
     # TEST 1: REST API & MULTI-TAB DASHBOARD LIFECYCLE
@@ -210,15 +210,61 @@ def run_suite():
         print(f"❌ TEST 6 FAILED: {e}")
 
     # ---------------------------------------------------------
+    # TEST 7: REAL-TIME MULTI-USER WORKSPACE SYNC & META POLLING
+    # ---------------------------------------------------------
+    print("\n--- TEST 7: Real-Time Multi-User Workspace Sync & Meta Polling ---")
+    try:
+        # 1. System 1 polls project meta
+        req1 = urllib.request.Request(f'{SERVER_URL}/api/projects?id=proj_spinet&meta_only=true')
+        res1 = urllib.request.urlopen(req1)
+        meta1 = json.loads(res1.read().decode('utf-8'))
+        initial_ver = meta1.get('version', 0)
+        initial_files = meta1.get('files', [])
+
+        # 2. System 2 uploads a file to the same project
+        save_payload = {
+            'id': 'proj_spinet',
+            'name': 'SPINet Project',
+            'files': {
+                'main.tex': '% Main file',
+                'figures/concurrent_system2_fig.png': 'data:image/png;base64,iVBORw0KGgoAAAANSU5QoAAA'
+            }
+        }
+        req_save = urllib.request.Request(
+            f'{SERVER_URL}/api/projects/save',
+            data=json.dumps(save_payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        res_save = urllib.request.urlopen(req_save)
+        save_resp = json.loads(res_save.read().decode('utf-8'))
+
+        # 3. System 1 polls lightweight meta endpoint again
+        res2 = urllib.request.urlopen(req1)
+        meta2 = json.loads(res2.read().decode('utf-8'))
+        new_ver = meta2.get('version', 0)
+        new_files = meta2.get('files', [])
+
+        print(f"Initial Version: {initial_ver} -> Updated Version: {new_ver}")
+        print(f"Concurrent Asset Added: 'figures/concurrent_system2_fig.png' in Remote Files: { 'figures/concurrent_system2_fig.png' in new_files }")
+
+        assert new_ver > initial_ver, "Version must increment on concurrent save"
+        assert 'figures/concurrent_system2_fig.png' in new_files, "Concurrent file upload must be visible in remote files list"
+
+        print("✅ TEST 7 PASSED: Real-time multi-user workspace sync and lightweight meta polling verified.")
+        passed_tests += 1
+    except Exception as e:
+        print(f"❌ TEST 7 FAILED: {e}")
+
+    # ---------------------------------------------------------
     # SUMMARY REPORT
     # ---------------------------------------------------------
     print("\n" + "=" * 80)
     print(f"🎯 VERIFICATION SUMMARY: {passed_tests} / {total_tests} TESTS PASSED")
     print("=" * 80)
     if passed_tests == total_tests:
-        print("🎉 ALL FEATURES ARE VERIFIED AND WORKING PERFECTLY!")
+        print("🎉 ALL FEATURES ARE VERIFIED AND WORKING PERFECTLY!\n")
     else:
-        print("⚠️ SOME TESTS ENCOUNTERED ISSUES. SEE LOG ABOVE.")
+        print("⚠️ SOME TESTS ENCOUNTERED ISSUES. SEE LOG ABOVE.\n")
 
 if __name__ == '__main__':
     run_suite()

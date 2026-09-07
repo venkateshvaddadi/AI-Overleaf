@@ -279,7 +279,28 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             if proj_id:
                 if proj_id in metadata:
                     proj = metadata[proj_id]
+                    meta_only = params.get('meta_only', ['false'])[0] == 'true'
                     proj_dir = os.path.join(DB_DIR, proj_id)
+
+                    if meta_only:
+                        user_files = []
+                        if os.path.exists(proj_dir):
+                            for root, _, files in os.walk(proj_dir):
+                                for fname in files:
+                                    full_path = os.path.join(root, fname)
+                                    rel_path = os.path.relpath(full_path, proj_dir)
+                                    if is_user_content_file(rel_path):
+                                        user_files.append(rel_path)
+                        self.send_json(200, {
+                            'id': proj_id,
+                            'name': proj.get('name'),
+                            'updated_at': proj.get('updated_at', 0),
+                            'version': proj.get('version', 0),
+                            'file_count': len(user_files),
+                            'files': user_files
+                        })
+                        return
+
                     files_obj = {}
                     if os.path.exists(proj_dir):
                         for root, _, files in os.walk(proj_dir):
@@ -513,13 +534,16 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                     with open(full_path, 'w', encoding='utf-8') as f:
                         f.write(content if isinstance(content, str) else '')
 
+                now_ms = int(time.time() * 1000)
                 metadata[proj_id]['modified_at'] = 'Just now'
+                metadata[proj_id]['updated_at'] = now_ms
+                metadata[proj_id]['version'] = metadata[proj_id].get('version', 0) + 1
                 metadata[proj_id]['file_count'] = len(files)
                 metadata[proj_id]['main_file'] = main_file
                 if name:
                     metadata[proj_id]['name'] = name
                 save_metadata(metadata)
-                self.send_json(200, {'status': 'saved', 'modified_at': 'Just now'})
+                self.send_json(200, {'status': 'saved', 'modified_at': 'Just now', 'updated_at': now_ms, 'version': metadata[proj_id]['version']})
             else:
                 self.send_json(404, {'error': 'Project not found'})
             return
@@ -982,13 +1006,12 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     init_db()
-    import socketserver, time
-    from http.server import HTTPServer
+    import socketserver
+    from http.server import ThreadingHTTPServer
     socketserver.TCPServer.allow_reuse_address = True
     print(f'Overleaf Multi-Threaded Native Compiler & Database Server running on port {PORT}')
-    httpd = HTTPServer(('0.0.0.0', PORT), OverleafServer)
     try:
+        httpd = ThreadingHTTPServer(('0.0.0.0', PORT), OverleafServer)
         httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("Shutting down server...")
-        httpd.server_close()
+    except BaseException as err:
+        print(f"Server shutting down: {err}")
