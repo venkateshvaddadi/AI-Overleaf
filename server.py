@@ -1031,8 +1031,9 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                     log_output = stdout_str + '\n' + stderr_str
 
                     if os.path.exists(pdf_filepath):
+                        has_err = res.returncode != 0 or 'error:' in log_output.lower() or '! ' in log_output
                         with open(pdf_filepath, 'rb') as f:
-                            return save_and_return_pdf(f.read(), log_output, None)
+                            return save_and_return_pdf(f.read(), log_output, ('LaTeX errors' if has_err else None))
                     return get_fallback_cached_pdf(log_output, stderr_str or 'Compilation error')
                 except subprocess.TimeoutExpired:
                     return get_fallback_cached_pdf('pdflatex timed out', 'Compilation timed out')
