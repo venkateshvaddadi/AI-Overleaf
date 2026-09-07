@@ -374,6 +374,104 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                 self.send_json(404, {'error': 'Project not found'})
             return
 
+        elif self.path == '/api/projects/github-sync':
+            data = self.read_body_json()
+            proj_id = data.get('id')
+            token = data.get('github_token', '').strip()
+            repo_url = data.get('repo_url', '').strip()
+            commit_msg = data.get('commit_message', '').strip() or f"Auto-sync: LaTeX update {time.strftime('%Y-%m-%d %H:%M')}"
+            auto_sync = data.get('auto_sync', False)
+            files = data.get('files', {})
+
+            if not proj_id or not token or not repo_url:
+                self.send_json(400, {'error': 'Missing project ID, GitHub token, or repository URL.'})
+                return
+
+            metadata = load_metadata()
+            if proj_id not in metadata:
+                self.send_json(404, {'error': 'Project not found.'})
+                return
+
+            proj_dir = os.path.join(DB_DIR, proj_id)
+            os.makedirs(proj_dir, exist_ok=True)
+
+            # Write current files to disk
+            import base64
+            for rel_path, content in files.items():
+                full_path = os.path.join(proj_dir, rel_path)
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+                ext = os.path.splitext(rel_path)[1].lower()
+                is_binary = ext in ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.svg', '.eps']
+
+                if isinstance(content, str) and content.startswith('data:') and ';base64,' in content:
+                    try:
+                        b64_data = content.split(';base64,')[1]
+                        raw_b = base64.b64decode(b64_data)
+                        with open(full_path, 'wb') as f:
+                            f.write(raw_b)
+                        continue
+                    except Exception:
+                        pass
+
+                if not is_binary and content != '[Binary Asset]':
+                    with open(full_path, 'w', encoding='utf-8') as f:
+                        f.write(content if isinstance(content, str) else '')
+
+            # Create .gitignore for space optimization (skip temp logs and last_compiled.pdf)
+            gitignore_path = os.path.join(proj_dir, '.gitignore')
+            if not os.path.exists(gitignore_path):
+                with open(gitignore_path, 'w', encoding='utf-8') as f:
+                    f.write("*.aux\n*.log\n*.out\n*.toc\n*.synctex.gz\n*.fls\n*.fdb_latexmk\nlast_compiled.pdf\ntemp.tex\n")
+
+            # Clean remote URL for authenticated HTTPS push
+            clean_repo = repo_url.replace('https://', '').replace('http://', '')
+            if '@' in clean_repo:
+                clean_repo = clean_repo.split('@')[-1]
+            
+            auth_repo_url = f"https://x-access-token:{token}@{clean_repo}"
+
+            try:
+                # Init git if needed
+                if not os.path.exists(os.path.join(proj_dir, '.git')):
+                    subprocess.run(['git', 'init'], cwd=proj_dir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    subprocess.run(['git', 'config', 'user.name', 'AI-Overleaf Sync'], cwd=proj_dir)
+                    subprocess.run(['git', 'config', 'user.email', 'sync@ai-overleaf.local'], cwd=proj_dir)
+
+                # Stage, commit, and push
+                subprocess.run(['git', 'add', '-A'], cwd=proj_dir, check=True)
+
+                # Check if there are changes to commit
+                status_res = subprocess.run(['git', 'status', '--porcelain'], cwd=proj_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                if status_res.stdout.strip():
+                    subprocess.run(['git', 'commit', '-m', commit_msg], cwd=proj_dir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+                # Push to main branch (or master)
+                push_res = subprocess.run(['git', 'push', auth_repo_url, 'HEAD:main'], cwd=proj_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                if push_res.returncode != 0:
+                    push_res = subprocess.run(['git', 'push', auth_repo_url, 'HEAD:master'], cwd=proj_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+                if push_res.returncode == 0:
+                    metadata[proj_id]['github_token'] = token
+                    metadata[proj_id]['github_repo'] = repo_url
+                    metadata[proj_id]['github_autosync'] = auto_sync
+                    metadata[proj_id]['github_last_synced'] = time.strftime('%Y-%m-%d %H:%M:%S')
+                    save_metadata(metadata)
+
+                    self.send_json(200, {
+                        'status': 'success',
+                        'last_synced': metadata[proj_id]['github_last_synced'],
+                        'log': push_res.stdout + push_res.stderr or 'Successfully synced all files to GitHub repository.'
+                    })
+                else:
+                    self.send_json(400, {
+                        'error': 'GitHub push failed. Please verify repository URL and PAT permissions.',
+                        'log': push_res.stderr or push_res.stdout
+                    })
+            except Exception as git_err:
+                self.send_json(500, {'error': f'Git sync error: {str(git_err)}'})
+            return
+
         elif self.path == '/api/compile':
             data = self.read_body_json()
             
@@ -515,12 +613,12 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                     f.write(content if isinstance(content, str) else '')
 
             # Auto-include active sub-file into target_main_file if it's not referenced yet
-            if target_main_file and target_main_file in files and activeFile and activeFile != target_main_file and activeFile.endswith('.tex'):
+            if target_main_file and target_main_file in files and main_file and main_file != target_main_file and main_file.endswith('.tex'):
                 main_txt = files.get(target_main_file, '')
-                clean_active = activeFile.replace('.tex', '')
-                if clean_active not in main_txt and activeFile not in main_txt:
+                clean_active = main_file.replace('.tex', '')
+                if clean_active not in main_txt and main_file not in main_txt:
                     if '\\end{document}' in main_txt:
-                        sub_include = f"\n% Auto-included active sub-file: {activeFile}\n\\input{{{activeFile}}}\n\\end{{document}}"
+                        sub_include = f"\n% Auto-included active sub-file: {main_file}\n\\input{{{main_file}}}\n\\end{{document}}"
                         mod_main = main_txt.replace('\\end{document}', sub_include)
                         with open(os.path.join(tmpdir, target_main_file), 'w', encoding='utf-8') as f:
                             f.write(mod_main)

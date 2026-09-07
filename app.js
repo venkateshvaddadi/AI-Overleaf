@@ -1135,6 +1135,7 @@ function initNavigation() {
 
   document.getElementById('btn-export-pdf').addEventListener('click', exportPDF);
   document.getElementById('btn-download').addEventListener('click', exportTeXFile);
+  initGitHubSync();
 }
 
 function exportTeXFile() {
@@ -1880,6 +1881,124 @@ function autoFixPaperFromReview() {
   closeModal('peer-review-modal');
   runAITool(`Apply the recommended peer review improvements and fixes from this critique report to the document:\n\nPEER REVIEW REPORT:\n${critique}\n\nPreserve all LaTeX structure and equations.`, 'Auto-Apply Peer Review Improvements');
 }
+
+// --- 4. GITHUB PRIVATE REPOSITORY SYNC ENGINE ---
+function openGitHubSyncModal() {
+  const modal = document.getElementById('github-sync-modal');
+  const repoInput = document.getElementById('github-repo-input');
+  const patInput = document.getElementById('github-pat-input');
+  const commitInput = document.getElementById('github-commit-msg-input');
+  const autoCheckbox = document.getElementById('github-autosync-checkbox');
+  const logBox = document.getElementById('github-sync-log-box');
+
+  if (activeProject) {
+    if (repoInput) repoInput.value = activeProject.github_repo || '';
+    if (patInput) patInput.value = activeProject.github_token || '';
+    if (autoCheckbox) autoCheckbox.checked = activeProject.github_autosync || false;
+  }
+
+  if (commitInput) {
+    commitInput.value = `Sync update: ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (${activeFile})`;
+  }
+
+  if (logBox) {
+    if (activeProject && activeProject.github_last_synced) {
+      logBox.style.display = 'block';
+      logBox.innerText = `Last synced to GitHub: ${activeProject.github_last_synced}`;
+    } else {
+      logBox.style.display = 'none';
+    }
+  }
+
+  if (modal) modal.classList.add('active');
+}
+
+function initGitHubSync() {
+  const btnSync = document.getElementById('btn-github-sync');
+  if (btnSync) btnSync.addEventListener('click', openGitHubSyncModal);
+}
+
+async function performGitHubSync(isAutoSync = false) {
+  if (!activeProject) return;
+
+  const repoUrl = document.getElementById('github-repo-input').value.trim();
+  const token = document.getElementById('github-pat-input').value.trim();
+  const commitMsg = document.getElementById('github-commit-msg-input').value.trim();
+  const autoSync = document.getElementById('github-autosync-checkbox').checked;
+
+  const logBox = document.getElementById('github-sync-log-box');
+  const btnConfirm = document.getElementById('btn-confirm-github-sync');
+
+  if (!repoUrl) {
+    alert('Please enter your GitHub Repository URL (e.g. https://github.com/username/repo.git).');
+    return;
+  }
+  if (!token) {
+    alert('Please enter your GitHub Personal Access Token (PAT).');
+    return;
+  }
+
+  if (!isAutoSync && btnConfirm) {
+    btnConfirm.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing to GitHub...';
+    btnConfirm.disabled = true;
+  }
+
+  if (logBox) {
+    logBox.style.display = 'block';
+    logBox.innerText = `⏳ Initializing git sync to ${repoUrl}...`;
+  }
+
+  // Ensure current editor text is saved in fileStore
+  if (editor && activeFile) {
+    fileStore[activeFile] = editor.getValue();
+  }
+
+  try {
+    const res = await fetch('/api/projects/github-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: activeProject.id,
+        github_token: token,
+        repo_url: repoUrl,
+        commit_message: commitMsg,
+        auto_sync: autoSync,
+        files: fileStore
+      })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      activeProject.github_repo = repoUrl;
+      activeProject.github_token = token;
+      activeProject.github_autosync = autoSync;
+      activeProject.github_last_synced = data.last_synced;
+
+      if (logBox) {
+        logBox.innerText = `✅ GitHub Sync Success (${data.last_synced}):\n${data.log || 'Pushed commits to main.'}`;
+      }
+
+      if (!isAutoSync) {
+        alert(`✅ Project successfully synced to GitHub repository!\nLast synced: ${data.last_synced}`);
+      }
+    } else {
+      if (logBox) {
+        logBox.innerText = `❌ Sync Failed: ${data.error}\n\n${data.log || ''}`;
+      }
+      if (!isAutoSync) alert(`❌ GitHub Sync Error: ${data.error}`);
+    }
+  } catch (e) {
+    if (logBox) logBox.innerText = `❌ Sync Error: ${e.message}`;
+    if (!isAutoSync) alert(`❌ Network Error during GitHub Sync: ${e.message}`);
+  } finally {
+    if (!isAutoSync && btnConfirm) {
+      btnConfirm.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Push & Sync to GitHub Now';
+      btnConfirm.disabled = false;
+    }
+  }
+}
+
 
 
 

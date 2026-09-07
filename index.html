@@ -112,6 +112,10 @@
           <i class="fa-solid fa-file-arrow-down"></i> Export .tex
         </button>
 
+        <button id="btn-github-sync" class="btn btn-github" title="Sync Project to GitHub Private/Public Repository">
+          <i class="fa-brands fa-github"></i> GitHub Sync
+        </button>
+
         <button id="btn-settings" class="btn btn-icon" title="Ollama API Settings">
           <i class="fa-solid fa-gear"></i>
         </button>
@@ -576,6 +580,55 @@
         <button class="btn btn-secondary" onclick="closeModal('peer-review-modal')">Close Report</button>
         <button class="btn btn-secondary" onclick="copyPeerReviewReport()"><i class="fa-solid fa-copy"></i> Copy Feedback</button>
         <button class="btn btn-primary" onclick="autoFixPaperFromReview()"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Apply AI Improvements</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GitHub Private Repository Sync Modal -->
+  <div class="modal-overlay" id="github-sync-modal">
+    <div class="modal-box modal-lg">
+      <div class="modal-header">
+        <h3><i class="fa-brands fa-github"></i> GitHub Repository Sync</h3>
+        <span class="badge" id="github-sync-badge">Git Remote Control</span>
+        <button class="modal-close" onclick="closeModal('github-sync-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="status-box" style="margin-bottom:14px; background:rgba(99,102,241,0.1); border-color:var(--accent-indigo); color:var(--text-main);">
+          <i class="fa-brands fa-github" style="font-size:1.4rem; color:var(--text-main);"></i>
+          <div>
+            <strong>Automatic GitHub Private/Public Repository Sync</strong>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Sync all project .tex files, bibliographies, and image assets directly to your GitHub repository.</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="github-repo-input"><i class="fa-solid fa-link"></i> GitHub Repository URL:</label>
+          <input type="text" id="github-repo-input" placeholder="e.g. https://github.com/username/my-private-paper.git">
+        </div>
+
+        <div class="form-group">
+          <label for="github-pat-input"><i class="fa-solid fa-key"></i> Personal Access Token (PAT):</label>
+          <input type="password" id="github-pat-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+          <p class="help-text" style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Token is securely stored locally in your project database and never shared.</p>
+        </div>
+
+        <div class="form-group">
+          <label for="github-commit-msg-input"><i class="fa-solid fa-code-commit"></i> Commit Message:</label>
+          <input type="text" id="github-commit-msg-input" placeholder="e.g. Updated paper sections and LaTeX data tables">
+        </div>
+
+        <div class="form-group" style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+          <input type="checkbox" id="github-autosync-checkbox" style="width:auto; cursor:pointer;">
+          <label for="github-autosync-checkbox" style="margin:0; cursor:pointer; font-weight:normal;">Auto-sync changes to GitHub every time document compiles / saves</label>
+        </div>
+
+        <div id="github-sync-log-box" style="margin-top:12px; font-family:'Fira Code', monospace; font-size:0.8rem; background:var(--dark-bg); color:var(--accent-teal); border:1px solid var(--border-color); border-radius:6px; padding:10px; min-height:60px; max-height:140px; overflow-y:auto; display:none;">
+          <!-- Sync log -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('github-sync-modal')">Close</button>
+        <button class="btn btn-primary" id="btn-confirm-github-sync" onclick="performGitHubSync()"><i class="fa-solid fa-cloud-arrow-up"></i> Push & Sync to GitHub Now</button>
       </div>
     </div>
   </div>
