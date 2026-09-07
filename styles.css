@@ -1791,12 +1791,110 @@ li.CodeMirror-hint-active {
   50% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 8px #a855f7); }
 }
 
-.project-card.opening-pulse {
-  outline: 2px solid var(--accent-purple) !important;
-  box-shadow: 0 0 25px rgba(168, 85, 247, 0.45) !important;
-  transform: scale(0.98);
-  transition: all 0.15s ease;
+
+/* Sidebar Folder Tree & Drag and Drop Styles */
+.folder-item {
+  list-style: none;
+  margin-bottom: 4px;
 }
+
+.folder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.folder-header:hover {
+  background: rgba(168, 85, 247, 0.12);
+}
+
+.folder-header.folder-drop-active {
+  background: rgba(168, 85, 247, 0.28) !important;
+  border-color: var(--accent-purple) !important;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
+  transform: scale(1.02);
+}
+
+.folder-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.folder-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.folder-header:hover .folder-actions {
+  opacity: 1;
+}
+
+.folder-toggle-icon {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  width: 12px;
+}
+
+.folder-icon {
+  color: var(--accent-amber);
+  font-size: 0.95rem;
+}
+
+.folder-badge {
+  font-size: 0.7rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.folder-sub-list {
+  padding-left: 14px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.nested-file {
+  border-left: 2px solid rgba(168, 85, 247, 0.3);
+  margin-left: 4px;
+}
+
+.file-item[draggable="true"] {
+  cursor: grab;
+}
+
+.file-item[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.file-item.dragging {
+  opacity: 0.4;
+  outline: 1px dashed var(--accent-purple);
+}
+
+.file-list.root-drag-over {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px dashed var(--accent-blue);
+  border-radius: 8px;
+}
+
 
 
 

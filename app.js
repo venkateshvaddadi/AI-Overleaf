@@ -918,41 +918,314 @@ async function renameActiveProject() {
   await saveCurrentProjectToBackend();
 }
 
-// --- FILE STRUCTURE & UPLOAD MANAGEMENT ---
+// --- FILE & FOLDER STRUCTURE & DRAG-AND-DROP MANAGEMENT ---
+let expandedFolders = new Set(['figures', 'sections', 'chapters']);
+
+async function createNewFolder() {
+  let folderName = prompt('Enter New Folder Name (e.g. figures, sections, images):');
+  if (!folderName) return;
+  folderName = folderName.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  if (!folderName) return;
+
+  const folderKey = `${folderName}/`;
+  if (fileStore[folderKey]) {
+    alert(`Folder "${folderName}" already exists.`);
+    return;
+  }
+
+  fileStore[folderKey] = '';
+  expandedFolders.add(folderName);
+
+  await saveCurrentProjectToBackend(true);
+  renderFileList();
+
+  if (typeof showToast === 'function') {
+    showToast(`📁 Created folder "${folderName}/"`, 'success');
+  }
+}
+
 function renderFileList() {
   const container = document.getElementById('file-list');
   if (!container) return;
   container.innerHTML = '';
 
-  Object.keys(fileStore).filter(isUserContentFile).forEach(filename => {
-    const li = document.createElement('li');
-    li.className = `file-item ${filename === activeFile ? 'active' : ''}`;
-    
-    let iconClass = 'fa-file-code';
-    if (filename.endsWith('.bib')) iconClass = 'fa-book';
-    else if (filename.endsWith('.cls') || filename.endsWith('.sty')) iconClass = 'fa-sliders';
-    else if (filename.match(/\.(png|jpg|jpeg|pdf|svg)$/i)) iconClass = 'fa-file-image';
+  const userKeys = Object.keys(fileStore).filter(isUserContentFile);
 
-    li.innerHTML = `
-      <div class="file-item-info" onclick="switchActiveFile('${filename}')">
-        <i class="fa-solid ${iconClass}"></i>
-        <span>${filename}</span>
-      </div>
-      <div class="file-actions">
-        <button class="btn-file-action" onclick="event.stopPropagation(); downloadSingleFile('${filename}')" title="Download File">
-          <i class="fa-solid fa-download"></i>
-        </button>
-        <button class="btn-file-action" onclick="event.stopPropagation(); renameFile('${filename}')" title="Rename File">
-          <i class="fa-solid fa-pen-to-square"></i>
-        </button>
-        <button class="btn-file-action delete" onclick="event.stopPropagation(); deleteFile('${filename}')" title="Delete File">
-          <i class="fa-solid fa-trash"></i>
-        </button>
+  const foldersSet = new Set();
+  userKeys.forEach(k => {
+    if (k.endsWith('/')) {
+      const cleanF = k.slice(0, -1);
+      if (cleanF) foldersSet.add(cleanF);
+    } else if (k.includes('/')) {
+      const parts = k.split('/');
+      parts.pop();
+      let currentAcc = '';
+      parts.forEach(p => {
+        currentAcc = currentAcc ? `${currentAcc}/${p}` : p;
+        foldersSet.add(currentAcc);
+      });
+    }
+  });
+
+  const sortedFolders = Array.from(foldersSet).sort();
+
+  container.ondragover = (e) => {
+    e.preventDefault();
+    container.classList.add('root-drag-over');
+  };
+  container.ondragleave = () => {
+    container.classList.remove('root-drag-over');
+  };
+  container.ondrop = async (e) => {
+    e.preventDefault();
+    container.classList.remove('root-drag-over');
+    const draggedFile = e.dataTransfer.getData('text/plain');
+    if (draggedFile) {
+      await moveFileToFolder(draggedFile, '');
+    }
+  };
+
+  const rootFiles = [];
+  const folderFilesMap = {};
+  sortedFolders.forEach(f => { folderFilesMap[f] = []; });
+
+  userKeys.forEach(k => {
+    if (k.endsWith('/')) return;
+    if (!k.includes('/')) {
+      rootFiles.push(k);
+    } else {
+      const parts = k.split('/');
+      parts.pop();
+      const parentFolder = parts.join('/');
+      if (!folderFilesMap[parentFolder]) {
+        folderFilesMap[parentFolder] = [];
+      }
+      folderFilesMap[parentFolder].push(k);
+    }
+  });
+
+  // Render Folders
+  sortedFolders.forEach(folderPath => {
+    const isExpanded = expandedFolders.has(folderPath);
+    const folderLi = document.createElement('li');
+    folderLi.className = 'folder-item';
+
+    const childFiles = folderFilesMap[folderPath] || [];
+
+    folderLi.innerHTML = `
+      <div class="folder-header" 
+           onclick="toggleFolderExpand('${folderPath}')"
+           ondragover="handleFolderDragOver(event, this)"
+           ondragleave="handleFolderDragLeave(event, this)"
+           ondrop="handleFolderDrop(event, '${folderPath}')">
+        <div class="folder-title">
+          <i class="fa-solid fa-chevron-${isExpanded ? 'down' : 'right'} folder-toggle-icon"></i>
+          <i class="fa-solid fa-folder${isExpanded ? '-open' : ''} folder-icon"></i>
+          <span class="folder-name">${folderPath}</span>
+          <span class="folder-badge">${childFiles.length}</span>
+        </div>
+        <div class="folder-actions">
+          <button class="btn-file-action" onclick="event.stopPropagation(); createNewFileInFolder('${folderPath}')" title="Create File in ${folderPath}">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+          <button class="btn-file-action delete" onclick="event.stopPropagation(); deleteFolder('${folderPath}')" title="Delete Folder">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
       </div>
     `;
 
-    container.appendChild(li);
+    if (isExpanded) {
+      const subUl = document.createElement('ul');
+      subUl.className = 'folder-sub-list';
+
+      if (childFiles.length === 0) {
+        const emptyLi = document.createElement('li');
+        emptyLi.className = 'empty-folder-notice';
+        emptyLi.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted); font-style:italic; padding-left:14px;">Empty folder (Drag files here)</span>`;
+        subUl.appendChild(emptyLi);
+      } else {
+        childFiles.sort().forEach(fullPath => {
+          const fileLi = createFileListItemElement(fullPath, true);
+          subUl.appendChild(fileLi);
+        });
+      }
+      folderLi.appendChild(subUl);
+    }
+
+    container.appendChild(folderLi);
   });
+
+  // Render Root Files
+  rootFiles.sort().forEach(fullPath => {
+    const fileLi = createFileListItemElement(fullPath, false);
+    container.appendChild(fileLi);
+  });
+}
+
+function createFileListItemElement(fullPath, isNested = false) {
+  const li = document.createElement('li');
+  li.className = `file-item ${fullPath === activeFile ? 'active' : ''} ${isNested ? 'nested-file' : ''}`;
+  li.draggable = true;
+
+  li.ondragstart = (e) => {
+    e.dataTransfer.setData('text/plain', fullPath);
+    li.classList.add('dragging');
+  };
+
+  li.ondragend = () => {
+    li.classList.remove('dragging');
+  };
+
+  const displayName = fullPath.includes('/') ? fullPath.split('/').pop() : fullPath;
+
+  let iconClass = 'fa-file-code';
+  if (fullPath.endsWith('.bib')) iconClass = 'fa-book';
+  else if (fullPath.endsWith('.cls') || fullPath.endsWith('.sty')) iconClass = 'fa-sliders';
+  else if (fullPath.match(/\.(png|jpg|jpeg|pdf|svg)$/i)) iconClass = 'fa-file-image';
+
+  li.innerHTML = `
+    <div class="file-item-info" onclick="switchActiveFile('${fullPath}')" title="${fullPath}">
+      <i class="fa-solid ${iconClass}"></i>
+      <span>${displayName}</span>
+    </div>
+    <div class="file-actions">
+      <button class="btn-file-action" onclick="event.stopPropagation(); downloadSingleFile('${fullPath}')" title="Download File">
+        <i class="fa-solid fa-download"></i>
+      </button>
+      <button class="btn-file-action" onclick="event.stopPropagation(); renameFile('${fullPath}')" title="Rename File">
+        <i class="fa-solid fa-pen-to-square"></i>
+      </button>
+      <button class="btn-file-action delete" onclick="event.stopPropagation(); deleteFile('${fullPath}')" title="Delete File">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+    </div>
+  `;
+  return li;
+}
+
+function toggleFolderExpand(folderPath) {
+  if (expandedFolders.has(folderPath)) {
+    expandedFolders.delete(folderPath);
+  } else {
+    expandedFolders.add(folderPath);
+  }
+  renderFileList();
+}
+
+function handleFolderDragOver(e, elem) {
+  e.preventDefault();
+  elem.classList.add('folder-drop-active');
+}
+
+function handleFolderDragLeave(e, elem) {
+  elem.classList.remove('folder-drop-active');
+}
+
+async function handleFolderDrop(e, targetFolder) {
+  e.preventDefault();
+  e.stopPropagation();
+  const elem = e.currentTarget;
+  if (elem) elem.classList.remove('folder-drop-active');
+
+  const draggedFile = e.dataTransfer.getData('text/plain');
+  if (draggedFile) {
+    await moveFileToFolder(draggedFile, targetFolder);
+  }
+}
+
+async function moveFileToFolder(oldPath, targetFolder) {
+  if (!fileStore[oldPath]) return;
+
+  const fileName = oldPath.split('/').pop();
+  const newPath = targetFolder ? `${targetFolder}/${fileName}` : fileName;
+
+  if (oldPath === newPath) return;
+
+  if (fileStore[newPath]) {
+    if (!confirm(`File "${newPath}" already exists. Overwrite it?`)) {
+      return;
+    }
+  }
+
+  const content = fileStore[oldPath];
+  delete fileStore[oldPath];
+  fileStore[newPath] = content;
+
+  if (targetFolder) expandedFolders.add(targetFolder);
+
+  if (activeFile === oldPath) {
+    activeFile = newPath;
+  }
+
+  await saveCurrentProjectToBackend(true);
+  renderFileList();
+
+  if (editor && activeFile === newPath) {
+    const indicator = document.getElementById('active-file-indicator');
+    if (indicator) indicator.innerText = activeFile;
+  }
+
+  if (typeof showToast === 'function') {
+    const destName = targetFolder ? `folder "${targetFolder}/"` : 'root directory';
+    showToast(`🚚 Moved "${fileName}" to ${destName}`, 'success');
+  }
+}
+
+async function deleteFolder(folderPath) {
+  if (confirm(`Are you sure you want to delete folder "${folderPath}" and all its contents?`)) {
+    const prefix = `${folderPath}/`;
+    Object.keys(fileStore).forEach(k => {
+      if (k === `${folderPath}/` || k.startsWith(prefix)) {
+        delete fileStore[k];
+      }
+    });
+
+    expandedFolders.delete(folderPath);
+
+    const remainingKeys = Object.keys(fileStore).filter(isUserContentFile);
+    if (!fileStore[activeFile]) {
+      activeFile = remainingKeys[0] || 'main.tex';
+    }
+
+    await saveCurrentProjectToBackend(true);
+    renderFileList();
+
+    if (editor) {
+      editor.setValue(fileStore[activeFile] || '');
+      const indicator = document.getElementById('active-file-indicator');
+      if (indicator) indicator.innerText = activeFile;
+    }
+
+    if (typeof showToast === 'function') {
+      showToast(`Deleted folder "${folderPath}/"`, 'info');
+    }
+  }
+}
+
+function createNewFileInFolder(folderPath) {
+  const fileName = prompt(`Create new file inside "${folderPath}/" (e.g. figure1.png, section1.tex):`);
+  if (!fileName) return;
+  const cleanName = fileName.trim().replace(/^\/+/g, '');
+  const fullPath = `${folderPath}/${cleanName}`;
+
+  if (fileStore[fullPath]) {
+    alert(`File "${fullPath}" already exists.`);
+    return;
+  }
+
+  let starterCode = '% New LaTeX Document Section\n';
+  if (cleanName.match(/\.(png|jpg|jpeg|gif|svg)$/i)) {
+    starterCode = 'data:image/png;base64,iVBORw0KGgoAAAANSU5QoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  } else if (cleanName.endsWith('.bib')) {
+    starterCode = '% Bibliography Entries\n@article{sample2026,\n  author = {Author, A.},\n  title = {Title},\n  journal = {Journal},\n  year = {2026}\n}\n';
+  }
+
+  fileStore[fullPath] = starterCode;
+  expandedFolders.add(folderPath);
+  switchActiveFile(fullPath);
+  saveCurrentProjectToBackend(true);
+  renderFileList();
 }
 
 function downloadSingleFile(filename) {
@@ -1472,6 +1745,9 @@ function initCodeEditor() {
 
   const btnNewFile = document.getElementById('btn-new-file');
   if (btnNewFile) btnNewFile.addEventListener('click', openNewFileModal);
+
+  const btnNewFolder = document.getElementById('btn-new-folder');
+  if (btnNewFolder) btnNewFolder.addEventListener('click', createNewFolder);
   
   const btnUpload = document.getElementById('btn-upload-file');
   const fileInput = document.getElementById('file-upload-input');
