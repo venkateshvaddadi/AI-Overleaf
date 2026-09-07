@@ -1233,4 +1233,52 @@ body.dark-theme {
   font-family: var(--font-code);
 }
 
+/* Modal Form Grid Layout */
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 600px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.modal-body .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.modal-body label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.modal-body input[type="text"],
+.modal-body input[type="file"],
+.modal-body select,
+.modal-body textarea {
+  background: var(--bg-editor);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.modal-body input[type="text"]:focus,
+.modal-body select:focus,
+.modal-body textarea:focus {
+  border-color: var(--accent-purple);
+}
+
+
 

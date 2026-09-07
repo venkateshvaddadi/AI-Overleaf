@@ -183,6 +183,46 @@
             <h3><i class="fa-solid fa-wand-magic-sparkles"></i> AI Assistant Tools</h3>
           </div>
           <div class="ai-tools-body">
+            <div class="tool-card" id="tool-peer-review">
+              <i class="fa-solid fa-clipboard-check"></i>
+              <div>
+                <h4>AI Manuscript Peer Reviewer</h4>
+                <p>Generate journal review comments, critique paper structure & tone.</p>
+              </div>
+            </div>
+
+            <div class="tool-card" id="tool-csv-table">
+              <i class="fa-solid fa-file-csv"></i>
+              <div>
+                <h4>CSV to LaTeX Table</h4>
+                <p>Convert CSV files or raw text into booktabs LaTeX code.</p>
+              </div>
+            </div>
+
+            <div class="tool-card" id="tool-insert-figure">
+              <i class="fa-solid fa-image"></i>
+              <div>
+                <h4>Smart Figure Inserter</h4>
+                <p>Embed project image assets with scaling, captions & labels.</p>
+              </div>
+            </div>
+
+            <div class="tool-card" id="tool-gen-bibtex">
+              <i class="fa-solid fa-book-bookmark"></i>
+              <div>
+                <h4>BibTeX Citation Generator</h4>
+                <p>Generate clean @article or @book entries from paper titles/DOIs.</p>
+              </div>
+            </div>
+
+            <div class="tool-card" id="tool-gen-tikz">
+              <i class="fa-solid fa-diagram-project"></i>
+              <div>
+                <h4>TikZ / Vector Diagram</h4>
+                <p>Generate flowcharts, diagrams, & graphs with AI prompts.</p>
+              </div>
+            </div>
+
             <div class="tool-card" id="tool-fix-errors">
               <i class="fa-solid fa-bug"></i>
               <div>
@@ -195,15 +235,7 @@
               <i class="fa-solid fa-calculator"></i>
               <div>
                 <h4>Generate Math Formula</h4>
-                <p>Converts natural language math into LaTeX code.</p>
-              </div>
-            </div>
-
-            <div class="tool-card" id="tool-gen-table">
-              <i class="fa-solid fa-table"></i>
-              <div>
-                <h4>Generate Data Table</h4>
-                <p>Formats tabular data into LaTeX code.</p>
+                <p>Converts natural language math into equation blocks.</p>
               </div>
             </div>
 
@@ -363,6 +395,154 @@
         <p class="help-text">Direct connection to your local Dual RTX 3090 inference backend.</p>
         <button class="btn btn-primary" onclick="testOllamaConnection()">Test Connection</button>
         <span id="conn-test-result"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CSV to LaTeX Table Generator Modal -->
+  <div class="modal-overlay" id="csv-table-modal">
+    <div class="modal-box modal-lg">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-file-csv"></i> CSV to LaTeX Table Converter</h3>
+        <button class="modal-close" onclick="closeModal('csv-table-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label><i class="fa-solid fa-upload"></i> Upload CSV File:</label>
+            <input type="file" id="csv-file-input" accept=".csv, .txt, .tsv">
+          </div>
+          <div class="form-group">
+            <label><i class="fa-solid fa-paintbrush"></i> Table Style:</label>
+            <select id="csv-style-select">
+              <option value="booktabs" selected>Booktabs (Professional \toprule \midrule)</option>
+              <option value="grid">Standard Grid (\hline)</option>
+              <option value="borderless">Borderless Minimalist</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label><i class="fa-solid fa-align-left"></i> Paste Raw CSV / Tabular Data:</label>
+          <textarea id="csv-raw-textarea" rows="5" placeholder="Name, Age, Department, Salary&#10;Alice, 29, Research, 95000&#10;Bob, 34, Engineering, 105000&#10;Charlie, 42, Operations, 88000"></textarea>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Table Caption:</label>
+            <input type="text" id="csv-caption-input" placeholder="e.g. Summary of Employee Data and Salaries">
+          </div>
+          <div class="form-group">
+            <label>Table Label:</label>
+            <input type="text" id="csv-label-input" placeholder="tab:employee_summary">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label><i class="fa-solid fa-code"></i> Generated LaTeX Code Preview:</label>
+          <textarea id="csv-code-preview" rows="6" readonly style="font-family:'Fira Code', monospace; background:var(--dark-bg); color:var(--accent-teal);"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('csv-table-modal')">Close</button>
+        <button class="btn btn-secondary" onclick="copyCSVTableCode()"><i class="fa-solid fa-copy"></i> Copy Code</button>
+        <button class="btn btn-primary" onclick="insertCSVTableAtCursor()"><i class="fa-solid fa-arrow-right-to-bracket"></i> Insert at Cursor</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Smart AI Figure Inserter Modal -->
+  <div class="modal-overlay" id="figure-inserter-modal">
+    <div class="modal-box modal-lg">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-image"></i> Smart Figure & Image Inserter</h3>
+        <button class="modal-close" onclick="closeModal('figure-inserter-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label><i class="fa-solid fa-folder-open"></i> Select Project Image Asset:</label>
+            <select id="fig-asset-select">
+              <!-- Dynamically populated with images -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label><i class="fa-solid fa-down-left-and-up-right-to-center"></i> Image Width / Scale:</label>
+            <select id="fig-width-select">
+              <option value="0.8\linewidth" selected>0.8 \linewidth (Recommended)</option>
+              <option value="0.5\linewidth">0.5 \linewidth (Half width)</option>
+              <option value="1.0\linewidth">1.0 \linewidth (Full column width)</option>
+              <option value="12cm">12 cm (Fixed width)</option>
+              <option value="8cm">8 cm (Fixed compact)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Placement Specifier:</label>
+            <select id="fig-placement-select">
+              <option value="htbp" selected>[htbp] (Here / Top / Bottom / Page)</option>
+              <option value="h!">[h!] (Here strictly)</option>
+              <option value="t">[t] (Top of page)</option>
+              <option value="b">[b] (Bottom of page)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Figure Label:</label>
+            <input type="text" id="fig-label-input" placeholder="fig:architecture">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <label style="margin:0;">Figure Caption:</label>
+            <button class="btn-sm" onclick="generateAICaptionForFigure()"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Suggest Caption</button>
+          </div>
+          <input type="text" id="fig-caption-input" placeholder="e.g. Detailed workflow architecture of the system.">
+        </div>
+
+        <div class="form-group">
+          <label><i class="fa-solid fa-code"></i> Generated Figure LaTeX Code:</label>
+          <textarea id="fig-code-preview" rows="6" readonly style="font-family:'Fira Code', monospace; background:var(--dark-bg); color:var(--accent-teal);"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('figure-inserter-modal')">Close</button>
+        <button class="btn btn-secondary" onclick="copyFigureCode()"><i class="fa-solid fa-copy"></i> Copy Code</button>
+        <button class="btn btn-primary" onclick="insertFigureAtCursor()"><i class="fa-solid fa-arrow-right-to-bracket"></i> Insert at Cursor</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Manuscript Peer Reviewer Report Modal -->
+  <div class="modal-overlay" id="peer-review-modal">
+    <div class="modal-box modal-lg">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-clipboard-check"></i> AI Peer Review & Manuscript Critique Report</h3>
+        <span class="badge" id="review-status-badge">IEEE / Nature Reviewer Mode</span>
+        <button class="modal-close" onclick="closeModal('peer-review-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="status-box" style="margin-bottom:12px; background:rgba(168,85,247,0.1); border-color:var(--accent-purple); color:var(--text-main);">
+          <i class="fa-solid fa-graduation-cap" style="font-size:1.2rem; color:var(--accent-purple);"></i>
+          <div>
+            <strong>AI Academic Peer Reviewer Assessment</strong>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Evaluated for Structure, Clarity, Citation Completeness, Math Rigor & Formatting.</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label><i class="fa-solid fa-file-lines"></i> Detailed Reviewer Feedback & Comments:</label>
+          <div id="peer-review-report-body" style="font-family:var(--font-ui); font-size:0.9rem; line-height:1.6; background:var(--dark-bg); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px; padding:16px; min-height:220px; max-height:360px; overflow-y:auto; white-space:pre-wrap;">
+            Generating peer review critique...
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('peer-review-modal')">Close Report</button>
+        <button class="btn btn-secondary" onclick="copyPeerReviewReport()"><i class="fa-solid fa-copy"></i> Copy Feedback</button>
+        <button class="btn btn-primary" onclick="autoFixPaperFromReview()"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Apply AI Improvements</button>
       </div>
     </div>
   </div>

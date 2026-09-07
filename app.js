@@ -1160,18 +1160,264 @@ function viewDiff(hash) {
   });
 }
 
-// AI Assistance Tools
+// AI Assistance Tools Suite & Smart Generators
 function initAITools() {
-  document.getElementById('tool-fix-errors').addEventListener('click', () => runAITool('Fix any syntax, structural, or unclosed environment errors in this LaTeX document.', 'Auto-Fix Syntax Errors'));
-  document.getElementById('tool-gen-math').addEventListener('click', () => {
-    const formula = prompt('Describe the math formula you want to generate:');
+  const toolReview = document.getElementById('tool-peer-review');
+  if (toolReview) toolReview.addEventListener('click', runPeerReview);
+
+  const toolCsv = document.getElementById('tool-csv-table');
+  if (toolCsv) toolCsv.addEventListener('click', openCSVTableModal);
+
+  const toolFig = document.getElementById('tool-insert-figure');
+  if (toolFig) toolFig.addEventListener('click', openFigureInserterModal);
+
+  const toolBib = document.getElementById('tool-gen-bibtex');
+  if (toolBib) toolBib.addEventListener('click', () => {
+    const query = prompt('Enter Paper Title, Authors, or DOI for BibTeX generation:');
+    if (query) runAITool(`Generate valid, publication-ready BibTeX entry (@article or @inproceedings) for: ${query}. Return ONLY raw BibTeX code without markdown wrapper.`, `BibTeX: ${query}`);
+  });
+
+  const toolTikz = document.getElementById('tool-gen-tikz');
+  if (toolTikz) toolTikz.addEventListener('click', () => {
+    const promptText = prompt('Describe the TikZ diagram, flowchart, or plot you want to generate:');
+    if (promptText) runAITool(`Generate complete, compilable LaTeX \\begin{tikzpicture}...\\end{tikzpicture} block for: ${promptText}. Return ONLY raw LaTeX code.`, `TikZ Diagram: ${promptText}`);
+  });
+
+  const toolFix = document.getElementById('tool-fix-errors');
+  if (toolFix) toolFix.addEventListener('click', () => runAITool('Fix any syntax, structural, or unclosed environment errors in this LaTeX document.', 'Auto-Fix Syntax Errors'));
+
+  const toolMath = document.getElementById('tool-gen-math');
+  if (toolMath) toolMath.addEventListener('click', () => {
+    const formula = prompt('Describe the math formula or matrix you want to generate:');
     if (formula) runAITool(`Generate LaTeX equation with \\begin{equation} and \\label{} for: ${formula}`, `Math Formula: ${formula}`);
   });
-  document.getElementById('tool-gen-table').addEventListener('click', () => {
-    const desc = prompt('Describe the table data or columns to compare:');
-    if (desc) runAITool(`Generate LaTeX tabular table using \\usepackage{booktabs} for: ${desc}`, `Data Table: ${desc}`);
+
+  const toolPolish = document.getElementById('tool-polish');
+  if (toolPolish) toolPolish.addEventListener('click', () => runAITool('Polish the academic writing style and grammar of this document while maintaining LaTeX tags and equations.', 'Academic Polish'));
+
+  initCSVTableConverter();
+  initFigureInserter();
+}
+
+// --- 1. CSV TO LATEX TABLE CONVERTER ENGINE ---
+function openCSVTableModal() {
+  document.getElementById('csv-table-modal').classList.add('active');
+  updateCSVTablePreview();
+}
+
+function initCSVTableConverter() {
+  const fileInput = document.getElementById('csv-file-input');
+  const rawTextarea = document.getElementById('csv-raw-textarea');
+  const styleSelect = document.getElementById('csv-style-select');
+  const captionInput = document.getElementById('csv-caption-input');
+  const labelInput = document.getElementById('csv-label-input');
+
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        rawTextarea.value = evt.target.result;
+        updateCSVTablePreview();
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  [rawTextarea, styleSelect, captionInput, labelInput].forEach(elem => {
+    if (elem) elem.addEventListener('input', updateCSVTablePreview);
+    if (elem) elem.addEventListener('change', updateCSVTablePreview);
   });
-  document.getElementById('tool-polish').addEventListener('click', () => runAITool('Polish the academic writing style and grammar of this document while maintaining LaTeX tags and equations.', 'Academic Polish'));
+}
+
+function updateCSVTablePreview() {
+  const rawText = document.getElementById('csv-raw-textarea').value.trim();
+  const style = document.getElementById('csv-style-select').value;
+  const caption = document.getElementById('csv-caption-input').value.trim();
+  const label = document.getElementById('csv-label-input').value.trim();
+  const preview = document.getElementById('csv-code-preview');
+
+  if (!rawText) {
+    preview.value = '% Paste CSV data or upload a file above to generate LaTeX code.';
+    return;
+  }
+
+  const lines = rawText.split(/\r?\n/).filter(line => line.trim().length > 0);
+  if (lines.length === 0) return;
+
+  const rows = lines.map(line => {
+    return line.split(',').map(cell => cell.trim().replace(/^"(.*)"$/, '$1'));
+  });
+
+  const colCount = Math.max(...rows.map(r => r.length));
+  let colAlign = 'c'.repeat(colCount);
+
+  let latex = '\\begin{table}[htbp]\n  \\centering\n';
+
+  if (style === 'grid') {
+    const gridAlign = '|' + Array(colCount).fill('c').join('|') + '|';
+    latex += `  \\begin{tabular}{${gridAlign}}\n  \\hline\n`;
+  } else {
+    latex += `  \\begin{tabular}{${colAlign}}\n`;
+    if (style === 'booktabs') latex += '  \\toprule\n';
+  }
+
+  rows.forEach((row, idx) => {
+    while (row.length < colCount) row.push('');
+    const rowStr = '  ' + row.join(' & ') + ' \\\\';
+    latex += rowStr + '\n';
+
+    if (idx === 0) {
+      if (style === 'booktabs') latex += '  \\midrule\n';
+      else if (style === 'grid') latex += '  \\hline\n';
+    }
+  });
+
+  if (style === 'booktabs') latex += '  \\bottomrule\n';
+  else if (style === 'grid') latex += '  \\hline\n';
+
+  latex += '  \\end{tabular}\n';
+
+  if (caption) latex += `  \\caption{${caption}}\n`;
+  if (label) latex += `  \\label{${label.startsWith('tab:') ? label : 'tab:' + label}}\n`;
+  else if (caption) latex += `  \\label{tab:${caption.toLowerCase().replace(/[^a-z0-9]+/g, '_')}}\n`;
+
+  latex += '\\end{table}';
+
+  preview.value = latex;
+}
+
+function copyCSVTableCode() {
+  const code = document.getElementById('csv-code-preview').value;
+  if (code) {
+    navigator.clipboard.writeText(code);
+    alert('✅ LaTeX Table code copied to clipboard!');
+  }
+}
+
+function insertCSVTableAtCursor() {
+  const code = document.getElementById('csv-code-preview').value;
+  if (!code || code.startsWith('%')) return;
+  if (editor) {
+    const cursor = editor.getCursor();
+    editor.replaceRange(`\n${code}\n`, cursor);
+    editor.focus();
+  }
+  closeModal('csv-table-modal');
+  compileLaTeX();
+  saveCurrentProjectToBackend();
+}
+
+// --- 2. SMART AI FIGURE INSERTER ENGINE ---
+function openFigureInserterModal() {
+  const select = document.getElementById('fig-asset-select');
+  if (!select) return;
+
+  select.innerHTML = '';
+  const imageFiles = Object.keys(fileStore).filter(f => f.match(/\.(png|jpg|jpeg|gif|svg|webp|pdf)$/i));
+
+  if (imageFiles.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.innerText = 'No image assets uploaded yet (Upload via Files tab)';
+    select.appendChild(opt);
+  } else {
+    imageFiles.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f;
+      opt.innerText = f;
+      select.appendChild(opt);
+    });
+  }
+
+  document.getElementById('figure-inserter-modal').classList.add('active');
+  updateFigurePreview();
+}
+
+function initFigureInserter() {
+  const select = document.getElementById('fig-asset-select');
+  const widthSelect = document.getElementById('fig-width-select');
+  const placementSelect = document.getElementById('fig-placement-select');
+  const captionInput = document.getElementById('fig-caption-input');
+  const labelInput = document.getElementById('fig-label-input');
+
+  [select, widthSelect, placementSelect, captionInput, labelInput].forEach(elem => {
+    if (elem) elem.addEventListener('input', updateFigurePreview);
+    if (elem) elem.addEventListener('change', updateFigurePreview);
+  });
+}
+
+function updateFigurePreview() {
+  const asset = document.getElementById('fig-asset-select').value || 'figure.png';
+  const width = document.getElementById('fig-width-select').value || '0.8\\linewidth';
+  const placement = document.getElementById('fig-placement-select').value || 'htbp';
+  const caption = document.getElementById('fig-caption-input').value.trim();
+  let label = document.getElementById('fig-label-input').value.trim();
+
+  if (!label && asset) {
+    const baseName = asset.split('.')[0].toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    label = `fig:${baseName}`;
+  } else if (label && !label.startsWith('fig:')) {
+    label = `fig:${label}`;
+  }
+
+  let code = `\\begin{figure}[${placement}]\n  \\centering\n  \\includegraphics[width=${width}]{${asset}}\n`;
+  if (caption) code += `  \\caption{${caption}}\n`;
+  if (label) code += `  \\label{${label}}\n`;
+  code += '\\end{figure}';
+
+  document.getElementById('fig-code-preview').value = code;
+}
+
+async function generateAICaptionForFigure() {
+  const asset = document.getElementById('fig-asset-select').value;
+  if (!asset) {
+    alert('Please select an image asset first.');
+    return;
+  }
+
+  const model = document.getElementById('model-select').value;
+  const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://127.0.0.1:11434';
+  
+  try {
+    const res = await fetch(`${ollamaUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: model,
+        prompt: `Generate a concise, formal academic figure caption for an image asset named "${asset}" used in a research paper. Output ONLY the caption sentence without quotes or LaTeX commands.`,
+        stream: false
+      })
+    });
+    const data = await res.json();
+    const caption = data.response.trim().replace(/^["']|["']$/g, '');
+    document.getElementById('fig-caption-input').value = caption;
+    updateFigurePreview();
+  } catch (e) {
+    alert(`Caption suggestion error: ${e.message}`);
+  }
+}
+
+function copyFigureCode() {
+  const code = document.getElementById('fig-code-preview').value;
+  if (code) {
+    navigator.clipboard.writeText(code);
+    alert('✅ LaTeX Figure code copied to clipboard!');
+  }
+}
+
+function insertFigureAtCursor() {
+  const code = document.getElementById('fig-code-preview').value;
+  if (!code) return;
+  if (editor) {
+    const cursor = editor.getCursor();
+    editor.replaceRange(`\n${code}\n`, cursor);
+    editor.focus();
+  }
+  closeModal('figure-inserter-modal');
+  compileLaTeX();
+  saveCurrentProjectToBackend();
 }
 
 async function runAITool(instruction, title) {
@@ -1348,6 +1594,75 @@ function jumpToCodeLine(lineNumber) {
     editor.removeLineClass(lineHandle, 'background', 'cm-sync-highlight');
   }, 2200);
 }
+
+// --- 3. AI MANUSCRIPT PEER REVIEWER & CRITIQUE ENGINE ---
+async function runPeerReview() {
+  if (!editor) return;
+  const modal = document.getElementById('peer-review-modal');
+  const reportBody = document.getElementById('peer-review-report-body');
+  const badge = document.getElementById('review-status-badge');
+
+  modal.classList.add('active');
+  reportBody.innerHTML = '⏳ <i class="fa-solid fa-spinner fa-spin"></i> Analyzing manuscript structure, academic tone, citations, math rigor, and clarity...';
+  badge.innerText = 'Evaluating Document...';
+
+  const code = editor.getValue();
+  const model = document.getElementById('model-select').value;
+  const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://127.0.0.1:11434';
+
+  const promptText = `You are a distinguished Senior Peer Reviewer for top academic journals (IEEE, Nature, Springer).
+Perform a comprehensive peer review critique of the following LaTeX manuscript document:
+
+MANUSCRIPT:
+${code}
+
+Provide your feedback structured cleanly with headings:
+1. 🌟 OVERALL ASSESSMENT & RECOMMENDATION (e.g. Accept with Minor Revisions, Major Revisions)
+2. 🔬 STRENGTHS & KEY CONTRIBUTIONS (Highlight strong sections or methods)
+3. ⚠️ CRITICAL WEAKNESSES & MISSING CITATIONS/DATA (Identify weak arguments, missing citations, or unclear math)
+4. ✍️ LINE-BY-LINE SUGGESTIONS FOR IMPROVEMENT (Specific paragraph or sentence recommendations)
+5. 📝 SUMMARY RECOMMENDATIONS FOR AUTHOR`;
+
+  try {
+    const res = await fetch(`${ollamaUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: model,
+        prompt: promptText,
+        stream: false
+      })
+    });
+    const data = await res.json();
+    const feedback = data.response.trim();
+    reportBody.innerText = feedback;
+    badge.innerText = 'Review Completed ✓';
+  } catch (e) {
+    reportBody.innerText = `❌ Peer Review Evaluation Error: ${e.message}. Make sure Ollama backend is connected.`;
+    badge.innerText = 'Evaluation Failed';
+  }
+}
+
+function copyPeerReviewReport() {
+  const reportBody = document.getElementById('peer-review-report-body');
+  if (reportBody && reportBody.innerText) {
+    navigator.clipboard.writeText(reportBody.innerText);
+    alert('✅ Peer Reviewer Critique copied to clipboard!');
+  }
+}
+
+function autoFixPaperFromReview() {
+  const reportBody = document.getElementById('peer-review-report-body');
+  const critique = reportBody ? reportBody.innerText : '';
+  if (!critique || critique.startsWith('⏳') || critique.startsWith('❌')) {
+    alert('Please run a peer review evaluation first.');
+    return;
+  }
+
+  closeModal('peer-review-modal');
+  runAITool(`Apply the recommended peer review improvements and fixes from this critique report to the document:\n\nPEER REVIEW REPORT:\n${critique}\n\nPreserve all LaTeX structure and equations.`, 'Auto-Apply Peer Review Improvements');
+}
+
 
 
 
