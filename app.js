@@ -3803,13 +3803,75 @@ function getAIContext() {
   };
 }
 
+// STREAMING OLLAMA SSE HANDLER: Real-time response streaming for fast local LLM feedback
+async function streamOllamaPrompt(ollamaUrl, payload, onChunk) {
+  const response = await fetch(`${ollamaUrl}/api/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, stream: true })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ollama API error (${response.status})`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let fullText = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunkStr = decoder.decode(value, { stream: true });
+    const lines = chunkStr.split('\n');
+
+    lines.forEach(l => {
+      if (l.trim()) {
+        try {
+          const parsed = JSON.parse(l);
+          if (parsed.response) {
+            fullText += parsed.response;
+            if (typeof onChunk === 'function') onChunk(parsed.response, fullText);
+          }
+        } catch (e) {
+          // ignore incomplete SSE line chunks
+        }
+      }
+    });
+  }
+
+  return fullText.trim();
+}
+
+// LINE-AWARE PATCH GENERATOR: Computes line-range diff patch for scoped text edits
+function computeLinePatch(originalCode, proposedCode, context) {
+  if (context.selection) {
+    const cursor = editor.getCursor();
+    const selection = editor.getSelection();
+    return {
+      isScoped: true,
+      startLine: cursor.line + 1,
+      endLine: cursor.line + (selection.split('\n').length),
+      originalText: selection,
+      proposedText: proposedCode,
+      patchCode: originalCode.replace(selection, proposedCode)
+    };
+  }
+  return {
+    isScoped: false,
+    startLine: 1,
+    endLine: originalCode.split('\n').length,
+    originalText: originalCode,
+    proposedText: proposedCode,
+    patchCode: proposedCode
+  };
+}
+
 async function runAITool(instruction, title) {
   const model = document.getElementById('model-select').value;
   const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://127.0.0.1:11434';
   const code = editor.getValue();
   const context = getAIContext();
-
-  alert(`🧠 Processing academic request with ${model}...`);
 
   const promptPayload = `TASK: ${instruction}
 
@@ -3817,7 +3879,7 @@ PROJECT CONTEXT:
 - Active File: ${context.file}
 - Current Section: ${context.current_section}
 - Cursor Line: ${context.cursor_line}
-${context.selection ? `- Selected Text:\n"${context.selection}"\n` : ''}
+${context.selection ? `- Selected Text Scope:\n"${context.selection}"\n` : ''}
 ${context.bib_keys && context.bib_keys.length ? `- Available Bibliography Keys: ${context.bib_keys.slice(0, 10).join(', ')}\n` : ''}
 
 SURROUNDING DOCUMENT CONTEXT:
@@ -3831,23 +3893,18 @@ ${code}
 \`\`\`
 
 INSTRUCTIONS:
-Output ONLY valid LaTeX code without extra explanations. Do not include markdown code block formatting like \`\`\`latex.`;
+${context.selection ? 'Output ONLY the revised LaTeX replacement for the Selected Text Scope.' : 'Output ONLY valid LaTeX code without extra explanations.'} Do not include markdown code block formatting like \`\`\`latex.`;
 
   try {
-    const response = await fetch(`${ollamaUrl}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: model,
-        prompt: promptPayload,
-        stream: false
-      })
+    const streamedText = await streamOllamaPrompt(ollamaUrl, {
+      model: model,
+      prompt: promptPayload
     });
-    const data = await response.json();
-    let result = data.response.trim();
-    result = result.replace(/^```latex/g, '').replace(/^```/g, '').replace(/```$/g, '');
 
-    showAIDiffModal(code, result, title || 'AI Academic Proposal');
+    let cleanResult = streamedText.replace(/^```latex/g, '').replace(/^```/g, '').replace(/```$/g, '');
+    const patch = computeLinePatch(code, cleanResult, context);
+
+    showAIDiffModal(code, patch.patchCode, `${title || 'AI Academic Patch'} (Lines ${patch.startLine}–${patch.endLine})`);
   } catch (e) {
     alert(`❌ AI Execution Error: ${e.message}`);
   }
