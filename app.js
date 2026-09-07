@@ -3452,6 +3452,9 @@ function initAITools() {
   const toolProjRev = document.getElementById('tool-project-review');
   if (toolProjRev) toolProjRev.addEventListener('click', runFullProjectAIReview);
 
+  const toolAudit = document.getElementById('tool-citation-audit');
+  if (toolAudit) toolAudit.addEventListener('click', runCitationAudit);
+
   const toolReview = document.getElementById('tool-peer-review');
   if (toolReview) toolReview.addEventListener('click', runPeerReview);
 
@@ -3698,6 +3701,47 @@ function copyFigureCode() {
   }
 }
 
+async function runCitationAudit() {
+  if (!editor) return;
+
+  const currentCode = editor.getValue();
+  const citeMatches = Array.from(currentCode.matchAll(/\\cite\{([^}]+)\}/g));
+  const citedKeys = new Set();
+
+  citeMatches.forEach(m => {
+    m[1].split(',').forEach(k => citedKeys.add(k.trim()));
+  });
+
+  const bibKeys = new Set();
+  Object.keys(fileStore).filter(f => f.endsWith('.bib')).forEach(bibFile => {
+    const content = fileStore[bibFile] || '';
+    const keyRegex = /@(\w+)\s*\{\s*([^,\s]+)/g;
+    let km;
+    while ((km = keyRegex.exec(content)) !== null) {
+      bibKeys.add(km[2]);
+    }
+  });
+
+  const missingKeys = Array.from(citedKeys).filter(k => !bibKeys.has(k));
+  const unusedKeys = Array.from(bibKeys).filter(k => !citedKeys.has(k));
+
+  let auditReport = `📚 BIBTEX & CITATION AUDIT REPORT\n\n`;
+  auditReport += `✓ Total \cite{} citations in document: ${citedKeys.size}\n`;
+  auditReport += `✓ Total .bib keys found in workspace: ${bibKeys.size}\n\n`;
+
+  if (missingKeys.length === 0) {
+    auditReport += `✅ ALL CITATION KEYS RESOLVED! No missing references.\n\n`;
+  } else {
+    auditReport += `⚠️ MISSING BIBTEX KEYS (${missingKeys.length}):\n${missingKeys.map(k => `  • ${k}`).join('\n')}\n\n`;
+  }
+
+  if (unusedKeys.length > 0) {
+    auditReport += `ℹ️ UNUSED BIBTEX KEYS (${unusedKeys.length}):\n${unusedKeys.slice(0, 8).map(k => `  • ${k}`).join('\n')}\n`;
+  }
+
+  alert(auditReport);
+}
+
 async function insertFigureAtCursor() {
   const code = document.getElementById('fig-code-preview').value;
   if (!code) return;
@@ -3712,12 +3756,82 @@ async function insertFigureAtCursor() {
   await compileLaTeX();
 }
 
+// CONTEXT ENGINE: Targeted, scoped context extraction for AI Copilot & Agents
+function getAIContext() {
+  if (!editor) return {};
+
+  const cursor = editor.getCursor();
+  const selection = editor.getSelection();
+  const fullCode = editor.getValue();
+  const lines = fullCode.split('\n');
+
+  // 1. Extract surrounding text context (15 lines before and after cursor)
+  const startLine = Math.max(0, cursor.line - 15);
+  const endLine = Math.min(lines.length - 1, cursor.line + 15);
+  const surroundingText = lines.slice(startLine, endLine + 1).join('\n');
+
+  // 2. Identify parent section title
+  let currentSection = 'Preamble / Document Header';
+  for (let i = cursor.line; i >= 0; i--) {
+    const match = lines[i].match(/\\(section|subsection|subsubsection)\*?\{([^}]+)\}/);
+    if (match) {
+      currentSection = `${match[1]}: ${match[2]}`;
+      break;
+    }
+  }
+
+  // 3. Gather BibTeX keys across all .bib files in workspace
+  const bibKeys = [];
+  Object.keys(fileStore).filter(f => f.endsWith('.bib')).forEach(bibFile => {
+    const content = fileStore[bibFile] || '';
+    const keyRegex = /@(\w+)\s*\{\s*([^,\s]+)/g;
+    let km;
+    while ((km = keyRegex.exec(content)) !== null) {
+      bibKeys.push(`${km[2]} (@${km[1]} in ${bibFile})`);
+    }
+  });
+
+  return {
+    project_name: activeProject ? activeProject.name : 'LaTeX Project',
+    file: activeFile || 'main.tex',
+    current_section: currentSection,
+    cursor_line: cursor.line + 1,
+    selection: selection || null,
+    surrounding_text: surroundingText,
+    bib_keys: bibKeys,
+    compile_errors: lastCompilerLog || 'No active compiler errors'
+  };
+}
+
 async function runAITool(instruction, title) {
   const model = document.getElementById('model-select').value;
   const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://127.0.0.1:11434';
   const code = editor.getValue();
+  const context = getAIContext();
 
-  alert(`🧠 Processing request with ${model}...`);
+  alert(`🧠 Processing academic request with ${model}...`);
+
+  const promptPayload = `TASK: ${instruction}
+
+PROJECT CONTEXT:
+- Active File: ${context.file}
+- Current Section: ${context.current_section}
+- Cursor Line: ${context.cursor_line}
+${context.selection ? `- Selected Text:\n"${context.selection}"\n` : ''}
+${context.bib_keys && context.bib_keys.length ? `- Available Bibliography Keys: ${context.bib_keys.slice(0, 10).join(', ')}\n` : ''}
+
+SURROUNDING DOCUMENT CONTEXT:
+\`\`\`latex
+${context.selection ? context.selection : context.surrounding_text}
+\`\`\`
+
+FULL DOCUMENT:
+\`\`\`latex
+${code}
+\`\`\`
+
+INSTRUCTIONS:
+Output ONLY valid LaTeX code without extra explanations. Do not include markdown code block formatting like \`\`\`latex.`;
 
   try {
     const response = await fetch(`${ollamaUrl}/api/generate`, {
@@ -3725,7 +3839,7 @@ async function runAITool(instruction, title) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: model,
-        prompt: `${instruction}\n\nDOCUMENT:\n${code}`,
+        prompt: promptPayload,
         stream: false
       })
     });
@@ -3733,9 +3847,9 @@ async function runAITool(instruction, title) {
     let result = data.response.trim();
     result = result.replace(/^```latex/g, '').replace(/^```/g, '').replace(/```$/g, '');
 
-    showAIDiffModal(code, result, title || 'AI Modification');
+    showAIDiffModal(code, result, title || 'AI Academic Proposal');
   } catch (e) {
-    alert(`❌ Error: ${e.message}`);
+    alert(`❌ AI Execution Error: ${e.message}`);
   }
 }
 
