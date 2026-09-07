@@ -7,7 +7,7 @@
     "modified_at": "Just now",
     "favorite": false,
     "main_file": "main.tex",
-    "file_count": 3
+    "file_count": 11
   },
   "proj_1788706740_833e99": {
     "id": "proj_1788706740_833e99",
@@ -26,7 +26,17 @@
     "created_at": "2026-09-06 21:11",
     "modified_at": "Just now",
     "favorite": false,
-    "main_file": "supplementary_materials.tex",
+    "main_file": "main_version_with_annotations.tex",
     "file_count": 15
+  },
+  "proj_1788712876_fcbf20": {
+    "id": "proj_1788712876_fcbf20",
+    "name": "Preparation_Papers_for_TBME_December_2025",
+    "description": "Imported LaTeX Template Archive",
+    "created_at": "2026-09-06 22:11",
+    "modified_at": "Just now",
+    "favorite": false,
+    "main_file": "generic-color-brief.tex",
+    "file_count": 13
   }
 }
