@@ -847,7 +847,8 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             if proj_id and pdf_b:
                 p_dir = os.path.join(DB_DIR, proj_id)
                 os.makedirs(p_dir, exist_ok=True)
-                cache_path = os.path.join(p_dir, 'last_compiled.pdf')
+                safe_file_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', main_file or 'main.tex')
+                cache_path = os.path.join(p_dir, f'compiled_{safe_file_name}.pdf')
                 try:
                     with open(cache_path, 'wb') as cf:
                         cf.write(pdf_b)
@@ -857,13 +858,17 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
 
         def get_fallback_cached_pdf(log_txt, err_reason):
             if proj_id:
-                cache_path = os.path.join(DB_DIR, proj_id, 'last_compiled.pdf')
+                p_dir = os.path.join(DB_DIR, proj_id)
+                safe_file_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', main_file or 'main.tex')
+                cache_path = os.path.join(p_dir, f'compiled_{safe_file_name}.pdf')
+                if not os.path.exists(cache_path):
+                    cache_path = os.path.join(p_dir, 'last_compiled.pdf')
                 if os.path.exists(cache_path):
                     try:
                         with open(cache_path, 'rb') as cf:
                             b = cf.read()
                             if b:
-                                return b, log_txt + f'\n\n⚠️ LaTeX Warning ({err_reason}). Showing last compiled PDF preview for this project.', 'LaTeX errors'
+                                return b, log_txt + f'\n\n⚠️ LaTeX Warning ({err_reason}). Showing cached PDF preview for file "{main_file}".', 'LaTeX errors'
                     except Exception:
                         pass
 
@@ -875,7 +880,9 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             is_active_root = target_main_file and target_main_file in files and isinstance(files.get(target_main_file), str) and '\\documentclass' in files[target_main_file]
             active_file_fallback = not is_active_root
 
-            if is_active_root:
+            if main_file and main_file.endswith('.tex') and main_file in files:
+                target_main_file = main_file
+            elif is_active_root:
                 target_main_file = main_file
             else:
                 found_root = None
@@ -885,8 +892,6 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                         break
                 if found_root:
                     target_main_file = found_root
-                elif main_file and main_file.endswith('.tex'):
-                    target_main_file = main_file
                 else:
                     for fname in files.keys():
                         if fname.endswith('.tex'):
