@@ -412,14 +412,21 @@ function renderProjectTitle() {
 
 async function renameActiveProject() {
   if (!activeProject) return;
-  let newProjName = prompt(`Rename project '${activeProject.name}' to:`, activeProject.name);
-  if (!newProjName || newProjName.trim() === activeProject.name) return;
+  let currentName = activeProject.name || 'LaTeX Project';
+  let newProjName = prompt(`Enter new name for project '${currentName}':`, currentName);
+  if (!newProjName || newProjName.trim() === '' || newProjName.trim() === currentName) return;
   newProjName = newProjName.trim();
 
   activeProject.name = newProjName;
+
+  const idx = projectsList.findIndex(p => p.id === activeProject.id);
+  if (idx !== -1) {
+    projectsList[idx].name = newProjName;
+  }
+
   renderProjectTitle();
+  renderDashboard();
   await saveCurrentProjectToBackend();
-  await fetchProjectsFromBackend();
 }
 
 // --- FILE STRUCTURE & UPLOAD MANAGEMENT ---

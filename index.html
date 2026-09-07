@@ -80,10 +80,10 @@
           <span class="app-name">AI-Overleaf</span>
         </div>
 
-        <div class="project-info">
+        <div class="project-info" title="Click to rename current project">
           <i class="fa-solid fa-folder-open" style="color:var(--accent-amber);"></i>
-          <span class="project-title-display" id="project-title-display">LaTeX Project</span>
-          <button id="btn-rename-project" class="btn-sm" title="Rename Current Project"><i class="fa-solid fa-pen"></i></button>
+          <span class="project-title-display" id="project-title-display" onclick="renameActiveProject()">LaTeX Project</span>
+          <button id="btn-rename-project" class="btn-sm" title="Rename Current Project" onclick="renameActiveProject()"><i class="fa-solid fa-pen"></i></button>
           <span class="save-status" id="save-status"><i class="fa-solid fa-circle-check"></i> Saved</span>
         </div>
       </div>

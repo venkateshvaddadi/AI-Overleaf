@@ -178,6 +178,15 @@ body.dark-theme {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.project-title-display:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--accent-amber);
 }
 
 .save-status {
