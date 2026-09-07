@@ -351,6 +351,67 @@ body.dark-theme {
   overflow: hidden !important;
 }
 
+/* Layout Mode Controls & Workspace Responsive View Rules */
+.btn-layout-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.btn-layout-toggle:hover {
+  color: var(--text-main);
+}
+
+.btn-layout-toggle.active {
+  background: var(--accent-purple);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.4);
+}
+
+/* Editor Workspace View Modes */
+.app-main.mode-editor-only .editor-section {
+  display: flex !important;
+  flex: 1 !important;
+  width: 100% !important;
+  border-right: none !important;
+}
+
+.app-main.mode-editor-only .preview-section {
+  display: none !important;
+}
+
+.app-main.mode-pdf-only .editor-section {
+  display: none !important;
+}
+
+.app-main.mode-pdf-only .preview-section {
+  display: flex !important;
+  flex: 1 !important;
+  width: 100% !important;
+}
+
+.app-main.mode-split .editor-section {
+  display: flex !important;
+  flex: 1 !important;
+  width: 50% !important;
+}
+
+.app-main.mode-split .preview-section {
+  display: flex !important;
+  flex: 1 !important;
+  width: 50% !important;
+}
+
 .side-nav {
   width: 60px;
   min-width: 60px;
@@ -1037,6 +1098,99 @@ body.dark-theme {
   gap: 12px;
 }
 
+/* Dashboard Two-Column Layout & Navigation Sidebar */
+.dash-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - 65px);
+}
+
+.dash-sidebar {
+  width: 240px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
+.dash-sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dash-nav-header {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  padding: 0 10px 6px 10px;
+}
+
+.dash-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-main);
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.dash-nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dash-nav-item.active {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: var(--accent-purple);
+  font-weight: 600;
+}
+
+.dash-nav-item .nav-icon {
+  font-size: 1.05rem;
+  margin-right: 10px;
+  width: 20px;
+  text-align: center;
+}
+
+.dash-nav-item span:nth-child(2) {
+  flex: 1;
+}
+
+.dash-nav-badge {
+  font-size: 0.75rem;
+  font-family: 'Fira Code', monospace;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.dash-nav-item.active .dash-nav-badge {
+  background: var(--accent-purple);
+  color: #ffffff;
+}
+
+.dash-sidebar-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 0;
+}
+
 .dash-main {
   flex: 1;
   padding: 36px 48px;
@@ -1070,11 +1224,83 @@ body.dark-theme {
   border: 1px solid var(--border-color);
 }
 
+/* View Mode Toggle Buttons */
+.btn-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-toggle:hover {
+  color: var(--text-main);
+}
+
+.btn-toggle.active {
+  background: var(--accent-purple);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.4);
+}
+
 /* Projects Grid & Cards */
 .projects-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 24px;
+}
+
+/* Projects Row / List View Layout */
+.projects-grid.list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.projects-grid.list-view .project-card {
+  height: auto;
+  min-height: 64px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px;
+  border-radius: 10px;
+}
+
+.projects-grid.list-view .project-card:hover {
+  transform: translateX(4px);
+}
+
+.projects-grid.list-view .project-card-header {
+  flex: 1;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+}
+
+.projects-grid.list-view .project-card-title {
+  font-size: 1.05rem;
+  -webkit-line-clamp: 1;
+}
+
+.projects-grid.list-view .project-card-meta {
+  margin-top: 0;
+  margin-left: 20px;
+  margin-right: 20px;
+  gap: 20px;
+}
+
+.projects-grid.list-view .project-card-footer {
+  margin-top: 0;
+  gap: 10px;
 }
 
 .project-card {
@@ -1341,6 +1567,159 @@ body.dark-theme {
 li.CodeMirror-hint-active {
   background: var(--accent-purple) !important;
   color: #ffffff !important;
+}
+
+/* Real-time GitHub Progress Bar & Animated Shimmer */
+.github-progress-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.github-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #3b82f6, #10b981);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.github-progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Floating GitHub Background Sync Toast Pill */
+.github-sync-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 99999;
+  width: 320px;
+  background: rgba(18, 24, 38, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 15px rgba(99, 102, 241, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: slideUpToast 0.3s ease-out;
+}
+
+@keyframes slideUpToast {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.toast-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.toast-icon {
+  font-size: 1.3rem;
+  color: var(--accent-purple);
+}
+
+.toast-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.toast-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.toast-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.toast-percent {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-teal);
+}
+
+.toast-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.toast-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #10b981);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* Interactive Bidirectional SyncTeX & Highlight Styles */
+.editor-sync-highlight {
+  background: rgba(168, 85, 247, 0.35) !important;
+  border-left: 3px solid var(--accent-purple) !important;
+  animation: linePulse 1.8s ease-out;
+}
+
+@keyframes linePulse {
+  0% { background: rgba(168, 85, 247, 0.6) !important; }
+  100% { background: rgba(168, 85, 247, 0.15) !important; }
+}
+
+.pdf-sync-toast-badge {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  z-index: 1000;
+  background: rgba(18, 24, 38, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--accent-teal);
+  color: var(--text-main);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: fadeInDown 0.3s ease;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.active-autosync {
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: var(--accent-blue) !important;
 }
 
 

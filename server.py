@@ -8,14 +8,34 @@ import subprocess
 import tempfile
 import time
 import urllib.parse
+import threading
 
 PORT = 8090
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 TECTONIC_BIN = '/home/medimg/.gemini/antigravity/scratch/texenv/bin/tectonic'
 
+# Thread-safe status map for GitHub background sync
+sync_status_map = {}
+sync_status_lock = threading.Lock()
+
 # Backend Database & Disk Storage Configuration
 DB_DIR = os.path.join(DIRECTORY, 'projects_db')
 METADATA_FILE = os.path.join(DB_DIR, 'projects.json')
+
+def is_user_content_file(rel_path):
+    if not rel_path or not isinstance(rel_path, str):
+        return False
+    norm = rel_path.replace('\\', '/')
+    parts = norm.split('/')
+    for part in parts:
+        if part.startswith('.'):
+            return False
+        if part in ['__pycache__', 'node_modules', '.venv', 'venv']:
+            return False
+    filename = parts[-1]
+    if filename in ['last_compiled.pdf']:
+        return False
+    return True
 
 def init_db():
     os.makedirs(DB_DIR, exist_ok=True)
@@ -115,6 +135,128 @@ def save_metadata(data):
     with open(METADATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
 
+def run_bg_github_sync(proj_id, token, repo_url, commit_msg, auto_sync, files):
+    def update_status(status=None, progress=None, step=None, synced_count=None, files_count=None, error=None, log=None, last_synced=None):
+        with sync_status_lock:
+            st = sync_status_map.get(proj_id, {}).copy()
+            if status is not None: st['status'] = status
+            if progress is not None: st['progress'] = progress
+            if step is not None: st['step'] = step
+            if synced_count is not None: st['synced_count'] = synced_count
+            if files_count is not None: st['files_count'] = files_count
+            if error is not None: st['error'] = error
+            if log is not None: st['log'] = log
+            if last_synced is not None: st['last_synced'] = last_synced
+            sync_status_map[proj_id] = st
+
+    try:
+        total_files = len(files) if files else 0
+        update_status(status='syncing', progress=5, step='Writing project files to disk...', files_count=total_files, synced_count=0)
+
+        proj_dir = os.path.join(DB_DIR, proj_id)
+        os.makedirs(proj_dir, exist_ok=True)
+
+        # Write current files to disk with step updates
+        import base64
+        written = 0
+        for rel_path, content in files.items():
+            if rel_path.startswith('.git') or '/.git' in rel_path or '\\.git' in rel_path:
+                continue
+
+            full_path = os.path.join(proj_dir, rel_path)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+            ext = os.path.splitext(rel_path)[1].lower()
+            is_binary = ext in ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.svg', '.eps']
+
+            if isinstance(content, str) and content.startswith('data:') and ';base64,' in content:
+                try:
+                    b64_data = content.split(';base64,')[1]
+                    raw_b = base64.b64decode(b64_data)
+                    with open(full_path, 'wb') as f:
+                        f.write(raw_b)
+                    written += 1
+                    prog = min(40, int(5 + (written / max(1, total_files)) * 35))
+                    update_status(progress=prog, synced_count=written, step=f'Writing {rel_path} ({written}/{total_files})...')
+                    continue
+                except Exception:
+                    pass
+
+            if not is_binary and content != '[Binary Asset]':
+                with open(full_path, 'w', encoding='utf-8') as f:
+                    f.write(content if isinstance(content, str) else '')
+            written += 1
+            prog = min(40, int(5 + (written / max(1, total_files)) * 35))
+            update_status(progress=prog, synced_count=written, step=f'Writing {rel_path} ({written}/{total_files})...')
+
+        # Create .gitignore for space optimization (skip temp logs and last_compiled.pdf)
+        update_status(progress=45, step='Configuring .gitignore space optimization rules...')
+        gitignore_path = os.path.join(proj_dir, '.gitignore')
+        if not os.path.exists(gitignore_path):
+            with open(gitignore_path, 'w', encoding='utf-8') as f:
+                f.write("*.aux\n*.log\n*.out\n*.toc\n*.synctex.gz\n*.fls\n*.fdb_latexmk\nlast_compiled.pdf\ntemp.tex\n")
+
+        # Clean remote URL for authenticated HTTPS push
+        clean_repo = repo_url.replace('https://', '').replace('http://', '')
+        if '@' in clean_repo:
+            clean_repo = clean_repo.split('@')[-1]
+        
+        auth_repo_url = f"https://x-access-token:{token}@{clean_repo}"
+
+        # Git operations
+        update_status(progress=55, step='Initializing local Git repository...')
+        if not os.path.exists(os.path.join(proj_dir, '.git')):
+            subprocess.run(['git', 'init'], cwd=proj_dir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(['git', 'config', 'user.name', 'AI-Overleaf Sync'], cwd=proj_dir)
+            subprocess.run(['git', 'config', 'user.email', 'sync@ai-overleaf.local'], cwd=proj_dir)
+
+        update_status(progress=70, step='Staging & committing local changes...')
+        subprocess.run(['git', 'add', '-A'], cwd=proj_dir, check=True)
+
+        status_res = subprocess.run(['git', 'status', '--porcelain'], cwd=proj_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if status_res.stdout.strip():
+            subprocess.run(['git', 'commit', '-m', commit_msg], cwd=proj_dir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        update_status(progress=85, step='Pushing commits to remote GitHub repository...')
+        push_res = subprocess.run(['git', 'push', auth_repo_url, 'HEAD:main'], cwd=proj_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if push_res.returncode != 0:
+            push_res = subprocess.run(['git', 'push', auth_repo_url, 'HEAD:master'], cwd=proj_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        if push_res.returncode == 0:
+            metadata = load_metadata()
+            ts = time.strftime('%Y-%m-%d %H:%M:%S')
+            if proj_id in metadata:
+                metadata[proj_id]['github_token'] = token
+                metadata[proj_id]['github_repo'] = repo_url
+                metadata[proj_id]['github_autosync'] = auto_sync
+                metadata[proj_id]['github_last_synced'] = ts
+                save_metadata(metadata)
+
+            update_status(
+                status='completed',
+                progress=100,
+                step='Successfully synced all files to GitHub repository!',
+                last_synced=ts,
+                log=push_res.stdout + push_res.stderr or 'Push completed cleanly.'
+            )
+        else:
+            err_msg = 'GitHub push failed. Please verify repository URL and PAT permissions.'
+            update_status(
+                status='failed',
+                progress=100,
+                step=f'Push error: {err_msg}',
+                error=err_msg,
+                log=push_res.stderr or push_res.stdout
+            )
+    except Exception as git_err:
+        update_status(
+            status='failed',
+            progress=100,
+            step=f'Sync Error: {str(git_err)}',
+            error=str(git_err),
+            log=str(git_err)
+        )
+
 class OverleafServer(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
@@ -131,6 +273,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
         if parsed.path == '/api/projects':
             params = urllib.parse.parse_qs(parsed.query)
             proj_id = params.get('id', [None])[0]
+            tab = params.get('tab', ['active'])[0]
             metadata = load_metadata()
 
             if proj_id:
@@ -143,6 +286,8 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                             for fname in files:
                                 full_path = os.path.join(root, fname)
                                 rel_path = os.path.relpath(full_path, proj_dir)
+                                if not is_user_content_file(rel_path):
+                                    continue
                                 try:
                                     with open(full_path, 'r', encoding='utf-8') as f:
                                         files_obj[rel_path] = f.read()
@@ -155,13 +300,84 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                                     mime = 'image/jpeg' if ext in ['.jpg', '.jpeg'] else ('image/png' if ext == '.png' else ('image/svg+xml' if ext == '.svg' else ('application/pdf' if ext == '.pdf' else 'application/octet-stream')))
                                     files_obj[rel_path] = f'data:{mime};base64,{b64_bytes}'
                     proj['files'] = files_obj
+                    proj['file_count'] = len(files_obj)
                     self.send_json(200, proj)
                 else:
                     self.send_json(404, {'error': 'Project not found'})
             else:
-                # Return list of all projects
-                proj_list = list(metadata.values())
+                # Filter by dashboard tab lifecycle state & update file counts
+                all_projs = list(metadata.values())
+                for p in all_projs:
+                    pid = p.get('id')
+                    pdir = os.path.join(DB_DIR, pid)
+                    if os.path.exists(pdir):
+                        user_files = []
+                        for root, _, files in os.walk(pdir):
+                            for fname in files:
+                                rp = os.path.relpath(os.path.join(root, fname), pdir)
+                                if is_user_content_file(rp):
+                                    user_files.append(rp)
+                        p['file_count'] = len(user_files)
+
+                if tab == 'archived':
+                    proj_list = [p for p in all_projs if p.get('archived', False) and not p.get('deleted_at')]
+                elif tab == 'trash':
+                    proj_list = [p for p in all_projs if p.get('deleted_at') is not None]
+                elif tab == 'shared':
+                    proj_list = [p for p in all_projs if p.get('shared', False) and not p.get('deleted_at')]
+                elif tab == 'all':
+                    proj_list = all_projs
+                else:  # 'active' (default)
+                    proj_list = [p for p in all_projs if not p.get('archived', False) and not p.get('deleted_at')]
+
                 self.send_json(200, proj_list)
+            return
+
+        elif parsed.path == '/api/projects/download':
+            params = urllib.parse.parse_qs(parsed.query)
+            proj_id = params.get('id', [None])[0]
+            metadata = load_metadata()
+            if not proj_id or proj_id not in metadata:
+                self.send_json(404, {'error': 'Project not found.'})
+                return
+            
+            proj = metadata[proj_id]
+            proj_name = proj.get('name', 'project').replace(' ', '_')
+            proj_dir = os.path.join(DB_DIR, proj_id)
+
+            if not os.path.exists(proj_dir):
+                self.send_json(404, {'error': 'Project directory does not exist on disk.'})
+                return
+
+            import zipfile, io
+            mem_zip = io.BytesIO()
+            with zipfile.ZipFile(mem_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for root, _, files in os.walk(proj_dir):
+                    for fname in files:
+                        full_p = os.path.join(root, fname)
+                        rel_p = os.path.relpath(full_p, proj_dir)
+                        if not is_user_content_file(rel_p):
+                            continue
+                        zf.write(full_p, rel_p)
+            
+            mem_zip.seek(0)
+            zip_bytes = mem_zip.read()
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/zip')
+            self.send_header('Content-Disposition', f'attachment; filename="{proj_name}.zip"')
+            self.send_header('Content-Length', str(len(zip_bytes)))
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(zip_bytes)
+            return
+
+        elif parsed.path == '/api/projects/github-sync-status':
+            params = urllib.parse.parse_qs(parsed.query)
+            proj_id = params.get('id', [None])[0]
+            with sync_status_lock:
+                st = sync_status_map.get(proj_id, {'status': 'idle', 'progress': 0, 'step': 'Idle', 'files_count': 0, 'synced_count': 0}).copy()
+            self.send_json(200, st)
             return
 
         super().do_GET()
@@ -170,13 +386,12 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
         content_length = int(self.headers.get('Content-Length', 0))
         if content_length <= 0:
             return {}
-        body = bytearray()
-        while len(body) < content_length:
-            chunk = self.rfile.read(min(content_length - len(body), 65536))
-            if not chunk:
-                break
-            body.extend(chunk)
-        return json.loads(body.decode('utf-8'))
+        try:
+            raw_body = self.rfile.read(content_length)
+            return json.loads(raw_body.decode('utf-8', errors='replace'))
+        except Exception as e:
+            print(f"Error reading body json ({content_length} bytes):", e)
+            return {}
 
     def do_POST(self):
         if self.path == '/api/projects/create':
@@ -230,6 +445,9 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
 
                 import base64
                 for rel_path, content in files.items():
+                    if rel_path.startswith('.git') or '/.git' in rel_path or '\\.git' in rel_path:
+                        continue
+
                     full_path = os.path.join(proj_dir, rel_path)
                     os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
@@ -260,6 +478,45 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                     metadata[proj_id]['name'] = name
                 save_metadata(metadata)
                 self.send_json(200, {'status': 'saved', 'modified_at': 'Just now'})
+            else:
+                self.send_json(404, {'error': 'Project not found'})
+            return
+
+        elif self.path == '/api/projects/archive':
+            data = self.read_body_json()
+            proj_id = data.get('id')
+            metadata = load_metadata()
+            if proj_id and proj_id in metadata:
+                metadata[proj_id]['archived'] = True
+                metadata[proj_id]['archived_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
+                save_metadata(metadata)
+                self.send_json(200, {'status': 'archived', 'project': metadata[proj_id]})
+            else:
+                self.send_json(404, {'error': 'Project not found'})
+            return
+
+        elif self.path == '/api/projects/restore':
+            data = self.read_body_json()
+            proj_id = data.get('id')
+            metadata = load_metadata()
+            if proj_id and proj_id in metadata:
+                metadata[proj_id]['archived'] = False
+                metadata[proj_id]['archived_at'] = None
+                metadata[proj_id]['deleted_at'] = None
+                save_metadata(metadata)
+                self.send_json(200, {'status': 'restored', 'project': metadata[proj_id]})
+            else:
+                self.send_json(404, {'error': 'Project not found'})
+            return
+
+        elif self.path == '/api/projects/trash':
+            data = self.read_body_json()
+            proj_id = data.get('id')
+            metadata = load_metadata()
+            if proj_id and proj_id in metadata:
+                metadata[proj_id]['deleted_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
+                save_metadata(metadata)
+                self.send_json(200, {'status': 'trashed', 'project': metadata[proj_id]})
             else:
                 self.send_json(404, {'error': 'Project not found'})
             return
@@ -392,84 +649,33 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                 self.send_json(404, {'error': 'Project not found.'})
                 return
 
-            proj_dir = os.path.join(DB_DIR, proj_id)
-            os.makedirs(proj_dir, exist_ok=True)
+            # Check if sync is already running in background
+            with sync_status_lock:
+                curr_status = sync_status_map.get(proj_id, {}).get('status')
+                if curr_status == 'syncing':
+                    self.send_json(200, {'status': 'syncing', 'message': 'Sync is already running in background.'})
+                    return
+                
+                sync_status_map[proj_id] = {
+                    'status': 'syncing',
+                    'progress': 5,
+                    'step': 'Preparing files for background git sync...',
+                    'files_count': len(files),
+                    'synced_count': 0,
+                    'error': None,
+                    'log': '',
+                    'last_synced': ''
+                }
 
-            # Write current files to disk
-            import base64
-            for rel_path, content in files.items():
-                full_path = os.path.join(proj_dir, rel_path)
-                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            # Launch background thread for non-blocking sync
+            t = threading.Thread(
+                target=run_bg_github_sync,
+                args=(proj_id, token, repo_url, commit_msg, auto_sync, files),
+                daemon=True
+            )
+            t.start()
 
-                ext = os.path.splitext(rel_path)[1].lower()
-                is_binary = ext in ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.svg', '.eps']
-
-                if isinstance(content, str) and content.startswith('data:') and ';base64,' in content:
-                    try:
-                        b64_data = content.split(';base64,')[1]
-                        raw_b = base64.b64decode(b64_data)
-                        with open(full_path, 'wb') as f:
-                            f.write(raw_b)
-                        continue
-                    except Exception:
-                        pass
-
-                if not is_binary and content != '[Binary Asset]':
-                    with open(full_path, 'w', encoding='utf-8') as f:
-                        f.write(content if isinstance(content, str) else '')
-
-            # Create .gitignore for space optimization (skip temp logs and last_compiled.pdf)
-            gitignore_path = os.path.join(proj_dir, '.gitignore')
-            if not os.path.exists(gitignore_path):
-                with open(gitignore_path, 'w', encoding='utf-8') as f:
-                    f.write("*.aux\n*.log\n*.out\n*.toc\n*.synctex.gz\n*.fls\n*.fdb_latexmk\nlast_compiled.pdf\ntemp.tex\n")
-
-            # Clean remote URL for authenticated HTTPS push
-            clean_repo = repo_url.replace('https://', '').replace('http://', '')
-            if '@' in clean_repo:
-                clean_repo = clean_repo.split('@')[-1]
-            
-            auth_repo_url = f"https://x-access-token:{token}@{clean_repo}"
-
-            try:
-                # Init git if needed
-                if not os.path.exists(os.path.join(proj_dir, '.git')):
-                    subprocess.run(['git', 'init'], cwd=proj_dir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    subprocess.run(['git', 'config', 'user.name', 'AI-Overleaf Sync'], cwd=proj_dir)
-                    subprocess.run(['git', 'config', 'user.email', 'sync@ai-overleaf.local'], cwd=proj_dir)
-
-                # Stage, commit, and push
-                subprocess.run(['git', 'add', '-A'], cwd=proj_dir, check=True)
-
-                # Check if there are changes to commit
-                status_res = subprocess.run(['git', 'status', '--porcelain'], cwd=proj_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                if status_res.stdout.strip():
-                    subprocess.run(['git', 'commit', '-m', commit_msg], cwd=proj_dir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-                # Push to main branch (or master)
-                push_res = subprocess.run(['git', 'push', auth_repo_url, 'HEAD:main'], cwd=proj_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                if push_res.returncode != 0:
-                    push_res = subprocess.run(['git', 'push', auth_repo_url, 'HEAD:master'], cwd=proj_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-                if push_res.returncode == 0:
-                    metadata[proj_id]['github_token'] = token
-                    metadata[proj_id]['github_repo'] = repo_url
-                    metadata[proj_id]['github_autosync'] = auto_sync
-                    metadata[proj_id]['github_last_synced'] = time.strftime('%Y-%m-%d %H:%M:%S')
-                    save_metadata(metadata)
-
-                    self.send_json(200, {
-                        'status': 'success',
-                        'last_synced': metadata[proj_id]['github_last_synced'],
-                        'log': push_res.stdout + push_res.stderr or 'Successfully synced all files to GitHub repository.'
-                    })
-                else:
-                    self.send_json(400, {
-                        'error': 'GitHub push failed. Please verify repository URL and PAT permissions.',
-                        'log': push_res.stderr or push_res.stdout
-                    })
-            except Exception as git_err:
-                self.send_json(500, {'error': f'Git sync error: {str(git_err)}'})
+            self.send_json(200, {'status': 'started', 'message': 'GitHub sync started in background thread.'})
             return
 
         elif self.path == '/api/compile':

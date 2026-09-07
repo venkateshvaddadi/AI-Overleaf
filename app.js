@@ -13,6 +13,30 @@ let activeProject = null;
 let fileStore = {};
 let activeFile = 'main.tex';
 
+function isUserContentFile(filename) {
+  if (!filename || typeof filename !== 'string') return false;
+  const norm = filename.replace(/\\/g, '/');
+  const parts = norm.split('/');
+  for (const part of parts) {
+    if (part.startsWith('.')) return false;
+    if (['__pycache__', 'node_modules', '.venv', 'venv'].includes(part)) return false;
+  }
+  const fname = parts[parts.length - 1];
+  if (['last_compiled.pdf', 'temp.tex'].includes(fname)) return false;
+  return true;
+}
+
+function sanitizeFileStore(rawFiles) {
+  if (!rawFiles || typeof rawFiles !== 'object') return {};
+  const clean = {};
+  Object.keys(rawFiles).forEach(key => {
+    if (isUserContentFile(key)) {
+      clean[key] = rawFiles[key];
+    }
+  });
+  return clean;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initViewRouter();
   initDashboard();
@@ -30,13 +54,18 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- BACKEND REST API CALLS ---
+let currentDashTab = 'active';
+
 async function fetchProjectsFromBackend(filterQuery = '') {
   try {
-    const res = await fetch('/api/projects');
+    const res = await fetch(`/api/projects?tab=${currentDashTab}`);
     if (res.ok) {
       projectsList = await res.json();
       renderDashboard(filterQuery);
       renderProjectTitle();
+
+      // Update sidebar tab counts asynchronously
+      updateSidebarCounts();
 
       // F5 Refresh & Direct Hash Navigation Support:
       let savedProjId = null;
@@ -47,7 +76,7 @@ async function fetchProjectsFromBackend(filterQuery = '') {
         savedProjId = localStorage.getItem('activeProjectId');
       }
 
-      if (savedProjId && projectsList.some(p => p.id === savedProjId)) {
+      if (savedProjId && currentDashTab === 'active' && projectsList.some(p => p.id === savedProjId)) {
         if (!activeProject || activeProject.id !== savedProjId) {
           await openProjectFromDashboard(savedProjId);
         }
@@ -58,13 +87,74 @@ async function fetchProjectsFromBackend(filterQuery = '') {
   }
 }
 
+async function updateSidebarCounts() {
+  try {
+    const res = await fetch('/api/projects?tab=all');
+    if (!res.ok) return;
+    const allProjs = await res.json();
+
+    const activeCount = allProjs.filter(p => !p.archived && !p.deleted_at).length;
+    const sharedCount = allProjs.filter(p => p.shared && !p.deleted_at).length;
+    const archivedCount = allProjs.filter(p => p.archived && !p.deleted_at).length;
+    const trashCount = allProjs.filter(p => p.deleted_at).length;
+
+    const elActive = document.getElementById('nav-count-active');
+    const elShared = document.getElementById('nav-count-shared');
+    const elArchived = document.getElementById('nav-count-archived');
+    const elTrash = document.getElementById('nav-count-trash');
+
+    if (elActive) elActive.innerText = activeCount;
+    if (elShared) elShared.innerText = sharedCount;
+    if (elArchived) elArchived.innerText = archivedCount;
+    if (elTrash) elTrash.innerText = trashCount;
+  } catch (e) {
+    console.warn('Error updating sidebar counts:', e);
+  }
+}
+
+function switchDashboardTab(tab) {
+  currentDashTab = tab;
+
+  // Update navigation items state
+  ['active', 'shared', 'archived', 'trash'].forEach(t => {
+    const btn = document.getElementById(`nav-dash-${t}`);
+    if (btn) {
+      if (t === tab) btn.classList.add('active');
+      else btn.classList.remove('active');
+    }
+  });
+
+  // Update title header text & search placeholder
+  const titleEl = document.getElementById('dash-title-text');
+  const searchInput = document.getElementById('search-projects-input');
+
+  if (titleEl) {
+    if (tab === 'archived') {
+      titleEl.innerHTML = `<i class="fa-solid fa-box-archive" style="color:var(--accent-amber);"></i> Archived Projects`;
+      if (searchInput) searchInput.placeholder = 'Search archived research papers or projects...';
+    } else if (tab === 'trash') {
+      titleEl.innerHTML = `<i class="fa-solid fa-trash-can" style="color:#ef4444;"></i> Trash`;
+      if (searchInput) searchInput.placeholder = 'Search deleted projects in trash...';
+    } else if (tab === 'shared') {
+      titleEl.innerHTML = `<i class="fa-solid fa-users" style="color:var(--accent-blue);"></i> Shared with You`;
+      if (searchInput) searchInput.placeholder = 'Search shared research projects...';
+    } else {
+      titleEl.innerHTML = `<i class="fa-solid fa-folder-open" style="color:var(--accent-purple);"></i> My Research Projects`;
+      if (searchInput) searchInput.placeholder = 'Search research projects, papers, or files...';
+    }
+  }
+
+  fetchProjectsFromBackend(searchInput ? searchInput.value.toLowerCase() : '');
+}
+
 async function openProjectFromDashboard(projId) {
   try {
     const res = await fetch(`/api/projects?id=${projId}`);
     if (res.ok) {
       activeProject = await res.json();
-      fileStore = activeProject.files || {};
-      activeFile = activeProject.main_file || Object.keys(fileStore)[0] || 'main.tex';
+      fileStore = sanitizeFileStore(activeProject.files);
+      const userKeys = Object.keys(fileStore);
+      activeFile = (activeProject.main_file && isUserContentFile(activeProject.main_file)) ? activeProject.main_file : (userKeys[0] || 'main.tex');
 
       renderProjectTitle();
       renderFileList();
@@ -104,8 +194,8 @@ async function createNewProjectFromDashboard() {
 
     if (res.ok) {
       activeProject = await res.json();
-      fileStore = activeProject.files || {};
-      activeFile = activeProject.main_file || 'main.tex';
+      fileStore = sanitizeFileStore(activeProject.files);
+      activeFile = (activeProject.main_file && isUserContentFile(activeProject.main_file)) ? activeProject.main_file : 'main.tex';
 
       await fetchProjectsFromBackend();
       renderFileList();
@@ -234,6 +324,39 @@ function initViewRouter() {
   });
 }
 
+let editorLayoutMode = localStorage.getItem('editor_layout_mode') || 'split';
+
+function setEditorLayoutMode(mode) {
+  editorLayoutMode = mode;
+  localStorage.setItem('editor_layout_mode', mode);
+
+  const mainContainer = document.querySelector('.app-main');
+  const btnEditor = document.getElementById('btn-layout-editor');
+  const btnSplit = document.getElementById('btn-layout-split');
+  const btnPdf = document.getElementById('btn-layout-pdf');
+
+  if (mainContainer) {
+    mainContainer.classList.remove('mode-editor-only', 'mode-pdf-only', 'mode-split');
+    if (mode === 'editor') mainContainer.classList.add('mode-editor-only');
+    else if (mode === 'pdf') mainContainer.classList.add('mode-pdf-only');
+    else mainContainer.classList.add('mode-split');
+  }
+
+  // Update button active highlights
+  if (btnEditor && btnSplit && btnPdf) {
+    btnEditor.classList.toggle('active', mode === 'editor');
+    btnSplit.classList.toggle('active', mode === 'split');
+    btnPdf.classList.toggle('active', mode === 'pdf');
+  }
+
+  // Refresh CodeMirror so text wrapping and scrollbars adjust immediately
+  if (editor) {
+    setTimeout(() => {
+      editor.refresh();
+    }, 60);
+  }
+}
+
 function switchView(targetView, projId = null) {
   currentView = targetView;
   document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
@@ -247,6 +370,7 @@ function switchView(targetView, projId = null) {
   } else {
     document.getElementById('view-editor').classList.add('active');
     ensurePdfViewActive();
+    setEditorLayoutMode(editorLayoutMode);
     const idToSave = projId || (activeProject && activeProject.id);
     if (idToSave) {
       window.location.hash = `#/project/${idToSave}`;
@@ -280,13 +404,23 @@ function initDashboard() {
   }
 }
 
+let dashboardViewMode = localStorage.getItem('dash_view_mode') || 'grid';
+
+function setDashboardView(mode) {
+  dashboardViewMode = mode;
+  localStorage.setItem('dash_view_mode', mode);
+
+  const searchInput = document.getElementById('search-projects-input');
+  renderDashboard(searchInput ? searchInput.value.toLowerCase() : '');
+}
+
 function renderDashboard(filterQuery = '') {
   const grid = document.getElementById('projects-grid');
   const countText = document.getElementById('proj-count-text');
   if (!grid) return;
 
   grid.innerHTML = '';
-  
+
   const filtered = projectsList.filter(proj => {
     return proj.name.toLowerCase().includes(filterQuery) || (proj.description && proj.description.toLowerCase().includes(filterQuery));
   });
@@ -295,35 +429,215 @@ function renderDashboard(filterQuery = '') {
     countText.innerText = `${filtered.length} Project${filtered.length === 1 ? '' : 's'}`;
   }
 
+  if (filtered.length === 0) {
+    let emptyMsg = filterQuery ? 'No matching projects found.' : 'No projects found in this section.';
+    if (!filterQuery) {
+      if (currentDashTab === 'archived') emptyMsg = 'No archived projects found.';
+      else if (currentDashTab === 'trash') emptyMsg = 'Trash is empty.';
+      else if (currentDashTab === 'shared') emptyMsg = 'No projects shared with you.';
+    }
+
+    grid.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align:center; padding:60px 20px; color:var(--text-muted);">
+        <i class="fa-solid fa-folder-open" style="font-size:3rem; margin-bottom:12px; opacity:0.4;"></i>
+        <div style="font-size:1.1rem; font-weight:500;">${emptyMsg}</div>
+      </div>
+    `;
+    return;
+  }
+  
+  if (dashboardViewMode === 'list') {
+    grid.classList.add('list-view');
+  } else {
+    grid.classList.remove('list-view');
+  }
+
+  // Sync button active states
+  const btnGrid = document.getElementById('btn-view-grid');
+  const btnList = document.getElementById('btn-view-list');
+  if (btnGrid && btnList) {
+    if (dashboardViewMode === 'grid') {
+      btnGrid.classList.add('active');
+      btnList.classList.remove('active');
+    } else {
+      btnList.classList.add('active');
+      btnGrid.classList.remove('active');
+    }
+  }
+
   filtered.forEach(proj => {
     const card = document.createElement('div');
     card.className = 'project-card';
 
-    card.innerHTML = `
-      <div class="project-card-header">
-        <span class="project-card-title">${proj.name}</span>
-        <button class="star-btn ${proj.favorite ? 'starred' : ''}" onclick="toggleFavorite('${proj.id}')" title="Toggle Favorite">
-          <i class="fa-${proj.favorite ? 'solid' : 'regular'} fa-star"></i>
+    // Action buttons based on active tab state
+    let actionButtonsHtml = '';
+    if (currentDashTab === 'trash') {
+      actionButtonsHtml = `
+        <button class="btn btn-sm btn-primary" onclick="restoreProjectFromDashboard('${proj.id}')" title="Restore Project">
+          <i class="fa-solid fa-rotate-left"></i> Restore
         </button>
-      </div>
-
-      <div class="project-card-meta">
-        <span><i class="fa-regular fa-clock"></i> ${proj.modified_at || 'Recently'}</span>
-        <span><i class="fa-solid fa-file"></i> ${proj.file_count || 1} file(s)</span>
-      </div>
-
-      <div class="project-card-footer">
+        <button class="btn btn-sm btn-secondary" onclick="permanentDeleteProjectFromDashboard('${proj.id}')" title="Delete Permanently">
+          <i class="fa-solid fa-trash-can" style="color:#ef4444;"></i> Delete
+        </button>
+      `;
+    } else if (currentDashTab === 'archived') {
+      actionButtonsHtml = `
         <button class="btn btn-sm btn-primary" onclick="openProjectFromDashboard('${proj.id}')">
-          <i class="fa-solid fa-folder-open"></i> Open Editor
+          <i class="fa-solid fa-folder-open"></i> Open
         </button>
-        <button class="btn btn-sm btn-secondary" onclick="deleteProjectFromDashboard('${proj.id}')" title="Delete Project">
+        <button class="btn btn-sm btn-secondary" onclick="restoreProjectFromDashboard('${proj.id}')" title="Restore to Active">
+          <i class="fa-solid fa-rotate-left"></i> Restore
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="downloadProjectZip('${proj.id}')" title="Download .zip">
+          <i class="fa-solid fa-download"></i>
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="trashProjectFromDashboard('${proj.id}')" title="Move to Trash">
           <i class="fa-solid fa-trash"></i>
         </button>
-      </div>
-    `;
+      `;
+    } else { // 'active' or 'shared'
+      actionButtonsHtml = `
+        <button class="btn btn-sm btn-primary" onclick="openProjectFromDashboard('${proj.id}')">
+          <i class="fa-solid fa-folder-open"></i> Open
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="archiveProjectFromDashboard('${proj.id}')" title="Archive Project">
+          <i class="fa-solid fa-box-archive" style="color:var(--accent-amber);"></i>
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="downloadProjectZip('${proj.id}')" title="Download .zip">
+          <i class="fa-solid fa-download"></i>
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="trashProjectFromDashboard('${proj.id}')" title="Move to Trash">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      `;
+    }
+
+    if (dashboardViewMode === 'list') {
+      // Row / List View layout
+      card.innerHTML = `
+        <div class="project-card-header">
+          <button class="star-btn ${proj.favorite ? 'starred' : ''}" onclick="toggleFavorite('${proj.id}')" title="Toggle Favorite">
+            <i class="fa-${proj.favorite ? 'solid' : 'regular'} fa-star"></i>
+          </button>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span class="project-card-title">${proj.name}</span>
+            <span style="font-size:0.75rem; color:var(--text-muted);">${proj.description || 'LaTeX Paper Project'}</span>
+          </div>
+        </div>
+
+        <div class="project-card-meta">
+          <span><i class="fa-regular fa-clock"></i> ${proj.archived_at ? 'Archived ' + proj.archived_at : (proj.deleted_at ? 'Deleted ' + proj.deleted_at : (proj.modified_at || 'Recently'))}</span>
+          <span><i class="fa-solid fa-file"></i> ${proj.file_count || 1} file(s)</span>
+          ${proj.github_repo ? '<span class="badge" style="background:rgba(168,85,247,0.15); color:var(--accent-purple);"><i class="fa-brands fa-github"></i> Remote Synced</span>' : ''}
+        </div>
+
+        <div class="project-card-footer">
+          ${actionButtonsHtml}
+        </div>
+      `;
+    } else {
+      // Grid Card layout
+      card.innerHTML = `
+        <div class="project-card-header">
+          <span class="project-card-title">${proj.name}</span>
+          <button class="star-btn ${proj.favorite ? 'starred' : ''}" onclick="toggleFavorite('${proj.id}')" title="Toggle Favorite">
+            <i class="fa-${proj.favorite ? 'solid' : 'regular'} fa-star"></i>
+          </button>
+        </div>
+
+        <div class="project-card-meta">
+          <span><i class="fa-regular fa-clock"></i> ${proj.archived_at ? 'Archived ' + proj.archived_at : (proj.deleted_at ? 'Deleted ' + proj.deleted_at : (proj.modified_at || 'Recently'))}</span>
+          <span><i class="fa-solid fa-file"></i> ${proj.file_count || 1} file(s)</span>
+        </div>
+
+        <div class="project-card-footer">
+          ${actionButtonsHtml}
+        </div>
+      `;
+    }
 
     grid.appendChild(card);
   });
+}
+
+// Lifecycle action helpers
+async function archiveProjectFromDashboard(projId) {
+  try {
+    const res = await fetch('/api/projects/archive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: projId })
+    });
+    if (res.ok) {
+      fetchProjectsFromBackend();
+    } else {
+      alert('Failed to archive project.');
+    }
+  } catch (e) {
+    alert('Error archiving project: ' + e.message);
+  }
+}
+
+async function restoreProjectFromDashboard(projId) {
+  try {
+    const res = await fetch('/api/projects/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: projId })
+    });
+    if (res.ok) {
+      fetchProjectsFromBackend();
+    } else {
+      alert('Failed to restore project.');
+    }
+  } catch (e) {
+    alert('Error restoring project: ' + e.message);
+  }
+}
+
+async function trashProjectFromDashboard(projId) {
+  try {
+    const res = await fetch('/api/projects/trash', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: projId })
+    });
+    if (res.ok) {
+      fetchProjectsFromBackend();
+    } else {
+      alert('Failed to move project to trash.');
+    }
+  } catch (e) {
+    alert('Error moving project to trash: ' + e.message);
+  }
+}
+
+async function permanentDeleteProjectFromDashboard(projId) {
+  const proj = projectsList.find(p => p.id === projId);
+  const name = proj ? proj.name : 'this project';
+
+  if (!confirm(`Are you sure you want to PERMANENTLY delete "${name}"?\nThis action cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/projects/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: projId })
+    });
+    if (res.ok) {
+      fetchProjectsFromBackend();
+    } else {
+      alert('Failed to delete project permanently.');
+    }
+  } catch (e) {
+    alert('Error deleting project: ' + e.message);
+  }
+}
+
+function downloadProjectZip(projId) {
+  window.location.href = `/api/projects/download?id=${projId}`;
 }
 
 async function handleDashboardZipImport(e) {
@@ -435,7 +749,7 @@ function renderFileList() {
   if (!container) return;
   container.innerHTML = '';
 
-  Object.keys(fileStore).forEach(filename => {
+  Object.keys(fileStore).filter(isUserContentFile).forEach(filename => {
     const li = document.createElement('li');
     li.className = `file-item ${filename === activeFile ? 'active' : ''}`;
     
@@ -450,6 +764,9 @@ function renderFileList() {
         <span>${filename}</span>
       </div>
       <div class="file-actions">
+        <button class="btn-file-action" onclick="event.stopPropagation(); downloadSingleFile('${filename}')" title="Download File">
+          <i class="fa-solid fa-download"></i>
+        </button>
         <button class="btn-file-action" onclick="event.stopPropagation(); renameFile('${filename}')" title="Rename File">
           <i class="fa-solid fa-pen-to-square"></i>
         </button>
@@ -461,6 +778,31 @@ function renderFileList() {
 
     container.appendChild(li);
   });
+}
+
+function downloadSingleFile(filename) {
+  if (!fileStore || !fileStore[filename]) {
+    if (typeof showToast === 'function') showToast(`File ${filename} not found`, 'warning');
+    return;
+  }
+  let content = fileStore[filename];
+  if (filename === activeFile && editor && !filename.match(/\.(png|jpg|jpeg|gif|svg|webp|pdf)$/i)) {
+    content = editor.getValue();
+    fileStore[filename] = content;
+  }
+
+  const a = document.createElement('a');
+  if (typeof content === 'string' && content.startsWith('data:')) {
+    a.href = content;
+  } else {
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    a.href = URL.createObjectURL(blob);
+  }
+  a.download = filename.split('/').pop() || filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  if (typeof showToast === 'function') showToast(`Downloaded ${filename}`, 'success');
 }
 
 function switchActiveFile(filename) {
@@ -1133,19 +1475,9 @@ function initNavigation() {
     saveCurrentProjectToBackend();
   });
 
-  document.getElementById('btn-export-pdf').addEventListener('click', exportPDF);
-  document.getElementById('btn-download').addEventListener('click', exportTeXFile);
+  const btnExportPdf = document.getElementById('btn-export-pdf');
+  if (btnExportPdf) btnExportPdf.addEventListener('click', exportPDF);
   initGitHubSync();
-}
-
-function exportTeXFile() {
-  const text = editor.getValue();
-  const filename = activeFile || 'document.tex';
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
 }
 
 function ensurePdfViewActive() {
@@ -1714,26 +2046,51 @@ async function testOllamaConnection() {
   }
 }
 
-// PDF Inverse Search & Cursor Jump Sync Engine
+// --- BIDIRECTIONAL INTERACTIVE SYNCTEX ENGINE (EDITOR ⟷ PDF) ---
+let isAutoSyncActive = true;
+let autoSyncDebounceTimer = null;
+
+function toggleAutoSync() {
+  isAutoSyncActive = !isAutoSyncActive;
+  const btn = document.getElementById('btn-toggle-autosync');
+  if (btn) {
+    if (isAutoSyncActive) {
+      btn.classList.add('active-autosync');
+      btn.innerHTML = '<i class="fa-solid fa-link" style="color:var(--accent-blue);"></i> Auto Sync ON';
+      showPdfSyncToast('Auto Sync Connection Activated');
+    } else {
+      btn.classList.remove('active-autosync');
+      btn.innerHTML = '<i class="fa-solid fa-link-slash" style="color:var(--text-muted);"></i> Auto Sync OFF';
+      showPdfSyncToast('Auto Sync Connection Paused');
+    }
+  }
+}
+
 function initPdfInverseSearch() {
   const pdfContainer = document.getElementById('pdf-preview');
   if (!pdfContainer) return;
 
-  // Render floating SyncTeX pill indicator
-  if (!document.getElementById('pdf-sync-bar')) {
-    const syncBadge = document.createElement('div');
-    syncBadge.id = 'pdf-sync-bar';
-    syncBadge.className = 'pdf-sync-bar';
-    syncBadge.innerHTML = '<i class="fa-solid fa-crosshairs"></i> SyncTeX Active (Click to Jump)';
-    pdfContainer.style.position = 'relative';
-    pdfContainer.appendChild(syncBadge);
+  // CodeMirror Cursor & Scroll Event Listener for Auto Sync
+  if (editor && !editor._syncBound) {
+    editor._syncBound = true;
+    editor.on('cursorActivity', () => {
+      if (!isAutoSyncActive) return;
+      if (autoSyncDebounceTimer) clearTimeout(autoSyncDebounceTimer);
+      autoSyncDebounceTimer = setTimeout(() => {
+        jumpEditorToPdf(true); // Silent mode on cursor scroll
+      }, 350);
+    });
+
+    // Double click in CodeMirror jumps to PDF
+    editor.on('dblclick', () => {
+      jumpEditorToPdf(false);
+    });
   }
 
-  // Position-based click & double-click listener on PDF container
-  pdfContainer.addEventListener('click', handlePdfClick);
-  pdfContainer.addEventListener('dblclick', handlePdfClick);
+  // Position-based double-click listener on PDF container
+  pdfContainer.addEventListener('dblclick', handlePdfDblClick);
 
-  function handlePdfClick(e) {
+  function handlePdfDblClick(e) {
     if (!editor) return;
     const rect = pdfContainer.getBoundingClientRect();
     const clickY = e.clientY - rect.top;
@@ -1746,7 +2103,7 @@ function initPdfInverseSearch() {
     jumpToCodeLine(targetLine);
   }
 
-  // Text Selection Sync (Select/Double-click text to locate line in editor)
+  // Text Selection Sync (Selecting text in PDF/Paper locates source line in editor)
   document.addEventListener('mouseup', () => {
     const sel = window.getSelection() ? window.getSelection().toString() : '';
     if (sel && sel.trim().length >= 3) {
@@ -1755,11 +2112,11 @@ function initPdfInverseSearch() {
     }
   });
 
-  // Paper HTML preview click listener
+  // Paper HTML preview dblclick listener
   const paper = document.getElementById('paper-content');
   if (paper && !paper.dataset.syncBound) {
     paper.dataset.syncBound = 'true';
-    paper.addEventListener('click', (e) => {
+    paper.addEventListener('dblclick', (e) => {
       const lineElem = e.target.closest('[data-line]');
       if (lineElem) {
         const line = parseInt(lineElem.getAttribute('data-line'), 10);
@@ -1767,6 +2124,93 @@ function initPdfInverseSearch() {
       }
     });
   }
+}
+
+// Forward Search: Jump from Editor Line -> PDF Page & Element
+function jumpEditorToPdf(silent = false) {
+  if (!editor) return;
+
+  const cursorLine = editor.getCursor().line;
+  const lineCount = Math.max(1, editor.lineCount());
+  const lineRatio = cursorLine / lineCount;
+
+  // 1. Check if Quick HTML paper preview is visible
+  const paper = document.getElementById('paper-content');
+  const renderedPane = document.getElementById('rendered-preview');
+  
+  if (renderedPane && renderedPane.classList.contains('active') && paper) {
+    // Find closest element matching cursor line
+    const elements = Array.from(paper.querySelectorAll('[data-line]'));
+    if (elements.length > 0) {
+      let closestElem = elements[0];
+      let minDiff = Infinity;
+      elements.forEach(el => {
+        const line = parseInt(el.getAttribute('data-line'), 10);
+        const diff = Math.abs(line - cursorLine);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestElem = el;
+        }
+      });
+
+      if (closestElem) {
+        closestElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        closestElem.classList.add('editor-sync-highlight');
+        setTimeout(() => closestElem.classList.remove('editor-sync-highlight'), 1800);
+      }
+    }
+  }
+
+  // 2. Estimate PDF Page & update PDF Viewer iframe
+  const iframe = document.getElementById('pdf-frame');
+  const estimatedPages = Math.max(1, Math.ceil((lineCount / 45))); // ~45 lines per page estimate
+  const targetPage = Math.max(1, Math.min(estimatedPages, Math.ceil(lineRatio * estimatedPages)));
+
+  if (iframe && iframe.src && iframe.src !== 'about:blank') {
+    try {
+      const baseSrc = iframe.src.split('#')[0];
+      iframe.src = `${baseSrc}#page=${targetPage}`;
+    } catch (e) {
+      console.warn('PDF frame page jump warning:', e);
+    }
+  }
+
+  if (!silent) {
+    showPdfSyncToast(`Jumped to Page ${targetPage} (Line ${cursorLine + 1})`);
+  }
+}
+
+// Inverse Search: Jump from PDF -> Editor Line
+function jumpPdfToEditor() {
+  if (!editor) return;
+
+  // Try using selected text snippet
+  const sel = window.getSelection() ? window.getSelection().toString() : '';
+  if (sel && sel.trim().length >= 3) {
+    const line = findLineByText(sel);
+    if (line >= 0) {
+      jumpToCodeLine(line);
+      return;
+    }
+  }
+
+  // Fallback to active editor cursor line or middle of document
+  const line = editor.getCursor().line;
+  jumpToCodeLine(line);
+}
+
+function showPdfSyncToast(text) {
+  const badge = document.getElementById('pdf-sync-toast-badge');
+  const textEl = document.getElementById('pdf-sync-toast-text');
+  if (!badge || !textEl) return;
+
+  textEl.innerText = text;
+  badge.style.display = 'flex';
+
+  if (window._pdfSyncToastTimer) clearTimeout(window._pdfSyncToastTimer);
+  window._pdfSyncToastTimer = setTimeout(() => {
+    badge.style.display = 'none';
+  }, 2400);
 }
 
 function findLineByText(text) {
@@ -1808,10 +2252,12 @@ function jumpToCodeLine(lineNumber) {
   editor.focus();
 
   // 4. Highlight target line in CodeMirror with glowing pulse animation
-  const lineHandle = editor.addLineClass(validLine, 'background', 'cm-sync-highlight');
+  const lineHandle = editor.addLineClass(validLine, 'background', 'editor-sync-highlight');
   setTimeout(() => {
-    editor.removeLineClass(lineHandle, 'background', 'cm-sync-highlight');
+    editor.removeLineClass(lineHandle, 'background', 'editor-sync-highlight');
   }, 2200);
+
+  showPdfSyncToast(`Cursor Jumped to Line ${validLine + 1}`);
 }
 
 // --- 3. AI MANUSCRIPT PEER REVIEWER & CRITIQUE ENGINE ---
@@ -1913,6 +2359,8 @@ function openGitHubSyncModal() {
   if (modal) modal.classList.add('active');
 }
 
+let githubSyncPollInterval = null;
+
 function initGitHubSync() {
   const btnSync = document.getElementById('btn-github-sync');
   if (btnSync) btnSync.addEventListener('click', openGitHubSyncModal);
@@ -1928,6 +2376,7 @@ async function performGitHubSync(isAutoSync = false) {
 
   const logBox = document.getElementById('github-sync-log-box');
   const btnConfirm = document.getElementById('btn-confirm-github-sync');
+  const progressBarContainer = document.getElementById('github-progress-bar-container');
 
   if (!repoUrl) {
     alert('Please enter your GitHub Repository URL (e.g. https://github.com/username/repo.git).');
@@ -1938,20 +2387,24 @@ async function performGitHubSync(isAutoSync = false) {
     return;
   }
 
-  if (!isAutoSync && btnConfirm) {
-    btnConfirm.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing to GitHub...';
-    btnConfirm.disabled = true;
-  }
-
-  if (logBox) {
-    logBox.style.display = 'block';
-    logBox.innerText = `⏳ Initializing git sync to ${repoUrl}...`;
-  }
-
   // Ensure current editor text is saved in fileStore
   if (editor && activeFile) {
     fileStore[activeFile] = editor.getValue();
   }
+
+  if (btnConfirm) {
+    btnConfirm.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing in Background...';
+    btnConfirm.disabled = true;
+  }
+
+  if (progressBarContainer) progressBarContainer.style.display = 'block';
+  if (logBox) {
+    logBox.style.display = 'block';
+    logBox.innerText = `⏳ Launching background thread for ${repoUrl}...`;
+  }
+
+  // Show floating toast widget
+  showGitHubToast('Initializing background thread...', 5);
 
   try {
     const res = await fetch('/api/projects/github-sync', {
@@ -1973,30 +2426,131 @@ async function performGitHubSync(isAutoSync = false) {
       activeProject.github_repo = repoUrl;
       activeProject.github_token = token;
       activeProject.github_autosync = autoSync;
-      activeProject.github_last_synced = data.last_synced;
 
-      if (logBox) {
-        logBox.innerText = `✅ GitHub Sync Success (${data.last_synced}):\n${data.log || 'Pushed commits to main.'}`;
-      }
-
-      if (!isAutoSync) {
-        alert(`✅ Project successfully synced to GitHub repository!\nLast synced: ${data.last_synced}`);
-      }
+      // Start polling status asynchronously
+      startPollingGitHubSync(activeProject.id, isAutoSync);
     } else {
-      if (logBox) {
-        logBox.innerText = `❌ Sync Failed: ${data.error}\n\n${data.log || ''}`;
+      if (logBox) logBox.innerText = `❌ Start Failed: ${data.error}`;
+      hideGitHubToast();
+      if (btnConfirm) {
+        btnConfirm.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Push & Sync to GitHub Now';
+        btnConfirm.disabled = false;
       }
-      if (!isAutoSync) alert(`❌ GitHub Sync Error: ${data.error}`);
     }
   } catch (e) {
-    if (logBox) logBox.innerText = `❌ Sync Error: ${e.message}`;
-    if (!isAutoSync) alert(`❌ Network Error during GitHub Sync: ${e.message}`);
-  } finally {
-    if (!isAutoSync && btnConfirm) {
+    if (logBox) logBox.innerText = `❌ Connection Error: ${e.message}`;
+    hideGitHubToast();
+    if (btnConfirm) {
       btnConfirm.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Push & Sync to GitHub Now';
       btnConfirm.disabled = false;
     }
   }
+}
+
+function startPollingGitHubSync(projId, isAutoSync = false) {
+  if (githubSyncPollInterval) clearInterval(githubSyncPollInterval);
+
+  const btnConfirm = document.getElementById('btn-confirm-github-sync');
+  const logBox = document.getElementById('github-sync-log-box');
+  const progressBarContainer = document.getElementById('github-progress-bar-container');
+  const progressFill = document.getElementById('github-progress-bar-fill');
+  const stepText = document.getElementById('github-sync-step-text');
+  const percentText = document.getElementById('github-sync-percentage');
+  const filesCounter = document.getElementById('github-sync-files-counter');
+
+  githubSyncPollInterval = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/projects/github-sync-status?id=${projId}`);
+      if (!res.ok) return;
+      const statusData = await res.json();
+
+      const pct = statusData.progress || 0;
+      const step = statusData.step || 'Syncing...';
+      const filesCount = statusData.files_count || 0;
+      const syncedCount = statusData.synced_count || 0;
+
+      // Update Modal UI
+      if (progressBarContainer) progressBarContainer.style.display = 'block';
+      if (progressFill) progressFill.style.width = pct + '%';
+      if (percentText) percentText.innerText = pct + '%';
+      if (stepText) stepText.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="color:var(--accent-blue); margin-right:6px;"></i> ${step}`;
+      if (filesCounter) filesCounter.innerHTML = `<i class="fa-solid fa-file-code" style="color:var(--accent-purple);"></i> Files: ${syncedCount} / ${filesCount}`;
+
+      // Update Floating Toast UI
+      updateGitHubToast(step, pct);
+
+      if (statusData.status === 'completed') {
+        clearInterval(githubSyncPollInterval);
+        githubSyncPollInterval = null;
+
+        if (activeProject) activeProject.github_last_synced = statusData.last_synced;
+        if (progressFill) progressFill.style.width = '100%';
+        if (percentText) percentText.innerText = '100%';
+        if (stepText) stepText.innerHTML = `<i class="fa-solid fa-circle-check" style="color:var(--accent-teal); margin-right:6px;"></i> GitHub Sync Completed!`;
+        if (logBox) logBox.innerText = `✅ GitHub Sync Success (${statusData.last_synced}):\n${statusData.log || 'Pushed commits to main.'}`;
+
+        if (btnConfirm) {
+          btnConfirm.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Push & Sync to GitHub Now';
+          btnConfirm.disabled = false;
+        }
+
+        updateGitHubToast('✅ GitHub Sync Complete!', 100, true);
+        setTimeout(() => hideGitHubToast(), 4000);
+      } else if (statusData.status === 'failed') {
+        clearInterval(githubSyncPollInterval);
+        githubSyncPollInterval = null;
+
+        if (stepText) stepText.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444; margin-right:6px;"></i> Sync Failed`;
+        if (logBox) logBox.innerText = `❌ Sync Failed: ${statusData.error || ''}\n\n${statusData.log || ''}`;
+
+        if (btnConfirm) {
+          btnConfirm.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Push & Sync to GitHub Now';
+          btnConfirm.disabled = false;
+        }
+
+        updateGitHubToast(`❌ ${statusData.error || 'Push Failed'}`, pct, false, true);
+        setTimeout(() => hideGitHubToast(), 6000);
+      }
+    } catch (e) {
+      console.error('Error polling sync status:', e);
+    }
+  }, 700);
+}
+
+function showGitHubToast(step, pct) {
+  const toast = document.getElementById('github-sync-toast');
+  if (!toast) return;
+  toast.style.display = 'block';
+  updateGitHubToast(step, pct);
+}
+
+function updateGitHubToast(step, pct, isSuccess = false, isError = false) {
+  const toast = document.getElementById('github-sync-toast');
+  const title = document.getElementById('toast-github-title');
+  const stepEl = document.getElementById('toast-github-step');
+  const percentEl = document.getElementById('toast-github-percent');
+  const barEl = document.getElementById('toast-github-bar');
+  const icon = document.getElementById('toast-github-icon');
+
+  if (!toast) return;
+  toast.style.display = 'block';
+
+  if (title) title.innerText = isSuccess ? 'GitHub Sync Complete' : (isError ? 'GitHub Sync Failed' : 'GitHub Sync in Progress');
+  if (stepEl) stepEl.innerText = step;
+  if (percentEl) percentEl.innerText = pct + '%';
+  if (barEl) {
+    barEl.style.width = pct + '%';
+    barEl.style.background = isError ? '#ef4444' : (isSuccess ? '#10b981' : 'linear-gradient(90deg, #6366f1, #10b981)');
+  }
+  if (icon) {
+    icon.className = isSuccess ? 'fa-solid fa-circle-check toast-icon' : (isError ? 'fa-solid fa-circle-xmark toast-icon' : 'fa-brands fa-github toast-icon');
+    icon.style.color = isSuccess ? '#10b981' : (isError ? '#ef4444' : 'var(--accent-purple)');
+  }
+}
+
+function hideGitHubToast() {
+  const toast = document.getElementById('github-sync-toast');
+  if (toast) toast.style.display = 'none';
 }
 
 

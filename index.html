@@ -52,16 +52,62 @@
       </div>
     </header>
 
-    <main class="dash-main">
-      <div class="dash-section-header">
-        <h2><i class="fa-solid fa-folder-open"></i> My Research Projects</h2>
-        <span class="proj-count-badge" id="proj-count-text">0 Projects</span>
-      </div>
+    <div class="dash-layout">
+      <!-- Dashboard Sidebar Navigation -->
+      <aside class="dash-sidebar">
+        <div class="dash-sidebar-section">
+          <div class="dash-nav-header">PROJECTS</div>
+          <button class="dash-nav-item active" id="nav-dash-active" onclick="switchDashboardTab('active')">
+            <i class="fa-solid fa-folder-open nav-icon" style="color:var(--accent-purple);"></i>
+            <span>Your Projects</span>
+            <span class="dash-nav-badge" id="nav-count-active">0</span>
+          </button>
+          <button class="dash-nav-item" id="nav-dash-shared" onclick="switchDashboardTab('shared')">
+            <i class="fa-solid fa-users nav-icon" style="color:var(--accent-blue);"></i>
+            <span>Shared with You</span>
+            <span class="dash-nav-badge" id="nav-count-shared">0</span>
+          </button>
+          <button class="dash-nav-item" id="nav-dash-archived" onclick="switchDashboardTab('archived')">
+            <i class="fa-solid fa-box-archive nav-icon" style="color:var(--accent-amber);"></i>
+            <span>Archived Projects</span>
+            <span class="dash-nav-badge" id="nav-count-archived">0</span>
+          </button>
+        </div>
 
-      <div class="projects-grid" id="projects-grid">
-        <!-- Dynamically rendered project cards -->
-      </div>
-    </main>
+        <div class="dash-sidebar-divider"></div>
+
+        <div class="dash-sidebar-section">
+          <div class="dash-nav-header">SYSTEM</div>
+          <button class="dash-nav-item" id="nav-dash-trash" onclick="switchDashboardTab('trash')">
+            <i class="fa-solid fa-trash-can nav-icon" style="color:#ef4444;"></i>
+            <span>Trash</span>
+            <span class="dash-nav-badge" id="nav-count-trash">0</span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- Dashboard Main View -->
+      <main class="dash-main">
+        <div class="dash-section-header">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <h2 id="dash-title-text"><i class="fa-solid fa-folder-open" style="color:var(--accent-purple);"></i> My Research Projects</h2>
+            <span class="proj-count-badge" id="proj-count-text">0 Projects</span>
+          </div>
+          <div class="view-mode-toggle" style="display:flex; align-items:center; gap:4px; background:var(--bg-sidebar); padding:4px; border-radius:8px; border:1px solid var(--border-color);">
+            <button id="btn-view-grid" class="btn-toggle active" title="Grid Card View" onclick="setDashboardView('grid')">
+              <i class="fa-solid fa-border-all"></i> Grid
+            </button>
+            <button id="btn-view-list" class="btn-toggle" title="Row List View" onclick="setDashboardView('list')">
+              <i class="fa-solid fa-list"></i> Rows
+            </button>
+          </div>
+        </div>
+
+        <div class="projects-grid" id="projects-grid">
+          <!-- Dynamically rendered project cards -->
+        </div>
+      </main>
+    </div>
   </div>
 
   <!-- ========================================== -->
@@ -98,6 +144,17 @@
             <option value="llama3.2-vision:11b">Llama 3.2 Vision (11B)</option>
             <option value="llama3.3:70b">Llama 3.3 (70B)</option>
           </select>
+        <!-- Workspace Layout Mode Switcher (Code Only | Split View | PDF Only) -->
+        <div class="editor-view-switcher" style="display:flex; align-items:center; gap:3px; background:var(--bg-sidebar); padding:3px; border-radius:8px; border:1px solid var(--border-color); margin-right:6px;">
+          <button id="btn-layout-editor" class="btn-layout-toggle" title="Full Code Editor Only View" onclick="setEditorLayoutMode('editor')">
+            <i class="fa-solid fa-code"></i> Code
+          </button>
+          <button id="btn-layout-split" class="btn-layout-toggle active" title="Dual Split Screen View (Code + PDF)" onclick="setEditorLayoutMode('split')">
+            <i class="fa-solid fa-columns"></i> Split
+          </button>
+          <button id="btn-layout-pdf" class="btn-layout-toggle" title="Full PDF / Preview Only View" onclick="setEditorLayoutMode('pdf')">
+            <i class="fa-solid fa-file-pdf"></i> PDF
+          </button>
         </div>
 
         <button id="btn-compile" class="btn btn-primary" title="Recompile Document Preview (Ctrl+S)">
@@ -106,10 +163,6 @@
 
         <button id="btn-export-pdf" class="btn btn-pdf" title="Export Compiled PDF Document">
           <i class="fa-solid fa-file-pdf"></i> Download PDF
-        </button>
-
-        <button id="btn-download" class="btn btn-secondary" title="Export .tex Source File">
-          <i class="fa-solid fa-file-arrow-down"></i> Export .tex
         </button>
 
         <button id="btn-github-sync" class="btn btn-github" title="Sync Project to GitHub Private/Public Repository">
@@ -312,16 +365,30 @@
               <i class="fa-solid fa-code-compare"></i> Diff View
             </button>
           </div>
-          <div class="zoom-controls">
-            <button id="btn-zoom-out" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
-            <span id="zoom-level">100%</span>
-            <button id="btn-zoom-in" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button id="btn-sync-editor-to-pdf" class="btn btn-sm btn-secondary" title="Forward Search: Jump from Editor Line -> PDF Page" onclick="jumpEditorToPdf()">
+              <i class="fa-solid fa-crosshairs" style="color:var(--accent-purple);"></i> Jump to PDF
+            </button>
+            <button id="btn-sync-pdf-to-editor" class="btn btn-sm btn-secondary" title="Inverse Search: Jump from PDF -> Editor Line" onclick="jumpPdfToEditor()">
+              <i class="fa-solid fa-code" style="color:var(--accent-teal);"></i> Jump to Code
+            </button>
+            <button id="btn-toggle-autosync" class="btn btn-sm btn-secondary active-autosync" title="Toggle Live Auto-Scroll Sync Connection" onclick="toggleAutoSync()">
+              <i class="fa-solid fa-link" style="color:var(--accent-blue);"></i> Auto Sync ON
+            </button>
+            <div class="zoom-controls" style="display:flex; align-items:center; gap:4px; margin-left:6px;">
+              <button id="btn-zoom-out" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
+              <span id="zoom-level">100%</span>
+              <button id="btn-zoom-in" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
+            </div>
           </div>
         </div>
 
         <div class="preview-viewport">
           <!-- Native PDF Viewer Pane -->
-          <div class="preview-pane active" id="pdf-preview" style="width:100%; height:100%;">
+          <div class="preview-pane active" id="pdf-preview" style="width:100%; height:100%; position:relative;">
+            <div id="pdf-sync-toast-badge" class="pdf-sync-toast-badge" style="display:none;">
+              <i class="fa-solid fa-crosshairs" style="color:var(--accent-teal);"></i> <span id="pdf-sync-toast-text">Jumped to Page 1</span>
+            </div>
             <iframe id="pdf-frame" style="width:100%; height:100%; border:none; background:#525659;" src="about:blank"></iframe>
           </div>
 
@@ -622,6 +689,23 @@
           <label for="github-autosync-checkbox" style="margin:0; cursor:pointer; font-weight:normal;">Auto-sync changes to GitHub every time document compiles / saves</label>
         </div>
 
+        <!-- Real-time Progress Bar & Step Tracker -->
+        <div id="github-progress-bar-container" style="margin-top:14px; padding:12px; background:rgba(15,23,42,0.6); border:1px solid var(--border-color); border-radius:8px; display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.85rem;">
+            <span id="github-sync-step-text" style="color:var(--text-main); font-weight:500;">
+              <i class="fa-solid fa-spinner fa-spin" style="color:var(--accent-blue); margin-right:6px;"></i> Initializing background thread...
+            </span>
+            <span id="github-sync-percentage" style="color:var(--accent-teal); font-weight:700; font-family:'Fira Code', monospace; font-size:0.9rem;">0%</span>
+          </div>
+          <div class="github-progress-track">
+            <div id="github-progress-bar-fill" class="github-progress-fill" style="width:0%;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:var(--text-muted); margin-top:8px;">
+            <span id="github-sync-files-counter"><i class="fa-solid fa-file-code" style="color:var(--accent-purple);"></i> Files: 0 / 0</span>
+            <span id="github-sync-status-badge" class="badge" style="background:rgba(99,102,241,0.2); color:var(--accent-indigo);">Background Thread Active</span>
+          </div>
+        </div>
+
         <div id="github-sync-log-box" style="margin-top:12px; font-family:'Fira Code', monospace; font-size:0.8rem; background:var(--dark-bg); color:var(--accent-teal); border:1px solid var(--border-color); border-radius:6px; padding:10px; min-height:60px; max-height:140px; overflow-y:auto; display:none;">
           <!-- Sync log -->
         </div>
@@ -630,6 +714,23 @@
         <button class="btn btn-secondary" onclick="closeModal('github-sync-modal')">Close</button>
         <button class="btn btn-primary" id="btn-confirm-github-sync" onclick="performGitHubSync()"><i class="fa-solid fa-cloud-arrow-up"></i> Push & Sync to GitHub Now</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Floating Background GitHub Sync Toast Widget (Visible across the editor) -->
+  <div id="github-sync-toast" class="github-sync-toast" style="display:none;">
+    <div class="toast-header">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <i class="fa-brands fa-github toast-icon" id="toast-github-icon"></i>
+        <div class="toast-info">
+          <div id="toast-github-title" class="toast-title">GitHub Sync in Progress</div>
+          <div id="toast-github-step" class="toast-subtitle">Initializing...</div>
+        </div>
+      </div>
+      <span id="toast-github-percent" class="toast-percent">0%</span>
+    </div>
+    <div class="toast-progress-track">
+      <div id="toast-github-bar" class="toast-progress-fill" style="width:0%;"></div>
     </div>
   </div>
 
