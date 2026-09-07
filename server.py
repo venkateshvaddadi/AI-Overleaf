@@ -288,17 +288,28 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                                 rel_path = os.path.relpath(full_path, proj_dir)
                                 if not is_user_content_file(rel_path):
                                     continue
-                                try:
-                                    with open(full_path, 'r', encoding='utf-8') as f:
-                                        files_obj[rel_path] = f.read()
-                                except UnicodeDecodeError:
+                                ext = os.path.splitext(rel_path)[1].lower()
+                                is_binary = ext in ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.svg', '.eps', '.bmp', '.ico']
+                                if is_binary:
                                     import base64
-                                    with open(full_path, 'rb') as f:
-                                        raw_b = f.read()
-                                    b64_bytes = base64.b64encode(raw_b).decode('utf-8')
-                                    ext = os.path.splitext(rel_path)[1].lower()
-                                    mime = 'image/jpeg' if ext in ['.jpg', '.jpeg'] else ('image/png' if ext == '.png' else ('image/svg+xml' if ext == '.svg' else ('application/pdf' if ext == '.pdf' else 'application/octet-stream')))
-                                    files_obj[rel_path] = f'data:{mime};base64,{b64_bytes}'
+                                    try:
+                                        with open(full_path, 'rb') as f:
+                                            raw_b = f.read()
+                                        b64_bytes = base64.b64encode(raw_b).decode('utf-8')
+                                        mime = 'image/jpeg' if ext in ['.jpg', '.jpeg'] else ('image/png' if ext == '.png' else ('image/gif' if ext == '.gif' else ('image/svg+xml' if ext == '.svg' else ('application/pdf' if ext == '.pdf' else 'application/octet-stream'))))
+                                        files_obj[rel_path] = f'data:{mime};base64,{b64_bytes}'
+                                    except Exception:
+                                        files_obj[rel_path] = '[Binary Asset]'
+                                else:
+                                    try:
+                                        with open(full_path, 'r', encoding='utf-8') as f:
+                                            files_obj[rel_path] = f.read()
+                                    except UnicodeDecodeError:
+                                        import base64
+                                        with open(full_path, 'rb') as f:
+                                            raw_b = f.read()
+                                        b64_bytes = base64.b64encode(raw_b).decode('utf-8')
+                                        files_obj[rel_path] = f'data:application/octet-stream;base64,{b64_bytes}'
                     proj['files'] = files_obj
                     proj['file_count'] = len(files_obj)
                     self.send_json(200, proj)
@@ -331,6 +342,32 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                     proj_list = [p for p in all_projs if not p.get('archived', False) and not p.get('deleted_at')]
 
                 self.send_json(200, proj_list)
+            return
+
+        elif parsed.path == '/api/projects/file':
+            params = urllib.parse.parse_qs(parsed.query)
+            proj_id = params.get('id', [None])[0]
+            rel_file = params.get('file', [None])[0]
+            if proj_id and rel_file:
+                target_path = os.path.normpath(os.path.join(DB_DIR, proj_id, rel_file))
+                proj_dir = os.path.abspath(os.path.join(DB_DIR, proj_id))
+                if target_path.startswith(proj_dir) and os.path.exists(target_path) and os.path.isfile(target_path):
+                    ext = os.path.splitext(target_path)[1].lower()
+                    mime = 'image/jpeg' if ext in ['.jpg', '.jpeg'] else ('image/png' if ext == '.png' else ('image/gif' if ext == '.gif' else ('image/svg+xml' if ext == '.svg' else ('application/pdf' if ext == '.pdf' else 'application/octet-stream'))))
+                    try:
+                        with open(target_path, 'rb') as f:
+                            data = f.read()
+                        self.send_response(200)
+                        self.send_header('Content-Type', mime)
+                        self.send_header('Content-Length', str(len(data)))
+                        self.send_header('Cache-Control', 'public, max-age=3600')
+                        self.end_headers()
+                        self.wfile.write(data)
+                        return
+                    except Exception as e:
+                        self.send_json(500, {'error': str(e)})
+                        return
+            self.send_json(404, {'error': 'File not found'})
             return
 
         elif parsed.path == '/api/projects/download':
@@ -945,18 +982,13 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     init_db()
-    import socketserver
+    import socketserver, time
+    from http.server import HTTPServer
     socketserver.TCPServer.allow_reuse_address = True
-    from http.server import ThreadingHTTPServer
-    server_address = ('0.0.0.0', PORT)
-    httpd = ThreadingHTTPServer(server_address, OverleafServer)
-    httpd.daemon_threads = True
     print(f'Overleaf Multi-Threaded Native Compiler & Database Server running on port {PORT}')
-    while True:
-        try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            break
-        except Exception as e:
-            print(f"Server loop error: {e}")
-            time.sleep(1)
+    httpd = HTTPServer(('0.0.0.0', PORT), OverleafServer)
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("Shutting down server...")
+        httpd.server_close()

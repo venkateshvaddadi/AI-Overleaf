@@ -1031,15 +1031,26 @@ function renderImageAssetView(filename) {
   if (codeElem) codeElem.innerText = `\\includegraphics[width=\\linewidth]{${filename}}`;
 
   let src = fileStore[filename];
-  if (src && src.startsWith('data:')) {
-    if (imgElem) {
+  const directUrl = activeProject ? `/api/projects/file?id=${activeProject.id}&file=${encodeURIComponent(filename)}` : '';
+
+  if (imgElem) {
+    if (src && typeof src === 'string' && src.startsWith('data:')) {
       imgElem.src = src;
-      imgElem.onload = () => {
-        if (infoElem) infoElem.innerHTML = `<i class="fa-solid fa-circle-info"></i> Asset Info: ${imgElem.naturalWidth} × ${imgElem.naturalHeight} px`;
-      };
+    } else if (directUrl) {
+      imgElem.src = directUrl;
+    } else {
+      imgElem.src = src || '';
     }
-  } else {
-    if (imgElem) imgElem.src = src || '';
+
+    imgElem.onerror = () => {
+      if (directUrl && imgElem.src !== directUrl) {
+        imgElem.src = directUrl;
+      }
+    };
+
+    imgElem.onload = () => {
+      if (infoElem) infoElem.innerHTML = `<i class="fa-solid fa-circle-info"></i> Asset Info: ${imgElem.naturalWidth} × ${imgElem.naturalHeight} px`;
+    };
   }
 }
 
