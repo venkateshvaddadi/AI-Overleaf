@@ -2067,8 +2067,10 @@ function toggleAutoSync() {
 }
 
 function initPdfInverseSearch() {
-  const pdfContainer = document.getElementById('pdf-preview');
-  if (!pdfContainer) return;
+  const pointerBar = document.getElementById('pdf-pointer-bar');
+  const pointerText = document.getElementById('pdf-pointer-text');
+  let lastPdfHoverY = 0;
+  let lastPdfHoverHeight = 1;
 
   // CodeMirror Cursor & Scroll Event Listener for Auto Sync
   if (editor && !editor._syncBound) {
@@ -2087,42 +2089,108 @@ function initPdfInverseSearch() {
     });
   }
 
-  // Position-based double-click listener on PDF container
-  pdfContainer.addEventListener('dblclick', handlePdfDblClick);
-
-  function handlePdfDblClick(e) {
-    if (!editor) return;
+  // Mousemove listener on PDF preview container to move target indicator line
+  pdfContainer.addEventListener('mousemove', (e) => {
     const rect = pdfContainer.getBoundingClientRect();
-    const clickY = e.clientY - rect.top;
-    if (clickY < 0 || clickY > rect.height) return;
+    lastPdfHoverY = e.clientY - rect.top;
+    lastPdfHoverHeight = rect.height || 1;
 
-    const heightRatio = Math.max(0, Math.min(1, clickY / rect.height));
-    const lineCount = editor.lineCount();
-    const targetLine = Math.floor(heightRatio * lineCount);
+    if (pointerBar && editor) {
+      const ratio = Math.max(0, Math.min(1, lastPdfHoverY / lastPdfHoverHeight));
+      const lineCount = Math.max(1, editor.lineCount());
+      const estLine = Math.floor(ratio * lineCount) + 1;
 
-    jumpToCodeLine(targetLine);
-  }
-
-  // Text Selection Sync (Selecting text in PDF/Paper locates source line in editor)
-  document.addEventListener('mouseup', () => {
-    const sel = window.getSelection() ? window.getSelection().toString() : '';
-    if (sel && sel.trim().length >= 3) {
-      const line = findLineByText(sel);
-      if (line >= 0) jumpToCodeLine(line);
+      pointerBar.style.top = `${lastPdfHoverY}px`;
+      pointerBar.style.opacity = '1';
+      pointerBar.style.display = 'block';
+      if (pointerText) pointerText.innerText = `🎯 Line ${estLine} (Click to Jump)`;
     }
   });
 
-  // Paper HTML preview dblclick listener
+  pdfContainer.addEventListener('mouseleave', () => {
+    if (pointerBar) pointerBar.style.opacity = '0';
+  });
+
+  // Click & Double-click listener on PDF container
+  pdfContainer.addEventListener('click', handlePdfClick);
+  pdfContainer.addEventListener('dblclick', handlePdfClick);
+
+  function handlePdfClick(e) {
+    if (!editor) return;
+    const sel = window.getSelection() ? window.getSelection().toString().trim() : '';
+    if (sel.length >= 3) {
+      const line = findLineByText(sel);
+      if (line >= 0) {
+        jumpToCodeLine(line);
+        return;
+      }
+    }
+
+    if (lastPdfHoverHeight > 0) {
+      const ratio = Math.max(0, Math.min(1, lastPdfHoverY / lastPdfHoverHeight));
+      const lineCount = editor.lineCount();
+      const targetLine = Math.floor(ratio * lineCount);
+      jumpToCodeLine(targetLine);
+    }
+  }
+
+  // Handle focus shift to PDF iframe window (triggers jump on clicking inside PDF iframe)
+  if (!window._pdfFrameBlurBound) {
+    window._pdfFrameBlurBound = true;
+    window.addEventListener('blur', () => {
+      setTimeout(() => {
+        const active = document.activeElement;
+        if (active && (active.id === 'pdf-frame' || active.tagName === 'IFRAME')) {
+          if (editor && lastPdfHoverHeight > 0) {
+            const ratio = Math.max(0, Math.min(1, lastPdfHoverY / lastPdfHoverHeight));
+            const lineCount = editor.lineCount();
+            const targetLine = Math.floor(ratio * lineCount);
+            jumpToCodeLine(targetLine);
+          }
+        }
+      }, 50);
+    });
+  }
+
+  // Text Selection Sync (Selecting text in PDF/Paper locates source line in editor)
+  document.addEventListener('mouseup', (e) => {
+    if (e.target && e.target.closest('.CodeMirror')) return;
+
+    const sel = window.getSelection() ? window.getSelection().toString().trim() : '';
+    if (sel && sel.length >= 3) {
+      const line = findLineByText(sel);
+      if (line >= 0) {
+        jumpToCodeLine(line);
+      }
+    }
+  });
+
+  // Paper HTML preview click & dblclick listener
   const paper = document.getElementById('paper-content');
   if (paper && !paper.dataset.syncBound) {
     paper.dataset.syncBound = 'true';
-    paper.addEventListener('dblclick', (e) => {
+
+    function handlePaperClick(e) {
       const lineElem = e.target.closest('[data-line]');
       if (lineElem) {
         const line = parseInt(lineElem.getAttribute('data-line'), 10);
-        if (!isNaN(line)) jumpToCodeLine(line);
+        if (!isNaN(line)) {
+          jumpToCodeLine(line);
+          return;
+        }
       }
-    });
+
+      const txt = e.target.innerText || e.target.textContent || '';
+      if (txt && txt.trim().length >= 3) {
+        const line = findLineByText(txt);
+        if (line >= 0) {
+          jumpToCodeLine(line);
+        }
+      }
+    }
+
+    paper.addEventListener('click', handlePaperClick);
+    paper.addEventListener('dblclick', handlePaperClick);
   }
 }
 
@@ -2219,18 +2287,32 @@ function findLineByText(text) {
   if (clean.length < 3) return -1;
   const count = editor.lineCount();
 
-  // Try exact substring match first
+  // 1. Try exact substring match first
   for (let i = 0; i < count; i++) {
     const lineContent = editor.getLine(i).toLowerCase();
     if (lineContent.includes(clean)) return i;
   }
 
-  // Try first word match
-  const firstWord = clean.split(/\s+/)[0];
-  if (firstWord && firstWord.length >= 4) {
+  // 2. Try multi-word fuzzy match (match all clean words)
+  const words = clean.split(/\s+/).map(w => w.replace(/[^a-zA-Z0-9]/g, '')).filter(w => w.length >= 3);
+  if (words.length > 0) {
     for (let i = 0; i < count; i++) {
       const lineContent = editor.getLine(i).toLowerCase();
-      if (lineContent.includes(firstWord)) return i;
+      if (words.every(w => lineContent.includes(w))) return i;
+    }
+    if (words.length >= 2) {
+      const w2 = words.slice(0, 2);
+      for (let i = 0; i < count; i++) {
+        const lineContent = editor.getLine(i).toLowerCase();
+        if (w2.every(w => lineContent.includes(w))) return i;
+      }
+    }
+    const longestWord = words.reduce((a, b) => (a.length > b.length ? a : b), '');
+    if (longestWord && longestWord.length >= 4) {
+      for (let i = 0; i < count; i++) {
+        const lineContent = editor.getLine(i).toLowerCase();
+        if (lineContent.includes(longestWord)) return i;
+      }
     }
   }
 

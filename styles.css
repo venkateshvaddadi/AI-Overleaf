@@ -1722,6 +1722,33 @@ li.CodeMirror-hint-active {
   color: var(--accent-blue) !important;
 }
 
+/* Interactive PDF Pointer Bar Overlay */
+.pdf-pointer-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-teal), transparent);
+  box-shadow: 0 0 12px var(--accent-teal);
+  pointer-events: none;
+  z-index: 999;
+  transition: opacity 0.2s ease;
+  opacity: 0;
+}
+
+.pdf-pointer-badge {
+  position: absolute;
+  right: 14px;
+  top: -12px;
+  background: var(--accent-teal);
+  color: #0d1117;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
 
 
 
