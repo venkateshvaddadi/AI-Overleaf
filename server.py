@@ -22,6 +22,14 @@ sync_status_lock = threading.Lock()
 DB_DIR = os.path.join(DIRECTORY, 'projects_db')
 METADATA_FILE = os.path.join(DB_DIR, 'projects.json')
 
+def safe_project_path(project_dir, relative_path):
+    """Prevent directory traversal attacks by validating that target stays inside project_dir."""
+    project_dir = os.path.realpath(project_dir)
+    target = os.path.realpath(os.path.join(project_dir, relative_path.lstrip('/\\')))
+    if not target.startswith(project_dir + os.sep) and target != project_dir:
+        raise ValueError(f"Path traversal security violation: '{relative_path}' escapes project root")
+    return target
+
 def is_user_content_file(rel_path):
     if not rel_path or not isinstance(rel_path, str):
         return False
@@ -163,7 +171,10 @@ def run_bg_github_sync(proj_id, token, repo_url, commit_msg, auto_sync, files):
             if rel_path.startswith('.git') or '/.git' in rel_path or '\\.git' in rel_path:
                 continue
 
-            full_path = os.path.join(proj_dir, rel_path)
+            try:
+                full_path = safe_project_path(proj_dir, rel_path)
+            except ValueError:
+                continue
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
             ext = os.path.splitext(rel_path)[1].lower()
@@ -511,7 +522,10 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                     if rel_path.startswith('.git') or '/.git' in rel_path or '\\.git' in rel_path:
                         continue
 
-                    full_path = os.path.join(proj_dir, rel_path)
+                    try:
+                        full_path = safe_project_path(proj_dir, rel_path)
+                    except ValueError:
+                        continue
                     os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
                     ext = os.path.splitext(rel_path)[1].lower()
@@ -638,9 +652,24 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                             single_top = list(top_dirs)[0]
                             strip_prefix = single_top + '/'
 
+                        total_extracted_size = 0
+                        max_extracted_limit = 300 * 1024 * 1024  # 300 MB
+                        max_file_count = 5000
+
+                        if len(infolist) > max_file_count:
+                            self.send_json(400, {'error': f'ZIP archive exceeds maximum file count limit ({max_file_count})'})
+                            return
+
                         for info in infolist:
                             if info.is_dir():
                                 continue
+                            if info.file_size > 50 * 1024 * 1024:  # 50 MB per file limit
+                                continue
+                            total_extracted_size += info.file_size
+                            if total_extracted_size > max_extracted_limit:
+                                self.send_json(400, {'error': f'ZIP archive total uncompressed size exceeds limit (300 MB)'})
+                                return
+
                             orig_filename = info.filename
                             if orig_filename.startswith('__MACOSX') or '/.' in orig_filename or orig_filename.startswith('.'):
                                 continue
@@ -700,7 +729,10 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             os.makedirs(proj_dir, exist_ok=True)
 
             for rel_path, content in files_obj.items():
-                full_path = os.path.join(proj_dir, rel_path)
+                try:
+                    full_path = safe_project_path(proj_dir, rel_path)
+                except ValueError:
+                    continue
                 os.makedirs(os.path.dirname(full_path), exist_ok=True)
                 if isinstance(content, str) and content.startswith('data:') and ';base64,' in content:
                     try:
