@@ -3056,7 +3056,7 @@ async function compileLaTeX() {
       const logOutput = document.getElementById('compiler-log-output');
       if (hasErr) {
         if (logOutput) logOutput.innerText = `⚠️ PDF Generated with LaTeX Warnings/Errors:\n\n${decodedLog || 'Errors detected during TeX pass.'}`;
-        if (statusBadge) statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-amber)"></i> PDF (with errors)';
+        if (statusBadge) statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-amber)"></i> PDF (errors)';
         if (typeof runLaTeXSyntaxDiagnostics === 'function') runLaTeXSyntaxDiagnostics(decodedLog);
       } else {
         if (logOutput) logOutput.innerText = `✅ PDF Compilation Successful!\n\n${decodedLog || 'Engine: Tectonic (Native TeX)\nStatus: PDF Preview Updated.'}`;
@@ -3067,7 +3067,7 @@ async function compileLaTeX() {
       const err = await res.json();
       const logOutput = document.getElementById('compiler-log-output');
       if (logOutput) logOutput.innerText = `❌ LaTeX Compilation Error:\n${err.error || ''}\n\n=== Compiler Log ===\n${err.log || ''}`;
-      if (statusBadge) statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-red)"></i> PDF (with errors)';
+      if (statusBadge) statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-red)"></i> PDF (error)';
       if (typeof runLaTeXSyntaxDiagnostics === 'function') runLaTeXSyntaxDiagnostics(err.log || err.error);
       ensurePdfViewActive();
     }
