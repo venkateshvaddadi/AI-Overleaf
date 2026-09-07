@@ -618,26 +618,58 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                 description = data.get('description', 'Imported LaTeX Template Archive').strip()
                 files_obj = data.get('files', {})
             except Exception:
-                import io, zipfile
+                import io, zipfile, base64
                 zip_buffer = io.BytesIO(raw_body)
                 try:
                     with zipfile.ZipFile(zip_buffer, 'r') as zip_ref:
-                        for info in zip_ref.infolist():
+                        infolist = zip_ref.infolist()
+                        
+                        # Detect if ZIP has a single top-level wrapper folder
+                        top_dirs = set()
+                        for info in infolist:
+                            if not info.filename:
+                                continue
+                            parts = info.filename.strip('/').split('/')
+                            if len(parts) > 1:
+                                top_dirs.add(parts[0])
+                        
+                        strip_prefix = ""
+                        if len(top_dirs) == 1:
+                            single_top = list(top_dirs)[0]
+                            strip_prefix = single_top + '/'
+
+                        for info in infolist:
                             if info.is_dir():
                                 continue
-                            clean_path = info.filename
-                            if clean_path.startswith('__MACOSX') or '/.' in clean_path or clean_path.startswith('.'):
+                            orig_filename = info.filename
+                            if orig_filename.startswith('__MACOSX') or '/.' in orig_filename or orig_filename.startswith('.'):
                                 continue
-                            parts = clean_path.split('/')
-                            if len(parts) > 1 and any(k in parts[0].lower() for k in ['master', 'template', 'main', 'draft', 'zip']):
-                                clean_path = '/'.join(parts[1:])
-                            if not clean_path:
+
+                            clean_path = orig_filename
+                            if strip_prefix and clean_path.startswith(strip_prefix):
+                                clean_path = clean_path[len(strip_prefix):]
+
+                            if not clean_path or not is_user_content_file(clean_path):
                                 continue
-                            try:
-                                content = zip_ref.read(info.filename).decode('utf-8')
-                                files_obj[clean_path] = content
-                            except UnicodeDecodeError:
-                                files_obj[clean_path] = '[Binary Asset]'
+
+                            ext = os.path.splitext(clean_path)[1].lower()
+                            is_binary = ext in ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.svg', '.eps', '.bmp', '.ico', '.bst', '.cls', '.sty', '.ttf', '.woff', '.otf']
+
+                            raw_bytes = zip_ref.read(info.filename)
+
+                            if is_binary:
+                                b64_str = base64.b64encode(raw_bytes).decode('utf-8')
+                                mime = 'image/jpeg' if ext in ['.jpg', '.jpeg'] else ('image/png' if ext == '.png' else ('image/gif' if ext == '.gif' else ('image/svg+xml' if ext == '.svg' else ('application/pdf' if ext == '.pdf' else 'application/octet-stream'))))
+                                files_obj[clean_path] = f'data:{mime};base64,{b64_str}'
+                            else:
+                                try:
+                                    files_obj[clean_path] = raw_bytes.decode('utf-8')
+                                except UnicodeDecodeError:
+                                    try:
+                                        files_obj[clean_path] = raw_bytes.decode('latin-1')
+                                    except Exception:
+                                        b64_str = base64.b64encode(raw_bytes).decode('utf-8')
+                                        files_obj[clean_path] = f'data:application/octet-stream;base64,{b64_str}'
                 except Exception as zip_err:
                     self.send_json(400, {'error': f'Invalid ZIP archive: {str(zip_err)}'})
                     return
@@ -646,15 +678,22 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                 self.send_json(400, {'error': 'No valid files found in ZIP archive'})
                 return
 
-            for fname in files_obj.keys():
+            # Overleaf Template Master TeX Detection
+            detected_main = None
+            for fname, fcontent in files_obj.items():
                 if fname == 'main.tex':
-                    main_file = 'main.tex'
+                    detected_main = 'main.tex'
                     break
-                elif fname.endswith('.tex'):
-                    if '\\documentclass' in files_obj[fname]:
-                        main_file = fname
-                        break
-                    main_file = fname
+                elif fname.endswith('.tex') and isinstance(fcontent, str) and '\\documentclass' in fcontent:
+                    if not detected_main or 'cv' in fname.lower() or 'resume' in fname.lower() or 'paper' in fname.lower():
+                        detected_main = fname
+            
+            if detected_main:
+                main_file = detected_main
+            else:
+                tex_files = [f for f in files_obj.keys() if f.endswith('.tex')]
+                if tex_files:
+                    main_file = tex_files[0]
 
             proj_id = 'proj_' + str(int(time.time())) + '_' + str(os.urandom(3).hex())
             proj_dir = os.path.join(DB_DIR, proj_id)
@@ -663,8 +702,17 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             for rel_path, content in files_obj.items():
                 full_path = os.path.join(proj_dir, rel_path)
                 os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                if isinstance(content, str) and content.startswith('data:') and ';base64,' in content:
+                    try:
+                        b64_data = content.split(';base64,')[1]
+                        raw_b = base64.b64decode(b64_data)
+                        with open(full_path, 'wb') as f:
+                            f.write(raw_b)
+                        continue
+                    except Exception:
+                        pass
                 with open(full_path, 'w', encoding='utf-8') as f:
-                    f.write(content)
+                    f.write(content if isinstance(content, str) else '')
 
             metadata = load_metadata()
             new_proj = {
@@ -751,6 +799,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             main_file = data.get('main_file', 'main.tex')
             title = data.get('title', 'document')
             proj_id = data.get('id')
+            engine = data.get('engine', 'tectonic')
             
             if 'sn-jnl.cls' not in files:
                 sn_cls_path = os.path.join(DIRECTORY, 'sn-jnl.cls')
@@ -758,7 +807,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                     with open(sn_cls_path, 'r', encoding='utf-8') as f:
                         files['sn-jnl.cls'] = f.read()
 
-            pdf_bytes, log_output, err = self.compile_latex_project(files, main_file, proj_id=proj_id)
+            pdf_bytes, log_output, err = self.compile_latex_project(files, main_file, proj_id=proj_id, engine=engine)
             
             if pdf_bytes:
                 import base64
@@ -784,7 +833,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(payload).encode('utf-8'))
 
-    def compile_latex_project(self, files, main_file, proj_id=None):
+    def compile_latex_project(self, files, main_file, proj_id=None, engine='tectonic'):
         if 'sn-jnl.cls' not in files:
             sn_cls_path = os.path.join(DIRECTORY, 'sn-jnl.cls')
             if os.path.exists(sn_cls_path):
@@ -807,7 +856,6 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             return pdf_b, log_txt, err_txt
 
         def get_fallback_cached_pdf(log_txt, err_reason):
-            # ONLY return project-specific last compiled PDF to prevent cross-project PDF leakage
             if proj_id:
                 cache_path = os.path.join(DB_DIR, proj_id, 'last_compiled.pdf')
                 if os.path.exists(cache_path):
@@ -823,7 +871,6 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             import re, struct, zlib, base64
-            # Determine primary compilation root document
             target_main_file = main_file
             is_active_root = target_main_file and target_main_file in files and isinstance(files.get(target_main_file), str) and '\\documentclass' in files[target_main_file]
             active_file_fallback = not is_active_root
@@ -846,7 +893,6 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                             target_main_file = fname
                             break
 
-            # Write all project files into temporary compilation directory
             for filepath, content in files.items():
                 full_path = os.path.join(tmpdir, filepath)
                 os.makedirs(os.path.dirname(full_path), exist_ok=True)
@@ -881,7 +927,6 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                     if found_disk:
                         continue
 
-                    # If image asset is missing on disk, write valid binary PNG bytes to prevent pdflatex corrupt file crash
                     valid_png_b64 = "iVBORw0KGgoAAAANSU5QoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
                     with open(full_path, 'wb') as f:
                         f.write(base64.b64decode(valid_png_b64))
@@ -890,32 +935,51 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                 with open(full_path, 'w', encoding='utf-8') as f:
                     f.write(content if isinstance(content, str) else '')
 
-            # Auto-include active sub-file into target_main_file if it's not referenced yet
-            if target_main_file and target_main_file in files and main_file and main_file != target_main_file and main_file.endswith('.tex'):
-                main_txt = files.get(target_main_file, '')
-                clean_active = main_file.replace('.tex', '')
-                if clean_active not in main_txt and main_file not in main_txt:
-                    if '\\end{document}' in main_txt:
-                        sub_include = f"\n% Auto-included active sub-file: {main_file}\n\\input{{{main_file}}}\n\\end{{document}}"
-                        mod_main = main_txt.replace('\\end{document}', sub_include)
-                        with open(os.path.join(tmpdir, target_main_file), 'w', encoding='utf-8') as f:
-                            f.write(mod_main)
+            compilation_entry_file = target_main_file
+            
+            if main_file and main_file.endswith('.tex') and main_file in files:
+                active_txt = files.get(main_file, '')
+                if isinstance(active_txt, str) and '\\documentclass' not in active_txt:
+                    standalone_wrapper_filename = f"__standalone_{os.path.basename(main_file)}"
+                    norm_active = main_file.replace('\\', '/')
+                    wrapper_content = f"\\documentclass{{article}}\n\\usepackage{{graphicx}}\n\\usepackage{{amsmath}}\n\\usepackage{{amssymb}}\n\\usepackage{{hyperref}}\n\\begin{{document}}\n\\input{{{norm_active}}}\n\\end{{document}}"
+                    
+                    wrapper_path = os.path.join(tmpdir, standalone_wrapper_filename)
+                    with open(wrapper_path, 'w', encoding='utf-8') as f:
+                        f.write(wrapper_content)
+                    
+                    compilation_entry_file = standalone_wrapper_filename
 
-            main_filepath = os.path.join(tmpdir, target_main_file)
+            main_filepath = os.path.join(tmpdir, compilation_entry_file)
             pdf_filepath = os.path.splitext(main_filepath)[0] + '.pdf'
 
             if not os.path.exists(main_filepath):
                 return get_fallback_cached_pdf('', f'Main TeX file {target_main_file} not found')
 
-            # Run Tectonic compilation with continue-on-errors flag
+            # Select Engine (pdflatex, xelatex, lualatex, or tectonic)
+            if engine in ['pdflatex', 'xelatex', 'lualatex'] and shutil.which(engine):
+                try:
+                    cmd = [engine, '-interaction=nonstopmode', '-output-directory', tmpdir, main_filepath]
+                    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
+                    stdout_str = res.stdout.decode('utf-8', errors='ignore')
+                    stderr_str = res.stderr.decode('utf-8', errors='ignore')
+                    log_output = f"Engine: {engine}\n\n" + stdout_str + '\n' + stderr_str
+
+                    if os.path.exists(pdf_filepath):
+                        with open(pdf_filepath, 'rb') as f:
+                            return save_and_return_pdf(f.read(), log_output, None)
+                except Exception:
+                    pass
+
+            # Primary Engine: Tectonic (Overleaf CLSI Fast Pass)
             if os.path.exists(TECTONIC_BIN):
-                log_output = ''
+                log_output = 'Engine: Tectonic (Native Fast)\n\n'
                 try:
                     cmd = [TECTONIC_BIN, '-Z', 'continue-on-errors', '-k', '--only-cached', main_filepath]
                     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=12)
                     stdout_str = res.stdout.decode('utf-8', errors='ignore')
                     stderr_str = res.stderr.decode('utf-8', errors='ignore')
-                    log_output = stdout_str + '\n' + stderr_str
+                    log_output += stdout_str + '\n' + stderr_str
 
                     if not os.path.exists(pdf_filepath):
                         missing_sty = re.findall(r"File [`']([^`']+\.sty)[`'] not found", log_output)
@@ -939,7 +1003,6 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                 except Exception as e1:
                     log_output += f'\nPass 1 notice: {e1}\n'
 
-                # 2. Full compilation pass if needed with continue-on-errors
                 try:
                     cmd = [TECTONIC_BIN, '-Z', 'continue-on-errors', '-k', main_filepath]
                     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
@@ -947,42 +1010,10 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                     stderr_str = res.stderr.decode('utf-8', errors='ignore')
                     log_output += '\n--- Full Compilation Pass ---\n' + stdout_str + '\n' + stderr_str
 
-                    if not os.path.exists(pdf_filepath):
-                        missing_sty = re.findall(r"File [`']([^`']+\.sty)[`'] not found", log_output)
-                        if missing_sty:
-                            for m_sty in set(missing_sty):
-                                m_path = os.path.join(tmpdir, m_sty)
-                                m_name = os.path.splitext(m_sty)[0]
-                                if not os.path.exists(m_path):
-                                    with open(m_path, 'w', encoding='utf-8') as fp:
-                                        fp.write(f'% Auto stub for {m_name}\n\\NeedsTeXFormat{{LaTeX2e}}\n\\ProvidesPackage{{{m_name}}}[2026/09/06 Auto Stub]\n')
-                            try:
-                                res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
-                                log_output += '\n--- Re-try full pass after stubbing missing packages ---\n' + res.stdout.decode('utf-8', errors='ignore') + res.stderr.decode('utf-8', errors='ignore')
-                            except Exception:
-                                pass
-
                     if os.path.exists(pdf_filepath):
                         has_err = res.returncode != 0 or 'error:' in log_output.lower() or '! ' in log_output or active_file_fallback
                         with open(pdf_filepath, 'rb') as f:
                             return save_and_return_pdf(f.read(), log_output, ('LaTeX errors' if has_err else None))
-
-                    # Fallback to root document if active file failed completely
-                    fallback_main = None
-                    for fname in ['cleanversion.tex', 'main_version_with_annotations.tex', 'main.tex']:
-                        if fname in files and fname != target_main_file:
-                            fallback_main = fname
-                            break
-                    if fallback_main:
-                        fallback_path = os.path.join(tmpdir, fallback_main)
-                        fallback_pdf = os.path.splitext(fallback_path)[0] + '.pdf'
-                        try:
-                            res = subprocess.run([TECTONIC_BIN, '-Z', 'continue-on-errors', '-k', fallback_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
-                            if os.path.exists(fallback_pdf):
-                                with open(fallback_pdf, 'rb') as f:
-                                    return save_and_return_pdf(f.read(), log_output + f'\n--- Fallback PDF preview from {fallback_main} ---\n', 'LaTeX errors')
-                        except Exception:
-                            pass
 
                     return get_fallback_cached_pdf(log_output, 'Compilation error')
                 except Exception as e2:

@@ -144,6 +144,18 @@
             <option value="llama3.2-vision:11b">Llama 3.2 Vision (11B)</option>
             <option value="llama3.3:70b">Llama 3.3 (70B)</option>
           </select>
+        </div>
+
+        <!-- Overleaf TeX Compiler Engine Selector (pdfLaTeX / XeLaTeX / LuaLaTeX / Tectonic) -->
+        <div class="model-select-wrapper" style="margin-right:6px;">
+          <i class="fa-solid fa-gears" style="color:var(--accent-amber);"></i>
+          <select id="compiler-engine-select" title="Overleaf TeX Compiler Engine Selection (pdfLaTeX, XeLaTeX, LuaLaTeX, Tectonic)" onchange="saveCompilerEnginePreference()">
+            <option value="tectonic">Engine: Tectonic (Native Fast)</option>
+            <option value="pdflatex">Engine: pdfLaTeX (Standard)</option>
+            <option value="xelatex">Engine: XeLaTeX (Unicode &amp; Fonts)</option>
+            <option value="lualatex">Engine: LuaLaTeX (Lua Scripted)</option>
+          </select>
+        </div>
         <!-- Workspace Layout Mode Switcher (Code Only | Split View | PDF Only) -->
         <div class="editor-view-switcher" style="display:flex; align-items:center; gap:3px; background:var(--bg-sidebar); padding:3px; border-radius:8px; border:1px solid var(--border-color); margin-right:6px;">
           <button id="btn-layout-editor" class="btn-layout-toggle" title="Full Code Editor Only View" onclick="setEditorLayoutMode('editor')">
@@ -156,14 +168,6 @@
             <i class="fa-solid fa-file-pdf"></i> PDF
           </button>
         </div>
-
-        <button id="btn-compile" class="btn btn-primary" title="Recompile Document Preview (Ctrl+S)">
-          <i class="fa-solid fa-play"></i> Compile
-        </button>
-
-        <button id="btn-export-pdf" class="btn btn-pdf" title="Export Compiled PDF Document">
-          <i class="fa-solid fa-file-pdf"></i> Download PDF
-        </button>
 
         <button id="btn-github-sync" class="btn btn-github" title="Sync Project to GitHub Private/Public Repository">
           <i class="fa-brands fa-github"></i> GitHub Sync
@@ -191,6 +195,10 @@
           <i class="fa-solid fa-wand-magic-sparkles"></i>
           <span>AI Tools</span>
         </button>
+        <button class="nav-item" data-tab="ai-tasks" title="AI Task Manager & Research Checklist">
+          <i class="fa-solid fa-list-check" style="color:var(--accent-purple);"></i>
+          <span>AI Tasks</span>
+        </button>
       </nav>
 
       <!-- Sidebar Drawer (Scrollable Panels) -->
@@ -198,14 +206,20 @@
         <!-- File Explorer Tab -->
         <div class="drawer-panel active" id="panel-files">
           <div class="drawer-header">
-            <h3>Project Files</h3>
+            <h3><i class="fa-solid fa-folder-tree" style="color:var(--accent-purple);"></i> Files</h3>
             <div style="display:flex; gap:4px;">
               <button class="btn-sm" id="btn-new-file" title="Create New File with Starter Code"><i class="fa-solid fa-file-circle-plus"></i> + File</button>
               <button class="btn-sm" id="btn-new-folder" title="Create New Folder"><i class="fa-solid fa-folder-plus"></i> + Folder</button>
-              <button class="btn-sm" id="btn-upload-file" title="Upload Images, .tex, .bib, or .zip Archives"><i class="fa-solid fa-upload"></i> Upload</button>
+              <button class="btn-sm" id="btn-upload-file" title="Upload Assets & Archives"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
             </div>
           </div>
-          <input type="file" id="file-upload-input" multiple style="display:none;">
+
+          <!-- File Tree Live Filter Search Bar -->
+          <div class="file-tree-search-wrapper" style="margin-bottom: 10px; position: relative;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 9px; font-size: 0.76rem; color: var(--text-dim);"></i>
+            <input type="text" id="file-tree-search-input" placeholder="Filter files..." value="" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); color: var(--text-main); font-size: 0.8rem; padding: 6px 10px 6px 28px; border-radius: 6px; outline: none;" oninput="renderFileList()">
+          </div>
+
           <ul class="file-list" id="file-list">
             <!-- Dynamically populated -->
           </ul>
@@ -239,11 +253,19 @@
             <h3><i class="fa-solid fa-wand-magic-sparkles"></i> AI Assistant Tools</h3>
           </div>
           <div class="ai-tools-body">
+            <div class="tool-card" id="tool-project-review" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%); border: 1px solid rgba(168, 85, 247, 0.35);">
+              <i class="fa-solid fa-brain" style="color:#c084fc;"></i>
+              <div>
+                <h4 style="color:#ffffff; font-weight:700;">Full-Project AI Architecture Review</h4>
+                <p>AI scans all TeX, BibTeX &amp; style files across the whole project for feedback.</p>
+              </div>
+            </div>
+
             <div class="tool-card" id="tool-peer-review">
               <i class="fa-solid fa-clipboard-check"></i>
               <div>
                 <h4>AI Manuscript Peer Reviewer</h4>
-                <p>Generate journal review comments, critique paper structure & tone.</p>
+                <p>Generate journal review comments, critique paper structure &amp; tone.</p>
               </div>
             </div>
 
@@ -301,6 +323,43 @@
                 <h4>Academic Polish</h4>
                 <p>Refines writing tone to journal standards.</p>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Tasks & Research Checklist Tab -->
+        <div class="drawer-panel" id="panel-ai-tasks">
+          <div class="drawer-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h3><i class="fa-solid fa-list-check" style="color:var(--accent-purple);"></i> AI Task Manager</h3>
+            <button class="btn-sm btn-primary" id="btn-gen-ai-tasks" title="Auto-scan manuscript TeX files & generate research task checklist with LLM" onclick="generateAITasksFromManuscript()">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Generate
+            </button>
+          </div>
+          <div class="ai-tasks-body" style="padding:14px; display:flex; flex-direction:column; gap:12px;">
+            <div style="background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.25); padding:10px 12px; border-radius:8px; font-size:0.8rem; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-lightbulb" style="color:var(--accent-purple); font-size:1.1rem;"></i>
+              <span>Manage research tasks &amp; section TODOs. Click <strong>Auto-Generate</strong> to extract missing citations, figures &amp; action items using Ollama.</span>
+            </div>
+
+            <!-- Add Manual Task Input -->
+            <div style="display:flex; gap:6px;">
+              <input type="text" id="ai-task-new-input" placeholder="Add new research task or TODO..." style="flex:1; background:rgba(0,0,0,0.3); border:1px solid var(--border-color); color:var(--text-main); font-size:0.82rem; padding:8px 10px; border-radius:6px; outline:none;" onkeydown="if(event.key==='Enter') addAITaskManual()">
+              <button class="btn btn-sm btn-primary" onclick="addAITaskManual()"><i class="fa-solid fa-plus"></i></button>
+            </div>
+
+            <!-- Task Filters -->
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem; color:var(--text-muted); border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;">
+              <span id="ai-tasks-count-text">0 Tasks</span>
+              <div style="display:flex; gap:4px;">
+                <button class="btn-sm" id="btn-filter-task-all" style="padding:2px 8px; font-size:0.72rem; background:var(--accent-purple); color:#fff;" onclick="filterAITasks('all')">All</button>
+                <button class="btn-sm" id="btn-filter-task-todo" style="padding:2px 8px; font-size:0.72rem;" onclick="filterAITasks('todo')">Todo</button>
+                <button class="btn-sm" id="btn-filter-task-done" style="padding:2px 8px; font-size:0.72rem;" onclick="filterAITasks('done')">Done</button>
+              </div>
+            </div>
+
+            <!-- Task List Container -->
+            <div id="ai-tasks-list" style="display:flex; flex-direction:column; gap:8px; max-height:480px; overflow-y:auto;">
+              <!-- Dynamic task cards -->
             </div>
           </div>
         </div>
@@ -369,34 +428,45 @@
       <section class="preview-section">
         <div class="section-toolbar">
           <div class="preview-tabs">
-            <button class="preview-tab active" data-target="pdf-preview">
-              <i class="fa-solid fa-file-pdf"></i> PDF View (<span id="pdf-file-label">main.tex</span>)
+            <button class="preview-tab active" data-target="pdf-preview" title="PDF View">
+              <i class="fa-solid fa-file-pdf"></i>
             </button>
-            <button class="preview-tab" data-target="rendered-preview">
-              <i class="fa-solid fa-eye"></i> Quick HTML
+            <button id="btn-export-pdf" class="btn btn-sm btn-pdf" title="Download PDF Document" style="margin-left:2px; font-size:0.85rem; padding:5px 9px;">
+              <i class="fa-solid fa-download"></i>
             </button>
-            <button class="preview-tab" data-target="compiler-log-pane">
-              <i class="fa-solid fa-terminal"></i> Compiler Log
+            <button class="preview-tab" data-target="warnings-errors-pane" id="btn-tab-warnings" style="margin-left:6px;" title="Logs & Warnings">
+              <i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-amber);"></i> (<span id="warnings-count-badge">0</span>)
             </button>
-            <button class="preview-tab" data-target="diff-preview">
-              <i class="fa-solid fa-code-compare"></i> Diff View
-            </button>
+            <div class="more-tabs-wrapper" style="position:relative; display:inline-block;">
+              <button class="preview-tab" id="btn-more-preview-tabs" onclick="toggleMorePreviewMenu(event)" title="More Tools &amp; Actions">
+                <i class="fa-solid fa-ellipsis"></i> More
+              </button>
+              <div class="file-context-menu hidden" id="more-preview-tabs-menu" style="left:0; right:auto; top:100%; min-width:180px;">
+                <div class="file-menu-item" onclick="compileLaTeX(); saveCurrentProjectToBackend(); closeAllFileMenus();">
+                  <i class="fa-solid fa-play" style="color:var(--accent-purple);"></i> Recompile Document
+                </div>
+                <div class="file-menu-item" onclick="jumpPdfToEditor(); closeAllFileMenus();">
+                  <i class="fa-solid fa-code" style="color:var(--accent-teal);"></i> Jump to Code
+                </div>
+                <div class="file-menu-item" onclick="toggleAutoSync(); closeAllFileMenus();">
+                  <i class="fa-solid fa-link" style="color:var(--accent-blue);"></i> Toggle Auto Sync
+                </div>
+                <div class="file-menu-item" onclick="switchPreviewPaneTarget('compiler-log-pane')">
+                  <i class="fa-solid fa-terminal"></i> Raw Compiler Log
+                </div>
+                <div class="file-menu-item" onclick="switchPreviewPaneTarget('rendered-preview')">
+                  <i class="fa-solid fa-eye"></i> Quick HTML View
+                </div>
+                <div class="file-menu-item" onclick="switchPreviewPaneTarget('diff-preview')">
+                  <i class="fa-solid fa-code-compare"></i> Commit Diff View
+                </div>
+              </div>
+            </div>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
-            <button id="btn-sync-editor-to-pdf" class="btn btn-sm btn-secondary" title="Forward Search: Jump from Editor Line -> PDF Page" onclick="jumpEditorToPdf()">
-              <i class="fa-solid fa-crosshairs" style="color:var(--accent-purple);"></i> Jump to PDF
+            <button id="btn-compile" class="btn btn-sm btn-primary" title="Recompile Document Preview (Ctrl+S)">
+              <i class="fa-solid fa-play"></i> Compile
             </button>
-            <button id="btn-sync-pdf-to-editor" class="btn btn-sm btn-secondary" title="Inverse Search: Jump from PDF -> Editor Line" onclick="jumpPdfToEditor()">
-              <i class="fa-solid fa-code" style="color:var(--accent-teal);"></i> Jump to Code
-            </button>
-            <button id="btn-toggle-autosync" class="btn btn-sm btn-secondary active-autosync" title="Toggle Live Auto-Scroll Sync Connection" onclick="toggleAutoSync()">
-              <i class="fa-solid fa-link" style="color:var(--accent-blue);"></i> Auto Sync ON
-            </button>
-            <div class="zoom-controls" style="display:flex; align-items:center; gap:4px; margin-left:6px;">
-              <button id="btn-zoom-out" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
-              <span id="zoom-level">100%</span>
-              <button id="btn-zoom-in" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
-            </div>
           </div>
         </div>
 
@@ -422,6 +492,22 @@
           <!-- LaTeX Compiler Output Log Pane -->
           <div class="preview-pane" id="compiler-log-pane" style="height:100%; overflow:auto;">
             <pre id="compiler-log-output" style="padding:15px; font-family:'Fira Code', monospace; font-size:0.85rem; color:#f8f8f2; background:#1e1e2e; margin:0; min-height:100%; overflow:auto; white-space:pre-wrap;">Compiler log will appear here after compilation.</pre>
+          </div>
+
+          <!-- Dedicated Warnings & Errors Log Pane -->
+          <div class="preview-pane" id="warnings-errors-pane" style="height:100%; overflow:auto; background:#181825; padding:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
+              <h4 style="color:#ffffff; font-size:0.95rem; font-weight:700; margin:0; display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-amber);"></i>
+                LaTeX Warnings &amp; Diagnostics Log
+              </h4>
+              <span style="font-size:0.75rem; color:var(--text-muted); font-style:italic;">Click any item below to jump directly to line &amp; highlight line</span>
+            </div>
+            <div id="warnings-log-list" style="display:flex; flex-direction:column; gap:8px;">
+              <div style="color:var(--text-muted); text-align:center; padding:30px; font-size:0.85rem;">
+                No warnings or compilation problems detected.
+              </div>
+            </div>
           </div>
 
           <!-- Version History Diff View Pane -->

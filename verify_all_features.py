@@ -194,7 +194,7 @@ def run_suite():
 
         required_ids = [
             'btn-layout-editor', 'btn-layout-split', 'btn-layout-pdf',  # 3 View Modes
-            'btn-sync-editor-to-pdf', 'btn-sync-pdf-to-editor', 'btn-toggle-autosync',  # SyncTeX
+            'btn-compile', 'btn-export-pdf',  # Core Action Controls
             'btn-view-grid', 'btn-view-list',  # Dashboard dual view switchers
             'file-list', 'pdf-preview', 'latex-code-editor'  # Core Viewports
         ]

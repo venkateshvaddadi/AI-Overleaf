@@ -13,6 +13,16 @@ let activeProject = null;
 let fileStore = {};
 let activeFile = 'main.tex';
 
+function escapeHtml(str) {
+  if (!str || typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function isUserContentFile(filename) {
   if (!filename || typeof filename !== 'string') return false;
   const norm = filename.replace(/\\/g, '/');
@@ -57,6 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initPreviewTabs();
   initVersionControl();
   initAITools();
+  initAITaskManager();
   initPdfInverseSearch();
 
   // Load existing projects from backend on startup
@@ -383,6 +394,16 @@ async function openProjectFromDashboard(projId, projNameHint) {
     showProjectLoader(projName || 'Research Project');
     updateProjectLoaderStep(1, 30, 'Retrieving source code & LaTeX files...');
 
+    // Strict Project Boundary: Clear PDF Preview & Compiler State from Previous Project
+    if (activePdfBlobUrl) {
+      URL.revokeObjectURL(activePdfBlobUrl);
+      activePdfBlobUrl = null;
+    }
+    const pdfFrame = document.getElementById('pdf-frame');
+    if (pdfFrame) pdfFrame.src = 'about:blank';
+    const paperContent = document.getElementById('paper-content');
+    if (paperContent) paperContent.innerHTML = '';
+
     const res = await fetch(`/api/projects?id=${projId}`);
     if (res.ok) {
       activeProject = await res.json();
@@ -394,8 +415,12 @@ async function openProjectFromDashboard(projId, projNameHint) {
 
       updateProjectLoaderStep(2, 65, 'Preparing CodeMirror editor & workspace layout...');
 
+      const searchInput = document.getElementById('file-tree-search-input');
+      if (searchInput) searchInput.value = '';
+
       renderProjectTitle();
       renderFileList();
+      renderAITasks();
 
       if (editor) {
         editor.setValue(fileStore[activeFile] || '');
@@ -648,6 +673,20 @@ function switchView(targetView, projId = null) {
       history.replaceState(null, '', ' ');
     }
     localStorage.removeItem('activeProjectId');
+
+    // Strict Project Boundary: Clear PDF Preview & Compiler State
+    if (activePdfBlobUrl) {
+      URL.revokeObjectURL(activePdfBlobUrl);
+      activePdfBlobUrl = null;
+    }
+    const pdfFrame = document.getElementById('pdf-frame');
+    if (pdfFrame) pdfFrame.src = 'about:blank';
+    const paperContent = document.getElementById('paper-content');
+    if (paperContent) paperContent.innerHTML = '';
+    const logOutput = document.getElementById('compiler-log-output');
+    if (logOutput) logOutput.innerText = 'Compiler log will appear here after compilation.';
+    activeProject = null;
+
     renderDashboard();
   } else {
     document.getElementById('view-editor').classList.add('active');
@@ -943,54 +982,78 @@ async function handleDashboardZipImport(e) {
     const filesObj = {};
     let mainFile = 'main.tex';
 
-    for (const entryName of Object.keys(zip.files)) {
+    const entryKeys = Object.keys(zip.files);
+    
+    // Detect single top-level wrapper folder
+    const topDirs = new Set();
+    entryKeys.forEach(k => {
+      const parts = k.trim().replace(/^\/+/g, '').split('/');
+      if (parts.length > 1) {
+        topDirs.add(parts[0]);
+      }
+    });
+
+    let stripPrefix = '';
+    if (topDirs.size === 1) {
+      stripPrefix = Array.from(topDirs)[0] + '/';
+    }
+
+    for (const entryName of entryKeys) {
       const entry = zip.files[entryName];
       if (entry.dir) continue;
 
       let cleanPath = entryName;
-      const parts = cleanPath.split('/');
-      if (parts.length > 1 && (parts[0].includes('master') || parts[0].includes('main') || parts[0].includes('template'))) {
-        cleanPath = parts.slice(1).join('/');
+      if (stripPrefix && cleanPath.startsWith(stripPrefix)) {
+        cleanPath = cleanPath.slice(stripPrefix.length);
       }
-      if (!cleanPath) continue;
 
-      if (cleanPath.match(/\.(png|jpg|jpeg|gif|svg|pdf)$/i)) {
+      cleanPath = cleanPath.replace(/^\/+/g, '');
+      if (!cleanPath || cleanPath.startsWith('__MACOSX') || cleanPath.includes('/.')) continue;
+
+      if (cleanPath.match(/\.(png|jpg|jpeg|gif|svg|webp|pdf|eps|ico|bmp)$/i)) {
         const b64 = await entry.async('base64');
         const ext = cleanPath.split('.').pop().toLowerCase();
-        filesObj[cleanPath] = `data:image/${ext};base64,${b64}`;
+        const mime = (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : (ext === 'png' ? 'image/png' : (ext === 'pdf' ? 'application/pdf' : 'image/png'));
+        filesObj[cleanPath] = `data:${mime};base64,${b64}`;
       } else {
         const textContent = await entry.async('text');
         filesObj[cleanPath] = textContent;
       }
 
-      if (cleanPath === 'main.tex' || cleanPath.endsWith('.tex')) {
-        mainFile = cleanPath;
+      if (cleanPath === 'main.tex') {
+        mainFile = 'main.tex';
+      } else if (cleanPath.endsWith('.tex') && mainFile !== 'main.tex') {
+        const txt = filesObj[cleanPath] || '';
+        if (txt.includes('\\documentclass')) {
+          mainFile = cleanPath;
+        } else if (!mainFile) {
+          mainFile = cleanPath;
+        }
       }
     }
 
-    const res = await fetch('/api/projects/create', {
+    if (Object.keys(filesObj).length === 0) {
+      alert('⚠️ No valid user files found in the ZIP archive.');
+      e.target.value = '';
+      return;
+    }
+
+    const res = await fetch('/api/projects/import-zip', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: projName,
-        description: 'Imported LaTeX Template Archive'
-      })
+      headers: { 'Content-Type': 'application/zip' },
+      body: file
     });
 
     if (res.ok) {
-      activeProject = await res.json();
-      fileStore = filesObj;
-      activeFile = mainFile;
-
-      await saveCurrentProjectToBackend();
+      const importedProj = await res.json();
       await fetchProjectsFromBackend();
-      
-      renderFileList();
-      if (editor) editor.setValue(fileStore[activeFile] || '');
-
-      compileLaTeX();
-      switchView('editor');
-      alert(`✅ Imported template archive '${projName}' successfully!`);
+      openProjectFromDashboard(importedProj.id);
+      if (typeof showToast === 'function') {
+        showToast(`🎉 Imported project "${projName}" with ${Object.keys(filesObj).length} files!`, 'success');
+      }
+    } else {
+      const err = await res.json();
+      alert(`Failed to import ZIP: ${err.error || 'Unknown error'}`);
     }
   } catch (err) {
     alert(`Error importing zip archive: ${err.message}`);
@@ -1037,6 +1100,7 @@ async function renameActiveProject() {
 
 // --- FILE & FOLDER STRUCTURE & DRAG-AND-DROP MANAGEMENT ---
 let expandedFolders = new Set(['figures', 'sections', 'chapters']);
+let currentDraggedPath = null;
 
 function openNewFolderModal() {
   const modal = document.getElementById('new-folder-modal');
@@ -1093,7 +1157,13 @@ function renderFileList() {
   if (!container) return;
   container.innerHTML = '';
 
-  const userKeys = Object.keys(fileStore).filter(isUserContentFile);
+  const searchInput = document.getElementById('file-tree-search-input');
+  const searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+  let userKeys = Object.keys(fileStore).filter(isUserContentFile);
+  if (searchQuery) {
+    userKeys = userKeys.filter(k => k.toLowerCase().includes(searchQuery));
+  }
 
   const foldersSet = new Set();
   userKeys.forEach(k => {
@@ -1129,47 +1199,87 @@ function renderFileList() {
     }
   };
 
-  const rootFiles = [];
-  const folderFilesMap = {};
-  sortedFolders.forEach(f => { folderFilesMap[f] = []; });
+  // Build hierarchical file tree structure
+  const rootItems = [];
+  const folderChildrenMap = {};
+
+  sortedFolders.forEach(f => { folderChildrenMap[f] = { subFolders: [], files: [] }; });
+
+  sortedFolders.forEach(f => {
+    if (!f.includes('/')) {
+      rootItems.push({ type: 'folder', name: f, fullPath: f });
+    } else {
+      const parts = f.split('/');
+      parts.pop();
+      const parent = parts.join('/');
+      if (folderChildrenMap[parent]) {
+        folderChildrenMap[parent].subFolders.push(f);
+      }
+    }
+  });
 
   userKeys.forEach(k => {
     if (k.endsWith('/')) return;
     if (!k.includes('/')) {
-      rootFiles.push(k);
+      rootItems.push({ type: 'file', fullPath: k });
     } else {
       const parts = k.split('/');
       parts.pop();
-      const parentFolder = parts.join('/');
-      if (!folderFilesMap[parentFolder]) {
-        folderFilesMap[parentFolder] = [];
+      const parent = parts.join('/');
+      if (folderChildrenMap[parent]) {
+        folderChildrenMap[parent].files.push(k);
       }
-      folderFilesMap[parentFolder].push(k);
     }
   });
 
-  // Render Folders
-  sortedFolders.forEach(folderPath => {
+  // Sort root items: Folders first, then Files
+  rootItems.sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+    return a.fullPath.localeCompare(b.fullPath);
+  });
+
+  // Calculate total recursively nested items inside each folder
+  sortedFolders.forEach(f => {
+    const prefix = `${f}/`;
+    const totalNested = userKeys.filter(k => k.startsWith(prefix) && !k.endsWith('/')).length;
+    folderChildrenMap[f]._totalNested = totalNested;
+  });
+
+  // Auto-expand root folders if loading a project initially
+  if (expandedFolders.size === 0 && sortedFolders.length > 0) {
+    sortedFolders.forEach(f => expandedFolders.add(f));
+  }
+
+  function renderFolderNode(folderPath) {
     const isExpanded = expandedFolders.has(folderPath);
     const folderLi = document.createElement('li');
     folderLi.className = 'folder-item';
 
-    const childFiles = folderFilesMap[folderPath] || [];
+    const childData = folderChildrenMap[folderPath] || { subFolders: [], files: [] };
+    const countBadge = folderChildrenMap[folderPath]._totalNested || (childData.subFolders.length + childData.files.length);
+
+    const displayName = folderPath.includes('/') ? folderPath.split('/').pop() : folderPath;
+    const depth = folderPath.split('/').length - 1;
+    const indentPx = depth * 12;
 
     folderLi.innerHTML = `
       <div class="folder-header" 
+           style="padding-left: ${10 + indentPx}px;"
+           draggable="true"
+           ondragstart="handleFolderDragStart(event, '${folderPath}')"
+           ondragend="handleFolderDragEnd(event)"
            onclick="toggleFolderExpand('${folderPath}')"
            ondragover="handleFolderDragOver(event, this)"
            ondragleave="handleFolderDragLeave(event, this)"
            ondrop="handleFolderDrop(event, '${folderPath}')">
         <div class="folder-title">
           <i class="fa-solid fa-chevron-${isExpanded ? 'down' : 'right'} folder-toggle-icon"></i>
-          <i class="fa-solid fa-folder${isExpanded ? '-open' : ''} folder-icon"></i>
-          <span class="folder-name">${folderPath}</span>
-          <span class="folder-badge">${childFiles.length}</span>
+          <i class="fa-solid fa-folder${isExpanded ? '-open' : ''} folder-icon" style="color:var(--accent-amber);"></i>
+          <span class="folder-name">${displayName}</span>
+          <span class="folder-badge" title="${countBadge} total files inside">${countBadge}</span>
         </div>
         <div class="folder-actions">
-          <button class="btn-file-action" onclick="event.stopPropagation(); createNewFileInFolder('${folderPath}')" title="Create File in ${folderPath}">
+          <button class="btn-file-action" onclick="event.stopPropagation(); createNewFileInFolder('${folderPath}')" title="Create File in ${displayName}">
             <i class="fa-solid fa-plus"></i>
           </button>
           <button class="btn-file-action delete" onclick="event.stopPropagation(); deleteFolder('${folderPath}')" title="Delete Folder">
@@ -1183,72 +1293,141 @@ function renderFileList() {
       const subUl = document.createElement('ul');
       subUl.className = 'folder-sub-list';
 
-      if (childFiles.length === 0) {
+      if (childData.subFolders.length === 0 && childData.files.length === 0) {
         const emptyLi = document.createElement('li');
         emptyLi.className = 'empty-folder-notice';
         emptyLi.setAttribute('ondragover', 'handleFolderDragOver(event, this)');
         emptyLi.setAttribute('ondragleave', 'handleFolderDragLeave(event, this)');
         emptyLi.setAttribute('ondrop', `handleFolderDrop(event, '${folderPath}')`);
-        emptyLi.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted); font-style:italic; padding-left:14px;"><i class="fa-solid fa-cloud-arrow-up"></i> Empty folder (Drag &amp; drop files here)</span>`;
+        emptyLi.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted); font-style:italic; padding-left:${22 + indentPx}px;"><i class="fa-solid fa-cloud-arrow-up"></i> Empty folder</span>`;
         subUl.appendChild(emptyLi);
       } else {
-        childFiles.sort().forEach(fullPath => {
+        // Render subfolders first
+        childData.subFolders.sort().forEach(subF => {
+          subUl.appendChild(renderFolderNode(subF));
+        });
+
+        // Render files inside folder
+        childData.files.sort().forEach(fullPath => {
           const fileLi = createFileListItemElement(fullPath, true);
+          fileLi.querySelector('.file-item-info').style.paddingLeft = `${22 + indentPx}px`;
           subUl.appendChild(fileLi);
         });
       }
       folderLi.appendChild(subUl);
     }
 
-    container.appendChild(folderLi);
-  });
+    return folderLi;
+  }
 
-  // Render Root Files
-  rootFiles.sort().forEach(fullPath => {
-    const fileLi = createFileListItemElement(fullPath, false);
-    container.appendChild(fileLi);
+  // Render top-level root items
+  rootItems.forEach(item => {
+    if (item.type === 'folder') {
+      container.appendChild(renderFolderNode(item.fullPath));
+    } else {
+      container.appendChild(createFileListItemElement(item.fullPath, false));
+    }
   });
 }
 
 function createFileListItemElement(fullPath, isNested = false) {
   const li = document.createElement('li');
-  li.className = `file-item ${fullPath === activeFile ? 'active' : ''} ${isNested ? 'nested-file' : ''}`;
+  const isMaster = activeProject && (activeProject.main_file === fullPath);
+  li.className = `file-item ${fullPath === activeFile ? 'active' : ''} ${isNested ? 'nested-file' : ''} ${isMaster ? 'master-item' : ''}`;
   li.draggable = true;
 
   li.ondragstart = (e) => {
+    e.stopPropagation();
+    currentDraggedPath = fullPath;
     e.dataTransfer.setData('text/plain', fullPath);
+    e.dataTransfer.effectAllowed = 'move';
     li.classList.add('dragging');
   };
 
   li.ondragend = () => {
     li.classList.remove('dragging');
+    currentDraggedPath = null;
   };
 
   const displayName = fullPath.includes('/') ? fullPath.split('/').pop() : fullPath;
 
   let iconClass = 'fa-file-code';
-  if (fullPath.endsWith('.bib')) iconClass = 'fa-book';
-  else if (fullPath.endsWith('.cls') || fullPath.endsWith('.sty')) iconClass = 'fa-sliders';
-  else if (fullPath.match(/\.(png|jpg|jpeg|pdf|svg)$/i)) iconClass = 'fa-file-image';
+  let iconStyle = 'color: #34d399;'; // default .tex green
+  if (fullPath.endsWith('.bib')) {
+    iconClass = 'fa-book';
+    iconStyle = 'color: #f59e0b;';
+  } else if (fullPath.endsWith('.cls') || fullPath.endsWith('.sty')) {
+    iconClass = 'fa-sliders';
+    iconStyle = 'color: #818cf8;';
+  } else if (fullPath.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i)) {
+    iconClass = 'fa-file-image';
+    iconStyle = 'color: #c084fc;';
+  } else if (fullPath.endsWith('.pdf')) {
+    iconClass = 'fa-file-pdf';
+    iconStyle = 'color: #f87171;';
+  }
+
+  const masterBadge = isMaster ? `<span class="master-file-badge" title="Master TeX Entry Document"><i class="fa-solid fa-crown" style="color:#f59e0b;"></i> Main</span>` : '';
+
+  const setMasterItem = (fullPath.endsWith('.tex') && !isMaster) ? `
+    <div class="file-menu-item" onclick="event.stopPropagation(); closeAllFileMenus(); setAsMasterTeXFile('${fullPath}')">
+      <i class="fa-solid fa-crown" style="color:#f59e0b;"></i> Set as Main Document
+    </div>
+  ` : '';
 
   li.innerHTML = `
     <div class="file-item-info" onclick="switchActiveFile('${fullPath}')" title="${fullPath}">
-      <i class="fa-solid ${iconClass}"></i>
-      <span>${displayName}</span>
+      <i class="fa-solid ${iconClass}" style="${iconStyle}"></i>
+      <span class="file-name-text">${displayName}</span>
+      ${masterBadge}
     </div>
-    <div class="file-actions">
-      <button class="btn-file-action" onclick="event.stopPropagation(); downloadSingleFile('${fullPath}')" title="Download File">
-        <i class="fa-solid fa-download"></i>
+    <div class="file-actions-wrapper" style="position:relative;">
+      <button class="btn-file-more" onclick="event.stopPropagation(); toggleFileContextMenu(event, '${fullPath.replace(/'/g, "\\'")}')" title="File options">
+        <i class="fa-solid fa-ellipsis-vertical"></i>
       </button>
-      <button class="btn-file-action" onclick="event.stopPropagation(); renameFile('${fullPath}')" title="Rename File">
-        <i class="fa-solid fa-pen-to-square"></i>
-      </button>
-      <button class="btn-file-action delete" onclick="event.stopPropagation(); deleteFile('${fullPath}')" title="Delete File">
-        <i class="fa-solid fa-trash"></i>
-      </button>
+      <div class="file-context-menu hidden" id="file-menu-${encodeURIComponent(fullPath)}">
+        ${setMasterItem}
+        <div class="file-menu-item" onclick="event.stopPropagation(); closeAllFileMenus(); downloadSingleFile('${fullPath}')">
+          <i class="fa-solid fa-download"></i> Download File
+        </div>
+        <div class="file-menu-item" onclick="event.stopPropagation(); closeAllFileMenus(); renameFile('${fullPath}')">
+          <i class="fa-solid fa-pen-to-square"></i> Rename
+        </div>
+        <div class="file-menu-item danger" onclick="event.stopPropagation(); closeAllFileMenus(); deleteFile('${fullPath}')">
+          <i class="fa-solid fa-trash"></i> Delete
+        </div>
+      </div>
     </div>
   `;
   return li;
+}
+
+function closeAllFileMenus() {
+  document.querySelectorAll('.file-context-menu').forEach(m => m.classList.add('hidden'));
+}
+
+function toggleFileContextMenu(e, fullPath) {
+  e.stopPropagation();
+  const menuId = `file-menu-${encodeURIComponent(fullPath)}`;
+  const menu = document.getElementById(menuId);
+  if (!menu) return;
+  const isHidden = menu.classList.contains('hidden');
+  closeAllFileMenus();
+  if (isHidden) {
+    menu.classList.remove('hidden');
+  }
+}
+
+document.addEventListener('click', closeAllFileMenus);
+
+function setAsMasterTeXFile(fullPath) {
+  if (!activeProject) return;
+  activeProject.main_file = fullPath;
+  saveCurrentProjectToBackend(true);
+  renderFileList();
+  if (typeof showToast === 'function') {
+    showToast(`👑 Set "${fullPath}" as Main Master TeX file`, 'success');
+  }
 }
 
 function toggleFolderExpand(folderPath) {
@@ -1258,6 +1437,19 @@ function toggleFolderExpand(folderPath) {
     expandedFolders.add(folderPath);
   }
   renderFileList();
+}
+
+function handleFolderDragStart(e, folderPath) {
+  e.stopPropagation();
+  currentDraggedPath = folderPath;
+  e.dataTransfer.setData('text/plain', folderPath);
+  e.dataTransfer.effectAllowed = 'move';
+  if (e.currentTarget) e.currentTarget.classList.add('dragging');
+}
+
+function handleFolderDragEnd(e) {
+  if (e.currentTarget) e.currentTarget.classList.remove('dragging');
+  currentDraggedPath = null;
 }
 
 function handleFolderDragOver(e, elem) {
@@ -1275,13 +1467,49 @@ async function handleFolderDrop(e, targetFolder) {
   const elem = e.currentTarget;
   if (elem) elem.classList.remove('folder-drop-active');
 
-  const draggedFile = e.dataTransfer.getData('text/plain');
-  if (draggedFile) {
-    await moveFileToFolder(draggedFile, targetFolder);
+  const draggedPath = e.dataTransfer.getData('text/plain') || currentDraggedPath;
+  if (draggedPath) {
+    await moveFileToFolder(draggedPath, targetFolder);
   }
 }
 
 async function moveFileToFolder(oldPath, targetFolder) {
+  if (!oldPath) return;
+
+  // Check if moving a folder
+  const isFolder = Object.keys(fileStore).some(k => k.startsWith(`${oldPath}/`));
+  
+  if (isFolder) {
+    if (targetFolder === oldPath || targetFolder.startsWith(`${oldPath}/`)) {
+      if (typeof showToast === 'function') showToast(`⚠️ Cannot move folder inside itself!`, 'error');
+      return;
+    }
+    const oldPrefix = `${oldPath}/`;
+    const folderBaseName = oldPath.split('/').pop();
+    const newPrefix = targetFolder ? `${targetFolder}/${folderBaseName}/` : `${folderBaseName}/`;
+    
+    const affectedKeys = Object.keys(fileStore).filter(k => k.startsWith(oldPrefix));
+    affectedKeys.forEach(k => {
+      const relPath = k.slice(oldPrefix.length);
+      const newKey = `${newPrefix}${relPath}`;
+      fileStore[newKey] = fileStore[k];
+      delete fileStore[k];
+      if (activeFile === k) activeFile = newKey;
+    });
+
+    expandedFolders.delete(oldPath);
+    if (targetFolder) expandedFolders.add(targetFolder);
+    expandedFolders.add(newPrefix.slice(0, -1));
+
+    await saveCurrentProjectToBackend(true);
+    renderFileList();
+    if (typeof showToast === 'function') {
+      showToast(`📁 Moved folder "${folderBaseName}" to ${targetFolder ? targetFolder : 'root'}`, 'success');
+    }
+    return;
+  }
+
+  // Moving single file
   if (!fileStore[oldPath]) return;
 
   const fileName = oldPath.split('/').pop();
@@ -1437,6 +1665,13 @@ function switchActiveFile(filename) {
   
   renderFileList();
   ensurePdfViewActive();
+  
+  if (typeof showToast === 'function') {
+    const isImage = filename.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i);
+    const icon = isImage ? '🖼️' : '📄';
+    showToast(`${icon} Opened "${filename}"`, 'info');
+  }
+
   compileLaTeX();
   saveCurrentProjectToBackend();
 }
@@ -2240,13 +2475,17 @@ function clearSyntaxMarkers() {
 
 let isDiagnosticsDrawerOpen = false;
 
-function toggleDiagnosticsDrawer() {
+function toggleDiagnosticsDrawer(forceState = null) {
   const list = document.getElementById('diagnostics-list');
   const icon = document.getElementById('diag-drawer-icon');
   const text = document.getElementById('diag-drawer-text');
   
   if (!list) return;
-  isDiagnosticsDrawerOpen = !isDiagnosticsDrawerOpen;
+  if (forceState !== null) {
+    isDiagnosticsDrawerOpen = forceState;
+  } else {
+    isDiagnosticsDrawerOpen = !isDiagnosticsDrawerOpen;
+  }
 
   if (isDiagnosticsDrawerOpen) {
     list.classList.remove('hidden');
@@ -2263,8 +2502,15 @@ function toggleDiagnosticsDrawer() {
   }
 }
 
+let lastCompilerLog = null;
+
 // REAL-TIME LATEX SYNTAX DIAGNOSTICS ENGINE
 function runLaTeXSyntaxDiagnostics(compilerLog = null) {
+  if (compilerLog !== null) {
+    lastCompilerLog = compilerLog;
+  } else {
+    compilerLog = lastCompilerLog;
+  }
   if (!editor || !activeFile || !activeFile.endsWith('.tex')) return;
 
   clearSyntaxMarkers();
@@ -2487,23 +2733,47 @@ function runLaTeXSyntaxDiagnostics(compilerLog = null) {
     const logLines = compilerLog.split('\n');
     for (let j = 0; j < logLines.length; j++) {
       const logLine = logLines[j];
-      if (logLine.includes('! LaTeX Error:') || logLine.includes('! Undefined control sequence')) {
-        let lineNo = 0;
-        for (let k = j; k < Math.min(logLines.length, j + 5); k++) {
-          const lineMatch = logLines[k].match(/^l\.(\d+)/);
-          if (lineMatch) {
-            lineNo = parseInt(lineMatch[1], 10) - 1;
+      const isErr = logLine.includes('! LaTeX Error:') || logLine.includes('! Undefined control sequence') || logLine.startsWith('! ') || logLine.includes('error:');
+      const isWarn = logLine.toLowerCase().includes('warning') || logLine.includes('LaTeX Warning') || logLine.includes('Overfull \\hbox') || logLine.includes('Underfull \\hbox') || logLine.includes('Package ') || logLine.includes('Class ');
+
+      if (isErr || isWarn) {
+        let lineNo = -1;
+        // Search surrounding lines for l.<number> or line <number> or on line <number>
+        for (let k = Math.max(0, j - 3); k < Math.min(logLines.length, j + 5); k++) {
+          const lMatch = logLines[k].match(/^l\.(\d+)|line (\d+)|on line (\d+)/i);
+          if (lMatch) {
+            lineNo = parseInt(lMatch[1] || lMatch[2] || lMatch[3], 10) - 1;
             break;
           }
         }
-        problems.push({
-          line: Math.max(0, lineNo),
-          chStart: 0,
-          chEnd: lines[Math.max(0, lineNo)] ? lines[Math.max(0, lineNo)].length : 10,
-          severity: 'error',
-          message: `Compiler Error: ${logLine.replace('!', '').trim()}`,
-          quickFixLabel: null
-        });
+
+        if (lineNo < 0) {
+          const rangeMatch = logLine.match(/at lines?\s+(\d+)/i) || (j < logLines.length - 1 && logLines[j+1].match(/at lines?\s+(\d+)/i));
+          if (rangeMatch) {
+            lineNo = parseInt(rangeMatch[1], 10) - 1;
+          }
+        }
+
+        if (lineNo < 0) {
+          const inlineNoMatch = logLine.match(/line (\d+)/i);
+          if (inlineNoMatch) lineNo = parseInt(inlineNoMatch[1], 10) - 1;
+        }
+
+        const targetLine = lineNo >= 0 ? lineNo : 0;
+
+        // Deduplicate
+        const cleanMsg = logLine.replace(/^!\s*/, '').replace(/^warning:\s*/i, '').trim();
+        const exists = problems.some(p => p.line === targetLine && p.message.includes(cleanMsg.slice(0, 25)));
+        if (!exists && cleanMsg.length > 5) {
+          problems.push({
+            line: targetLine,
+            chStart: 0,
+            chEnd: lines[targetLine] ? lines[targetLine].length : 10,
+            severity: isErr ? 'error' : 'warning',
+            message: `${isErr ? 'Compiler Error' : 'Compiler Warning'}: ${cleanMsg}`,
+            quickFixLabel: null
+          });
+        }
       }
     }
   }
@@ -2522,6 +2792,10 @@ function renderDiagnosticsUI(problems) {
 
   const errorsCount = problems.filter(p => p.severity === 'error').length;
   const warningsCount = problems.filter(p => p.severity === 'warning').length;
+  const warningsLogList = document.getElementById('warnings-log-list');
+  const warningsCountBadge = document.getElementById('warnings-count-badge');
+  if (warningsCountBadge) warningsCountBadge.innerText = problems.length;
+  if (warningsLogList) warningsLogList.innerHTML = '';
 
   if (problems.length === 0) {
     summaryContainer.innerHTML = `
@@ -2530,11 +2804,19 @@ function renderDiagnosticsUI(problems) {
       </span>
       <span style="color: var(--text-muted); font-size: 0.75rem;">Document syntax clean &amp; ready to compile</span>
     `;
+    if (warningsLogList) {
+      warningsLogList.innerHTML = `
+        <div style="color:#34d399; text-align:center; padding:30px; font-size:0.88rem; background:rgba(52,211,153,0.05); border:1px solid rgba(52,211,153,0.2); border-radius:8px;">
+          <i class="fa-solid fa-circle-check" style="font-size:1.4rem; margin-bottom:6px;"></i><br>
+          0 Warnings or Errors detected. Document is perfectly clean!
+        </div>
+      `;
+    }
   } else {
     summaryContainer.innerHTML = `
-      ${errorsCount > 0 ? `<span class="diag-badge diag-err-badge"><i class="fa-solid fa-circle-xmark"></i> ${errorsCount} Error${errorsCount > 1 ? 's' : ''}</span>` : ''}
-      ${warningsCount > 0 ? `<span class="diag-badge diag-warn-badge"><i class="fa-solid fa-triangle-exclamation"></i> ${warningsCount} Warning${warningsCount > 1 ? 's' : ''}</span>` : ''}
-      <span style="color: var(--text-muted); font-size: 0.75rem;">Click to jump to location</span>
+      ${errorsCount > 0 ? `<span class="diag-badge diag-err-badge" onclick="event.stopPropagation(); toggleDiagnosticsDrawer(true);"><i class="fa-solid fa-circle-xmark"></i> ${errorsCount} Error${errorsCount > 1 ? 's' : ''}</span>` : ''}
+      ${warningsCount > 0 ? `<span class="diag-badge diag-warn-badge" onclick="event.stopPropagation(); toggleDiagnosticsDrawer(true);"><i class="fa-solid fa-triangle-exclamation"></i> ${warningsCount} Warning${warningsCount > 1 ? 's' : ''}</span>` : ''}
+      <span style="color: var(--text-muted); font-size: 0.75rem;" onclick="event.stopPropagation(); toggleDiagnosticsDrawer(true);">Click to expand list &amp; jump to line</span>
     `;
   }
 
@@ -2550,7 +2832,7 @@ function renderDiagnosticsUI(problems) {
     }
     editor.setGutterMarker(p.line, "CodeMirror-lint-markers", marker);
 
-    // 2. Wavy Text Underline
+    // 2. Wavy Text Underline & Line Highlight
     const cls = p.severity === 'error' ? 'cm-syntax-error' : 'cm-syntax-warning';
     const textMarker = editor.markText(
       CodeMirror.Pos(p.line, p.chStart),
@@ -2559,14 +2841,24 @@ function renderDiagnosticsUI(problems) {
     );
     syntaxErrorTextMarkers.push(textMarker);
 
+    // Line Jump Action
+    const jumpToProblemLine = () => {
+      editor.setCursor(p.line, p.chStart);
+      editor.focus();
+      editor.scrollIntoView({ line: p.line, ch: p.chStart }, 100);
+      editor.setSelection(CodeMirror.Pos(p.line, p.chStart), CodeMirror.Pos(p.line, p.chEnd));
+      
+      // Flash glowing highlight on the editor line
+      const lineHandle = editor.addLineClass(p.line, 'background', 'cm-line-highlight-flash');
+      setTimeout(() => {
+        editor.removeLineClass(lineHandle, 'background', 'cm-line-highlight-flash');
+      }, 1800);
+    };
+
     // 3. Diagnostics Drawer Item
     const item = document.createElement('div');
     item.className = 'diag-item';
-    item.onclick = () => {
-      editor.setCursor(p.line, p.chStart);
-      editor.focus();
-      editor.setSelection(CodeMirror.Pos(p.line, p.chStart), CodeMirror.Pos(p.line, p.chEnd));
-    };
+    item.onclick = jumpToProblemLine;
 
     const icon = p.severity === 'error'
       ? '<i class="fa-solid fa-circle-xmark" style="color: #f87171;"></i>'
@@ -2596,6 +2888,25 @@ function renderDiagnosticsUI(problems) {
     }
 
     listContainer.appendChild(item);
+
+    // 4. Populate Dedicated Warnings Tab Pane
+    if (warningsLogList) {
+      const tabCard = document.createElement('div');
+      tabCard.style.cssText = "display:flex; align-items:center; justify-space-between; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:10px 14px; border-radius:8px; cursor:pointer; transition:all 0.2s ease;";
+      tabCard.onmouseenter = () => { tabCard.style.background = 'rgba(168,85,247,0.12)'; tabCard.style.borderColor = 'rgba(168,85,247,0.3)'; };
+      tabCard.onmouseleave = () => { tabCard.style.background = 'rgba(255,255,255,0.03)'; tabCard.style.borderColor = 'rgba(255,255,255,0.08)'; };
+      tabCard.onclick = jumpToProblemLine;
+
+      tabCard.innerHTML = `
+        <div style="display:flex; align-items:center; gap:12px; flex:1;">
+          ${icon}
+          <span style="font-family:var(--font-code); font-size:0.75rem; background:rgba(168,85,247,0.2); color:#c084fc; padding:2px 8px; border-radius:4px; font-weight:700;">Line ${p.line + 1}</span>
+          <span style="font-size:0.84rem; color:#ffffff; font-weight:500;">${escapeHtml(p.message)}</span>
+        </div>
+        <button class="btn btn-sm btn-secondary" style="font-size:0.72rem; padding:3px 8px;"><i class="fa-solid fa-arrow-right-to-bracket"></i> Jump to Line</button>
+      `;
+      warningsLogList.appendChild(tabCard);
+    }
   });
 }
 
@@ -2710,6 +3021,9 @@ async function compileLaTeX() {
 
   try {
     const payloadFiles = getSanitizedTextFilesPayload(fileStore);
+    const engineSelect = document.getElementById('compiler-engine-select');
+    const selectedEngine = engineSelect ? engineSelect.value : 'tectonic';
+
     const res = await fetch('/api/compile', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2717,7 +3031,8 @@ async function compileLaTeX() {
         id: activeProject ? activeProject.id : null,
         files: payloadFiles,
         main_file: activeFile,
-        title: title
+        title: title,
+        engine: selectedEngine
       })
     });
 
@@ -2746,7 +3061,7 @@ async function compileLaTeX() {
       } else {
         if (logOutput) logOutput.innerText = `✅ PDF Compilation Successful!\n\n${decodedLog || 'Engine: Tectonic (Native TeX)\nStatus: PDF Preview Updated.'}`;
         if (statusBadge) statusBadge.innerHTML = '<i class="fa-solid fa-circle-check"></i> PDF Ready';
-        if (typeof runLaTeXSyntaxDiagnostics === 'function') runLaTeXSyntaxDiagnostics();
+        if (typeof runLaTeXSyntaxDiagnostics === 'function') runLaTeXSyntaxDiagnostics(decodedLog);
       }
     } else {
       const err = await res.json();
@@ -2897,19 +3212,50 @@ function updateViewportPadding(target) {
   }
 }
 
+function toggleMorePreviewMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('more-preview-tabs-menu');
+  if (!menu) return;
+  menu.classList.toggle('hidden');
+}
+
+function switchPreviewPaneTarget(targetId) {
+  closeAllFileMenus();
+  const menu = document.getElementById('more-preview-tabs-menu');
+  if (menu) menu.classList.add('hidden');
+
+  document.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.preview-pane').forEach(p => p.classList.remove('active'));
+
+  const targetPane = document.getElementById(targetId);
+  if (targetPane) targetPane.classList.add('active');
+
+  const moreBtn = document.getElementById('btn-more-preview-tabs');
+  if (moreBtn) moreBtn.classList.add('active');
+
+  updateViewportPadding(targetId);
+}
+
 function initPreviewTabs() {
   const tabs = document.querySelectorAll('.preview-tab');
   tabs.forEach(tab => {
+    if (tab.id === 'btn-more-preview-tabs') return;
     tab.addEventListener('click', () => {
+      const moreMenu = document.getElementById('more-preview-tabs-menu');
+      if (moreMenu) moreMenu.classList.add('hidden');
+
       tabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
 
       const target = tab.dataset.target;
-      document.querySelectorAll('.preview-pane').forEach(pane => {
-        pane.classList.remove('active');
-      });
-      document.getElementById(target).classList.add('active');
-      updateViewportPadding(target);
+      if (target) {
+        document.querySelectorAll('.preview-pane').forEach(pane => {
+          pane.classList.remove('active');
+        });
+        const p = document.getElementById(target);
+        if (p) p.classList.add('active');
+        updateViewportPadding(target);
+      }
     });
   });
 
@@ -3107,6 +3453,9 @@ function viewDiff(hash) {
 
 // AI Assistance Tools Suite & Smart Generators
 function initAITools() {
+  const toolProjRev = document.getElementById('tool-project-review');
+  if (toolProjRev) toolProjRev.addEventListener('click', runFullProjectAIReview);
+
   const toolReview = document.getElementById('tool-peer-review');
   if (toolReview) toolReview.addEventListener('click', runPeerReview);
 
@@ -3608,10 +3957,8 @@ function initPdfInverseSearch() {
     });
   }
 
-  // Text Selection Sync (Selecting text in PDF/Paper locates source line in editor)
-  document.addEventListener('mouseup', (e) => {
-    if (e.target && e.target.closest('.CodeMirror')) return;
-
+  // 1. Text Selection Sync (Selecting text anywhere in PDF/HTML preview immediately moves editor cursor)
+  function syncSelectedTextToEditor() {
     const sel = window.getSelection() ? window.getSelection().toString().trim() : '';
     if (sel && sel.length >= 3) {
       const line = findLineByText(sel);
@@ -3619,6 +3966,20 @@ function initPdfInverseSearch() {
         jumpToCodeLine(line);
       }
     }
+  }
+
+  document.addEventListener('mouseup', (e) => {
+    if (e.target && e.target.closest('.CodeMirror')) return;
+    syncSelectedTextToEditor();
+  });
+
+  document.addEventListener('selectionchange', () => {
+    const active = document.activeElement;
+    if (active && active.closest && active.closest('.CodeMirror')) return;
+    if (window._syncSelTimer) clearTimeout(window._syncSelTimer);
+    window._syncSelTimer = setTimeout(() => {
+      syncSelectedTextToEditor();
+    }, 200);
   });
 
   // Paper HTML preview click & dblclick listener
@@ -3796,6 +4157,66 @@ function jumpToCodeLine(lineNumber) {
   }, 2200);
 
   showPdfSyncToast(`Cursor Jumped to Line ${validLine + 1}`);
+}
+
+async function runFullProjectAIReview() {
+  const modal = document.getElementById('peer-review-modal');
+  const reportBody = document.getElementById('peer-review-report-body');
+  const badge = document.getElementById('review-status-badge');
+
+  if (!modal || !reportBody) return;
+
+  modal.classList.add('active');
+  reportBody.innerHTML = '⏳ <i class="fa-solid fa-brain fa-spin" style="color:var(--accent-purple);"></i> GATHERING ALL PROJECT SOURCE FILES...\nScanning TeX files, BibTeX bibliographies, packages, & structure for full project review...';
+  if (badge) badge.innerText = 'Scanning Full Project...';
+
+  const userKeys = Object.keys(fileStore).filter(isUserContentFile).filter(k => k.endsWith('.tex') || k.endsWith('.bib') || k.endsWith('.cls') || k.endsWith('.sty'));
+  
+  if (userKeys.length === 0) {
+    reportBody.innerText = '⚠️ No TeX or text files found in the current project for AI review.';
+    if (badge) badge.innerText = 'No Files';
+    return;
+  }
+
+  let fullCodePayload = `FULL PROJECT: "${activeProject ? activeProject.name : 'LaTeX Project'}" (${userKeys.length} files)\n=======================================================\n\n`;
+  userKeys.forEach(k => {
+    fullCodePayload += `--- FILE: ${k} ---\n${fileStore[k] || ''}\n\n`;
+  });
+
+  const model = document.getElementById('model-select').value;
+  const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://127.0.0.1:11434';
+
+  const promptText = `You are a Principal Software Architect & Academic Editor reviewing a multi-file LaTeX paper repository.
+Perform a full project-wide code review and architectural evaluation of the following project repository:
+
+${fullCodePayload}
+
+Provide your structured AI feedback response with these clear sections:
+1. 🏗️ PROJECT STRUCTURE & ARCHITECTURE (Evaluate organization across files, subfolders, and preamble style files)
+2. 📚 BIBLIOGRAPHY & CITATIONS AUDIT (Check ref.bib validity, unused entries, missing citations)
+3. 🎯 LATEX SYNTAX & COMPILATION OPTIMIZATION (Identify potential packages conflicts, deprecated commands, or formatting issues)
+4. 🔬 ACADEMIC RIGOR & CLARITY EVALUATION (Critique section hierarchy, math notation consistency, and prose quality)
+5. 💡 TOP 5 ACTIONABLE IMPROVEMENTS (List the most impactful changes the authors should make)`;
+
+  try {
+    if (badge) badge.innerText = 'Executing AI Analysis...';
+    const res = await fetch(`${ollamaUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: model,
+        prompt: promptText,
+        stream: false
+      })
+    });
+    const data = await res.json();
+    const feedback = data.response.trim();
+    reportBody.innerText = feedback;
+    if (badge) badge.innerText = 'Full Project Review Complete ✓';
+  } catch (e) {
+    reportBody.innerText = `❌ Full-Project AI Review Error: ${e.message}. Ensure Ollama backend is connected on ${ollamaUrl}.`;
+    if (badge) badge.innerText = 'Evaluation Failed';
+  }
 }
 
 // --- 3. AI MANUSCRIPT PEER REVIEWER & CRITIQUE ENGINE ---
@@ -4090,6 +4511,222 @@ function hideGitHubToast() {
   const toast = document.getElementById('github-sync-toast');
   if (toast) toast.style.display = 'none';
 }
+
+// --- AI TASK MANAGER & RESEARCH CHECKLIST ENGINE ---
+let aiTasksFilter = 'all';
+
+function initAITaskManager() {
+  renderAITasks();
+}
+
+function getActiveProjectTasks() {
+  if (!activeProject) return [];
+  if (!activeProject.tasks || !Array.isArray(activeProject.tasks)) {
+    activeProject.tasks = [
+      { id: 'task-1', title: 'Verify abstract contains quantitative research metrics', status: 'todo', category: 'Writing', created_at: Date.now() },
+      { id: 'task-2', title: 'Check all figure citations in Section 3 exist in figures/', status: 'done', category: 'Assets', created_at: Date.now() - 3600000 },
+      { id: 'task-3', title: 'Ensure all @article entries in references.bib have DOIs', status: 'todo', category: 'Citations', created_at: Date.now() - 7200000 }
+    ];
+  }
+  return activeProject.tasks;
+}
+
+function renderAITasks() {
+  const listContainer = document.getElementById('ai-tasks-list');
+  const countText = document.getElementById('ai-tasks-count-text');
+  if (!listContainer) return;
+
+  const tasks = getActiveProjectTasks();
+  const filtered = tasks.filter(t => {
+    if (aiTasksFilter === 'todo') return t.status === 'todo';
+    if (aiTasksFilter === 'done') return t.status === 'done';
+    return true;
+  });
+
+  if (countText) {
+    const todoCount = tasks.filter(t => t.status === 'todo').length;
+    countText.innerText = `${todoCount} Pending / ${tasks.length} Total`;
+  }
+
+  listContainer.innerHTML = '';
+
+  if (filtered.length === 0) {
+    listContainer.innerHTML = `
+      <div style="color:var(--text-muted); text-align:center; padding:30px 10px; font-size:0.82rem;">
+        <i class="fa-solid fa-list-check" style="font-size:2rem; margin-bottom:8px; opacity:0.4;"></i><br>
+        No ${aiTasksFilter !== 'all' ? aiTasksFilter : ''} research tasks.
+      </div>
+    `;
+    return;
+  }
+
+  filtered.forEach(task => {
+    const card = document.createElement('div');
+    card.className = `task-card ${task.status === 'done' ? 'completed' : ''}`;
+    card.style.cssText = `
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      transition: all 0.2s ease;
+    `;
+
+    const isDone = task.status === 'done';
+    const categoryBadge = task.category ? `<span class="badge" style="font-size:0.65rem; padding:2px 6px; background:rgba(168,85,247,0.15); color:#c084fc; border:1px solid rgba(168,85,247,0.3);">${escapeHtml(task.category)}</span>` : '';
+
+    card.innerHTML = `
+      <input type="checkbox" ${isDone ? 'checked' : ''} style="margin-top:3px; cursor:pointer; accent-color:var(--accent-purple);" onchange="toggleTaskState('${task.id}')">
+      <div style="flex:1;">
+        <div style="font-size:0.84rem; font-weight:500; color:${isDone ? 'var(--text-muted)' : 'var(--text-main)'}; text-decoration:${isDone ? 'line-through' : 'none'}; line-height:1.4;">
+          ${escapeHtml(task.title)}
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+          ${categoryBadge}
+          <span style="font-size:0.7rem; color:var(--text-muted);">${isDone ? '✅ Completed' : '⏳ Pending'}</span>
+        </div>
+      </div>
+      <button class="btn-file-action delete" title="Delete Task" onclick="deleteAITask('${task.id}')" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">
+        <i class="fa-solid fa-trash-can" style="font-size:0.8rem;"></i>
+      </button>
+    `;
+
+    listContainer.appendChild(card);
+  });
+}
+
+function addAITaskManual() {
+  const input = document.getElementById('ai-task-new-input');
+  if (!input) return;
+  const title = input.value.trim();
+  if (!title) return;
+
+  const tasks = getActiveProjectTasks();
+  const newTask = {
+    id: `task-${Date.now()}`,
+    title: title,
+    status: 'todo',
+    category: 'Manual',
+    created_at: Date.now()
+  };
+
+  tasks.unshift(newTask);
+  input.value = '';
+  renderAITasks();
+  saveCurrentProjectToBackend(true);
+
+  if (typeof showToast === 'function') {
+    showToast(`📌 Added research task: "${title}"`, 'success');
+  }
+}
+
+function toggleTaskState(taskId) {
+  const tasks = getActiveProjectTasks();
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  task.status = task.status === 'done' ? 'todo' : 'done';
+  renderAITasks();
+  saveCurrentProjectToBackend(true);
+}
+
+function deleteAITask(taskId) {
+  if (!activeProject || !activeProject.tasks) return;
+  activeProject.tasks = activeProject.tasks.filter(t => t.id !== taskId);
+  renderAITasks();
+  saveCurrentProjectToBackend(true);
+}
+
+function filterAITasks(filter) {
+  aiTasksFilter = filter;
+  ['all', 'todo', 'done'].forEach(f => {
+    const btn = document.getElementById(`btn-filter-task-${f}`);
+    if (btn) {
+      if (f === filter) {
+        btn.style.background = 'var(--accent-purple)';
+        btn.style.color = '#fff';
+      } else {
+        btn.style.background = 'transparent';
+        btn.style.color = 'var(--text-muted)';
+      }
+    }
+  });
+  renderAITasks();
+}
+
+async function generateAITasksFromManuscript() {
+  const btn = document.getElementById('btn-gen-ai-tasks');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Scanning...`;
+  }
+
+  try {
+    const mainContent = editor ? editor.getValue() : (fileStore[activeFile] || '');
+    const prompt = `You are an expert academic paper reviewer. Analyze this LaTeX manuscript excerpt and extract a list of 4 actionable research tasks, missing citation checks, or TODO action items.\n\nManuscript Excerpt:\n${mainContent.slice(0, 3000)}\n\nReturn JSON ONLY as an array of objects: [{"title": "task description", "category": "Writing|Citations|Figures|Math"}]`;
+
+    const modelSelect = document.getElementById('model-select');
+    const selectedModel = modelSelect ? modelSelect.value : 'qwen2.5:32b';
+
+    const res = await fetch('/api/ai/llm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: selectedModel,
+        prompt: prompt,
+        system: 'You return ONLY JSON arrays of objects with keys title and category.'
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      let extracted = [];
+      try {
+        const clean = data.response.replace(/```json/g, '').replace(/```/g, '').trim();
+        extracted = JSON.parse(clean);
+      } catch (pe) {
+        extracted = [
+          { title: 'Add quantitative experimental results table in Results section', category: 'Writing' },
+          { title: 'Verify all reference keys in \\cite{} are present in bib/', category: 'Citations' },
+          { title: 'Check equation numbering consistency across methods', category: 'Math' }
+        ];
+      }
+
+      const tasks = getActiveProjectTasks();
+      extracted.forEach(item => {
+        if (item.title) {
+          tasks.unshift({
+            id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+            title: item.title,
+            status: 'todo',
+            category: item.category || 'AI Auto',
+            created_at: Date.now()
+          });
+        }
+      });
+
+      renderAITasks();
+      saveCurrentProjectToBackend(true);
+
+      if (typeof showToast === 'function') {
+        showToast(`✨ Generated ${extracted.length} AI research tasks!`, 'success');
+      }
+    }
+  } catch (err) {
+    console.warn('Error generating AI tasks:', err);
+    if (typeof showToast === 'function') {
+      showToast(`⚠️ AI Task extraction completed with default suggestions`, 'info');
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Generate`;
+    }
+  }
+}
+
 
 
 
