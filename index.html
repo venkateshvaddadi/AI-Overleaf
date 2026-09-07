@@ -19,6 +19,7 @@
   <!-- CodeMirror CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/show-hint.min.css">
 
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -399,6 +400,41 @@
     </div>
   </div>
 
+  <!-- Modal for Creating New File with Starter Code Options -->
+  <div class="modal-overlay" id="new-file-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-file-circle-plus"></i> Create New File</h3>
+        <button class="modal-close" onclick="closeModal('new-file-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="new-filename-input"><i class="fa-solid fa-pen"></i> File Name / Path:</label>
+          <input type="text" id="new-filename-input" placeholder="e.g. paper.tex, sections/method.tex, references.bib" value="section.tex">
+        </div>
+
+        <div class="form-group">
+          <label><i class="fa-solid fa-layer-group"></i> Initial Starter Template:</label>
+          <select id="new-file-template-select">
+            <option value="basic-doc" selected>📄 Full LaTeX Document (\documentclass, \begin{document})</option>
+            <option value="section">📑 Section / Sub-File (\section{...})</option>
+            <option value="bib">📚 BibTeX Bibliography Starter (@article)</option>
+            <option value="blank">⚪ Blank / Empty File</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label><i class="fa-solid fa-code"></i> Preview Initial Content:</label>
+          <textarea id="new-file-preview-textarea" rows="6" readonly style="font-family:'Fira Code', monospace; background:var(--dark-bg); color:var(--text-muted); font-size:0.82rem;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('new-file-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmCreateNewFile()"><i class="fa-solid fa-plus"></i> Create File</button>
+      </div>
+    </div>
+  </div>
+
   <!-- CSV to LaTeX Table Generator Modal -->
   <div class="modal-overlay" id="csv-table-modal">
     <div class="modal-box modal-lg">
@@ -550,6 +586,7 @@
   <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/stex/stex.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/show-hint.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/diff@5.1.0/dist/diff.min.js"></script>

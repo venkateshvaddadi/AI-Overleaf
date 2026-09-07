@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initDashboard();
   initProjectManagement();
   initCodeEditor();
+  initNewFileModal();
   initNavigation();
   initPreviewTabs();
   initVersionControl();
@@ -541,23 +542,126 @@ function copyIncludeGraphicsCode() {
   }
 }
 
-function createNewFile() {
-  let newName = prompt('Enter new file path/name (e.g. sections/methods.tex, references.bib, custom.cls):', 'section.tex');
-  if (!newName) return;
-  newName = newName.trim();
-  if (fileStore[newName]) {
-    alert('A file with this name already exists.');
+// --- NEW FILE TEMPLATE SELECTOR ENGINE ---
+function openNewFileModal() {
+  const modal = document.getElementById('new-file-modal');
+  const filenameInput = document.getElementById('new-filename-input');
+  const templateSelect = document.getElementById('new-file-template-select');
+
+  if (modal) modal.classList.add('active');
+  if (filenameInput) {
+    filenameInput.value = 'section.tex';
+    filenameInput.focus();
+  }
+  updateNewFilePreview();
+}
+
+function initNewFileModal() {
+  const filenameInput = document.getElementById('new-filename-input');
+  const templateSelect = document.getElementById('new-file-template-select');
+
+  if (filenameInput) {
+    filenameInput.addEventListener('input', () => {
+      const val = filenameInput.value.trim().toLowerCase();
+      if (val.endsWith('.bib')) {
+        if (templateSelect) templateSelect.value = 'bib';
+      } else if (val === 'main.tex' || val.includes('document')) {
+        if (templateSelect) templateSelect.value = 'basic-doc';
+      }
+      updateNewFilePreview();
+    });
+  }
+
+  if (templateSelect) {
+    templateSelect.addEventListener('change', updateNewFilePreview);
+  }
+}
+
+function updateNewFilePreview() {
+  const filenameElem = document.getElementById('new-filename-input');
+  const templateElem = document.getElementById('new-file-template-select');
+  const preview = document.getElementById('new-file-preview-textarea');
+
+  if (!filenameElem || !templateElem || !preview) return;
+
+  const filename = filenameElem.value.trim() || 'file.tex';
+  const template = templateElem.value;
+
+  let code = '';
+  if (template === 'basic-doc') {
+    code = `\\documentclass[12pt, a4paper]{article}
+\\usepackage[utf8]{inputenc}
+\\usepackage{amsmath, amssymb}
+\\usepackage{graphicx}
+\\usepackage{booktabs}
+\\usepackage{hyperref}
+
+\\title{Title of Research Paper}
+\\author{Author Name}
+\\date{\\today}
+
+\\begin{document}
+\\maketitle
+
+\\begin{abstract}
+Write abstract summary here...
+\\end{abstract}
+
+\\section{Introduction}
+Welcome to your new LaTeX document.
+
+\\end{document}`;
+  } else if (template === 'section') {
+    const baseName = filename.replace(/\.tex$/i, '').replace(/[^a-zA-Z0-9]+/g, ' ');
+    const titleCase = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+    code = `% Sub-Section Document File: ${filename}
+\\section{${titleCase}}
+
+Write your section content and paragraphs here...
+`;
+  } else if (template === 'bib') {
+    code = `% Bibliography Database File: ${filename}
+@article{author2026title,
+  author = {Author, First and CoAuthor, Second},
+  title = {Title of Research Paper},
+  journal = {Journal of Research},
+  year = {2026},
+  volume = {10},
+  pages = {100--115}
+}
+`;
+  } else if (template === 'blank') {
+    code = `% Blank File: ${filename}\n`;
+  }
+
+  preview.value = code;
+}
+
+function confirmCreateNewFile() {
+  const filenameInput = document.getElementById('new-filename-input');
+  const previewTextarea = document.getElementById('new-file-preview-textarea');
+
+  if (!filenameInput) return;
+  const filename = filenameInput.value.trim();
+  const previewContent = previewTextarea ? previewTextarea.value : '';
+
+  if (!filename) {
+    alert('Please enter a valid filename.');
     return;
   }
-  
-  let defaultContent = '';
-  if (newName.endsWith('.tex')) defaultContent = `% New LaTeX Section\n\\section{${newName.replace('.tex', '')}}\n`;
-  else if (newName.endsWith('.bib')) defaultContent = `% Bibliography File\n`;
-  else if (newName.endsWith('.cls') || newName.endsWith('.sty')) defaultContent = `% Custom Style/Class File\n`;
 
-  fileStore[newName] = defaultContent;
-  switchActiveFile(newName);
+  if (fileStore[filename]) {
+    alert(`A file named '${filename}' already exists in this project.`);
+    return;
+  }
+
+  fileStore[filename] = previewContent;
+  switchActiveFile(filename);
+  closeModal('new-file-modal');
+  compileLaTeX();
+  saveCurrentProjectToBackend();
 }
+
 
 function renameFile(oldName) {
   let newName = prompt(`Rename file '${oldName}' to:`, oldName);
@@ -688,6 +792,113 @@ function readFileAsDataURL(file) {
   });
 }
 
+// --- LATEX INTELLISENSE & AUTOCOMPLETE ENGINE ---
+const LATEX_AUTOCOMPLETE_COMMANDS = [
+  { text: "\\documentclass[12pt, a4paper]{article}", displayText: "\\documentclass{article} - Standard Paper Document" },
+  { text: "\\documentclass{IEEEtran}", displayText: "\\documentclass{IEEEtran} - IEEE Conference / Journal" },
+  { text: "\\documentclass{beamer}", displayText: "\\documentclass{beamer} - Presentation Slides" },
+  { text: "\\usepackage{graphicx}", displayText: "\\usepackage{graphicx} - Image Graphics" },
+  { text: "\\usepackage{amsmath, amssymb}", displayText: "\\usepackage{amsmath, amssymb} - Math Symbols & Formulas" },
+  { text: "\\usepackage{booktabs}", displayText: "\\usepackage{booktabs} - Professional Publication Tables" },
+  { text: "\\usepackage{hyperref}", displayText: "\\usepackage{hyperref} - Interactive PDF Links" },
+  { text: "\\usepackage{tikz}", displayText: "\\usepackage{tikz} - Vector Diagrams" },
+  { text: "\\begin{document}\n  \n\\end{document}", displayText: "\\begin{document} ... \\end{document}" },
+  { text: "\\begin{figure}[htbp]\n  \\centering\n  \\includegraphics[width=0.8\\linewidth]{filename}\n  \\caption{Caption}\n  \\label{fig:label}\n\\end{figure}", displayText: "\\begin{figure} - Image figure block" },
+  { text: "\\begin{table}[htbp]\n  \\centering\n  \\begin{tabular}{cc}\n    \\toprule\n    Header 1 & Header 2 \\\\\n    \\midrule\n    Data 1 & Data 2 \\\\\n    \\bottomrule\n  \\end{tabular}\n  \\caption{Caption}\n  \\label{tab:label}\n\\end{table}", displayText: "\\begin{table} - Tabular data table" },
+  { text: "\\begin{equation}\n  \n\\end{equation}", displayText: "\\begin{equation} - Numbered equation" },
+  { text: "\\begin{align}\n  \n\\end{align}", displayText: "\\begin{align} - Aligned multi-line math" },
+  { text: "\\begin{abstract}\n  \n\\end{abstract}", displayText: "\\begin{abstract} - Document Abstract" },
+  { text: "\\section{", displayText: "\\section{Title}" },
+  { text: "\\subsection{", displayText: "\\subsection{Title}" },
+  { text: "\\subsubsection{", displayText: "\\subsubsection{Title}" },
+  { text: "\\paragraph{", displayText: "\\paragraph{Title}" },
+  { text: "\\title{", displayText: "\\title{Paper Title}" },
+  { text: "\\author{", displayText: "\\author{Author Name}" },
+  { text: "\\date{\\today}", displayText: "\\date{\\today}" },
+  { text: "\\maketitle", displayText: "\\maketitle - Render title block" },
+  { text: "\\includegraphics[width=0.8\\linewidth]{", displayText: "\\includegraphics{file}" },
+  { text: "\\caption{", displayText: "\\caption{text}" },
+  { text: "\\label{", displayText: "\\label{key}" },
+  { text: "\\ref{", displayText: "\\ref{key}" },
+  { text: "\\cite{", displayText: "\\cite{citation}" },
+  { text: "\\textbf{", displayText: "\\textbf{bold text}" },
+  { text: "\\textit{", displayText: "\\textit{italic text}" },
+  { text: "\\underline{", displayText: "\\underline{underlined text}" },
+  { text: "\\centering", displayText: "\\centering - Center alignment" },
+  { text: "\\toprule", displayText: "\\toprule - Table top line" },
+  { text: "\\midrule", displayText: "\\midrule - Table middle line" },
+  { text: "\\bottomrule", displayText: "\\bottomrule - Table bottom line" },
+  { text: "\\hline", displayText: "\\hline - Grid line" },
+  { text: "\\frac{num}{den}", displayText: "\\frac{a}{b} - Fraction" },
+  { text: "\\sum_{i=1}^{n}", displayText: "\\sum_{i=1}^{n} - Summation" },
+  { text: "\\int_{a}^{b}", displayText: "\\int_{a}^{b} - Integral" },
+  { text: "\\sqrt{", displayText: "\\sqrt{x} - Square root" },
+  { text: "\\alpha", displayText: "\\alpha" },
+  { text: "\\beta", displayText: "\\beta" },
+  { text: "\\gamma", displayText: "\\gamma" },
+  { text: "\\theta", displayText: "\\theta" },
+  { text: "\\lambda", displayText: "\\lambda" },
+  { text: "\\pi", displayText: "\\pi" },
+  { text: "\\sigma", displayText: "\\sigma" },
+  { text: "\\omega", displayText: "\\omega" }
+];
+
+function latexHintProvider(cm) {
+  const cursor = cm.getCursor();
+  const line = cm.getLine(cursor.line);
+  const start = cursor.ch;
+  
+  let lineBefore = line.slice(0, start);
+  const slashIdx = lineBefore.lastIndexOf('\\');
+  
+  if (slashIdx === -1) return null;
+
+  const query = lineBefore.slice(slashIdx);
+  const completions = [];
+
+  LATEX_AUTOCOMPLETE_COMMANDS.forEach(cmd => {
+    if (cmd.text.toLowerCase().startsWith(query.toLowerCase()) || cmd.displayText.toLowerCase().includes(query.toLowerCase())) {
+      completions.push({
+        text: cmd.text,
+        displayText: cmd.displayText
+      });
+    }
+  });
+
+  // Dynamic \ref{ completions from labels in current document
+  if (query.startsWith('\\ref') || query.startsWith('\\label')) {
+    const docText = cm.getValue();
+    const labelMatches = docText.matchAll(/\\label\{([^}]+)\}/g);
+    for (const m of labelMatches) {
+      const labelKey = m[1];
+      completions.push({
+        text: `\\ref{${labelKey}}`,
+        displayText: `\\ref{${labelKey}} (Document Label)`
+      });
+    }
+  }
+
+  // Dynamic \includegraphics{ completions from uploaded image files
+  if (query.startsWith('\\include') || query.startsWith('\\fig')) {
+    Object.keys(fileStore).filter(f => f.match(/\.(png|jpg|jpeg|gif|svg|pdf)$/i)).forEach(img => {
+      completions.push({
+        text: `\\includegraphics[width=0.8\\linewidth]{${img}}`,
+        displayText: `\\includegraphics{${img}} (Project Asset)`
+      });
+    });
+  }
+
+  return {
+    list: completions,
+    from: CodeMirror.Pos(cursor.line, slashIdx),
+    to: CodeMirror.Pos(cursor.line, start)
+  };
+}
+
+if (window.CodeMirror) {
+  CodeMirror.registerHelper("hint", "stex", latexHintProvider);
+}
+
 // Initialize CodeMirror Editor
 function initCodeEditor() {
   const textarea = document.getElementById('latex-code-editor');
@@ -699,6 +910,9 @@ function initCodeEditor() {
     matchBrackets: true,
     autoCloseBrackets: true,
     extraKeys: {
+      'Ctrl-Space': function(cm) {
+        CodeMirror.showHint(cm, latexHintProvider, { completeSingle: false });
+      },
       'Ctrl-S': function(cm) {
         saveCurrentProjectToBackend();
         compileLaTeX();
@@ -708,6 +922,18 @@ function initCodeEditor() {
         saveCurrentProjectToBackend();
         compileLaTeX();
         return false;
+      }
+    }
+  });
+
+  // Real-time typing autocomplete trigger on '\\'
+  editor.on('inputRead', (cm, change) => {
+    if (change.text[0] === '\\' || (change.text[0] && change.text[0].match(/[a-zA-Z]/))) {
+      const cursor = cm.getCursor();
+      const line = cm.getLine(cursor.line);
+      const lineBefore = line.slice(0, cursor.ch);
+      if (lineBefore.includes('\\')) {
+        CodeMirror.showHint(cm, latexHintProvider, { completeSingle: false });
       }
     }
   });
@@ -725,7 +951,7 @@ function initCodeEditor() {
   });
 
   const btnNewFile = document.getElementById('btn-new-file');
-  if (btnNewFile) btnNewFile.addEventListener('click', createNewFile);
+  if (btnNewFile) btnNewFile.addEventListener('click', openNewFileModal);
   
   const btnUpload = document.getElementById('btn-upload-file');
   const fileInput = document.getElementById('file-upload-input');

@@ -1280,5 +1280,33 @@ body.dark-theme {
   border-color: var(--accent-purple);
 }
 
+/* CodeMirror IntelliSense & Autocomplete Hints Styling */
+.CodeMirror-hints {
+  position: absolute;
+  z-index: 9999;
+  background: #1e1e2e !important;
+  border: 1px solid var(--accent-purple) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5) !important;
+  padding: 6px !important;
+  font-family: var(--font-code) !important;
+  font-size: 0.85rem !important;
+  max-height: 220px !important;
+  overflow-y: auto !important;
+}
+
+.CodeMirror-hint {
+  color: #f8f8f2 !important;
+  padding: 5px 10px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+}
+
+li.CodeMirror-hint-active {
+  background: var(--accent-purple) !important;
+  color: #ffffff !important;
+}
+
+
 
 
