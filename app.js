@@ -636,9 +636,6 @@ function setEditorLayoutMode(mode) {
   localStorage.setItem('editor_layout_mode', mode);
 
   const mainContainer = document.querySelector('.app-main');
-  const btnEditor = document.getElementById('btn-layout-editor');
-  const btnSplit = document.getElementById('btn-layout-split');
-  const btnPdf = document.getElementById('btn-layout-pdf');
 
   if (mainContainer) {
     mainContainer.classList.remove('mode-editor-only', 'mode-pdf-only', 'mode-split');
@@ -647,12 +644,10 @@ function setEditorLayoutMode(mode) {
     else mainContainer.classList.add('mode-split');
   }
 
-  // Update button active highlights
-  if (btnEditor && btnSplit && btnPdf) {
-    btnEditor.classList.toggle('active', mode === 'editor');
-    btnSplit.classList.toggle('active', mode === 'split');
-    btnPdf.classList.toggle('active', mode === 'pdf');
-  }
+  // Synchronize all view switcher control instances across Code Editor and Preview toolbars
+  document.querySelectorAll('.btn-layout-editor').forEach(el => el.classList.toggle('active', mode === 'editor'));
+  document.querySelectorAll('.btn-layout-split').forEach(el => el.classList.toggle('active', mode === 'split'));
+  document.querySelectorAll('.btn-layout-pdf').forEach(el => el.classList.toggle('active', mode === 'pdf'));
 
   // Refresh CodeMirror so text wrapping and scrollbars adjust immediately
   if (editor) {
