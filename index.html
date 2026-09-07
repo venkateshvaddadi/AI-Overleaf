@@ -557,6 +557,99 @@
     </div>
   </div>
 
+  <!-- Interactive Progressive File Upload Modal -->
+  <div class="modal-overlay" id="upload-file-modal">
+    <div class="modal-box modal-lg" style="max-width: 580px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-cloud-arrow-up logo-icon" style="color:var(--accent-purple);"></i> Upload Project Assets &amp; Files</h3>
+        <button class="modal-close" onclick="closeModal('upload-file-modal')">&times;</button>
+      </div>
+
+      <!-- State 1: File Selection & Dropzone -->
+      <div class="modal-body" id="upload-modal-stage-select">
+        <!-- Interactive Drag and Dropzone -->
+        <div class="upload-dropzone" id="upload-dropzone" onclick="triggerFileInputClick()" ondragover="handleUploadDropzoneDragOver(event)" ondragleave="handleUploadDropzoneDragLeave(event)" ondrop="handleUploadDropzoneDrop(event)">
+          <div class="upload-dropzone-icon">
+            <i class="fa-solid fa-cloud-arrow-up pulse-icon"></i>
+          </div>
+          <h4>Drag &amp; Drop Files Here</h4>
+          <p>or <span class="browse-link">click to browse from computer</span></p>
+          <div class="upload-supported-badges">
+            <span><i class="fa-regular fa-file-image"></i> Images (.png, .jpg, .svg)</span>
+            <span><i class="fa-solid fa-file-code"></i> TeX &amp; Bib (.tex, .bib, .sty)</span>
+            <span><i class="fa-solid fa-file-zipper"></i> ZIP Archives (.zip)</span>
+          </div>
+        </div>
+
+        <input type="file" id="file-upload-input-modal" multiple style="display:none;" onchange="handleModalFilesSelected(event)">
+
+        <!-- Target Destination Folder Picker -->
+        <div class="form-group" style="margin-top: 16px;">
+          <label for="upload-target-folder-select"><i class="fa-solid fa-folder-tree"></i> Destination Folder:</label>
+          <select id="upload-target-folder-select" class="form-control" style="background:var(--bg-sidebar); border:1px solid var(--border-color); color:var(--text-main); padding:8px 12px; border-radius:8px; width:100%; outline:none;">
+            <option value="">📁 Root Directory /</option>
+            <!-- Populated dynamically with active project folders -->
+          </select>
+        </div>
+
+        <!-- Selected File Queue Preview List -->
+        <div id="upload-queue-container" class="upload-queue-container hidden" style="margin-top: 16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <label style="font-size:0.85rem; font-weight:600; color:var(--text-main);"><i class="fa-solid fa-list-check"></i> Files Ready for Upload (<span id="upload-file-count-badge">0</span>)</label>
+            <button class="btn btn-sm btn-secondary" type="button" onclick="clearUploadQueue()" style="font-size:0.75rem; padding:2px 8px;"><i class="fa-solid fa-trash"></i> Clear All</button>
+          </div>
+          <div class="upload-file-queue-list" id="upload-file-queue-list">
+            <!-- Dynamically populated selected files -->
+          </div>
+        </div>
+      </div>
+
+      <!-- State 2: Progressive Upload & Processing Animation -->
+      <div class="modal-body hidden" id="upload-modal-stage-progress" style="text-align: center; padding: 24px 16px;">
+        <div class="loader-avatar-ring" style="margin:0 auto;">
+          <i class="fa-solid fa-cloud-arrow-up loader-icon-pulse" style="color:var(--accent-purple);"></i>
+          <div class="loader-spinner-ring"></div>
+        </div>
+
+        <h4 id="upload-progress-title" style="margin-top: 18px; font-size: 1.15rem; font-weight: 700; color: #fff;">Uploading &amp; Processing Assets...</h4>
+        <p id="upload-progress-subtitle" style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 18px;">Reading file contents &amp; parsing archives...</p>
+
+        <!-- Progress Bar Track -->
+        <div class="loader-progress-container" style="background: rgba(255,255,255,0.06); height: 10px; border-radius: 999px; overflow: hidden; position: relative; margin-bottom: 14px; border: 1px solid rgba(255,255,255,0.08);">
+          <div id="upload-progress-bar-inner" style="width: 5%; height: 100%; background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899); border-radius: 999px; transition: width 0.25s ease;"></div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono);">
+          <span id="upload-step-text"><i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px; color: var(--accent-purple);"></i> Staging 1 of 3 files</span>
+          <span id="upload-timer-badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; padding: 2px 10px; border-radius: 12px; font-weight: 600;">0.0s</span>
+        </div>
+      </div>
+
+      <!-- State 3: Celebratory Upload Success Confirmation -->
+      <div class="modal-body hidden" id="upload-modal-stage-success" style="text-align: center; padding: 28px 16px;">
+        <div style="width: 64px; height: 64px; background: rgba(16, 185, 129, 0.15); border: 2px solid #10b981; color: #34d399; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin: 0 auto 16px; box-shadow: 0 0 25px rgba(16, 185, 129, 0.3);">
+          <i class="fa-solid fa-circle-check"></i>
+        </div>
+
+        <h4 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 6px;">Upload Complete!</h4>
+        <p id="upload-success-summary" style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 20px;">Successfully uploaded 3 files to your project workspace.</p>
+
+        <div id="upload-success-file-pills" style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-height: 120px; overflow-y: auto; background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 10px;">
+          <!-- Dynamically populated uploaded file tags -->
+        </div>
+      </div>
+
+      <div class="modal-footer" id="upload-modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('upload-file-modal')" id="btn-upload-cancel">Cancel</button>
+        <button class="btn btn-primary" onclick="startProgressiveUpload()" id="btn-upload-submit" disabled><i class="fa-solid fa-upload"></i> Upload Selected Files</button>
+      </div>
+      
+      <div class="modal-footer hidden" id="upload-modal-footer-success">
+        <button class="btn btn-primary" style="width:100%; justify-content:center;" onclick="closeModal('upload-file-modal')"><i class="fa-solid fa-circle-check"></i> Done &amp; View Files in Editor</button>
+      </div>
+    </div>
+  </div>
+
   <!-- CSV to LaTeX Table Generator Modal -->
   <div class="modal-overlay" id="csv-table-modal">
     <div class="modal-box modal-lg">

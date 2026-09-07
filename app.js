@@ -1532,6 +1532,288 @@ function deleteFile(filename) {
   }
 }
 
+// --- INTERACTIVE PROGRESSIVE FILE UPLOADER ENGINE ---
+let pendingUploadFiles = [];
+
+function openUploadFileModal() {
+  const modal = document.getElementById('upload-file-modal');
+  if (!modal) return;
+
+  const stageSelect = document.getElementById('upload-modal-stage-select');
+  const stageProgress = document.getElementById('upload-modal-stage-progress');
+  const stageSuccess = document.getElementById('upload-modal-stage-success');
+  const footerDefault = document.getElementById('upload-modal-footer');
+  const footerSuccess = document.getElementById('upload-modal-footer-success');
+
+  if (stageSelect) stageSelect.classList.remove('hidden');
+  if (stageProgress) stageProgress.classList.add('hidden');
+  if (stageSuccess) stageSuccess.classList.add('hidden');
+
+  if (footerDefault) footerDefault.classList.remove('hidden');
+  if (footerSuccess) footerSuccess.classList.add('hidden');
+
+  pendingUploadFiles = [];
+  renderUploadQueueUI();
+
+  const select = document.getElementById('upload-target-folder-select');
+  if (select) {
+    select.innerHTML = '<option value="">📁 Root Directory /</option>';
+    const foldersSet = new Set();
+    Object.keys(fileStore).filter(isUserContentFile).forEach(k => {
+      if (k.endsWith('/')) {
+        const cleanF = k.slice(0, -1);
+        if (cleanF) foldersSet.add(cleanF);
+      } else if (k.includes('/')) {
+        const parts = k.split('/');
+        parts.pop();
+        if (parts.length > 0) foldersSet.add(parts.join('/'));
+      }
+    });
+
+    Array.from(foldersSet).sort().forEach(folderPath => {
+      const opt = document.createElement('option');
+      opt.value = folderPath;
+      opt.innerText = `📁 ${folderPath}/`;
+      select.appendChild(opt);
+    });
+  }
+
+  modal.classList.add('active');
+}
+
+function triggerFileInputClick() {
+  const fileInput = document.getElementById('file-upload-input-modal');
+  if (fileInput) fileInput.click();
+}
+
+function handleModalFilesSelected(e) {
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
+  files.forEach(f => {
+    if (!pendingUploadFiles.some(pf => pf.name === f.name && pf.size === f.size)) {
+      pendingUploadFiles.push(f);
+    }
+  });
+  renderUploadQueueUI();
+  e.target.value = '';
+}
+
+function handleUploadDropzoneDragOver(e) {
+  e.preventDefault();
+  const dz = document.getElementById('upload-dropzone');
+  if (dz) dz.classList.add('drag-over');
+}
+
+function handleUploadDropzoneDragLeave(e) {
+  const dz = document.getElementById('upload-dropzone');
+  if (dz) dz.classList.remove('drag-over');
+}
+
+function handleUploadDropzoneDrop(e) {
+  e.preventDefault();
+  const dz = document.getElementById('upload-dropzone');
+  if (dz) dz.classList.remove('drag-over');
+
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    const files = Array.from(e.dataTransfer.files);
+    files.forEach(f => {
+      if (!pendingUploadFiles.some(pf => pf.name === f.name && pf.size === f.size)) {
+        pendingUploadFiles.push(f);
+      }
+    });
+    renderUploadQueueUI();
+  }
+}
+
+function removeFileFromQueue(index) {
+  pendingUploadFiles.splice(index, 1);
+  renderUploadQueueUI();
+}
+
+function clearUploadQueue() {
+  pendingUploadFiles = [];
+  renderUploadQueueUI();
+}
+
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function renderUploadQueueUI() {
+  const container = document.getElementById('upload-queue-container');
+  const queueList = document.getElementById('upload-file-queue-list');
+  const countBadge = document.getElementById('upload-file-count-badge');
+  const submitBtn = document.getElementById('btn-upload-submit');
+
+  if (!container || !queueList) return;
+
+  queueList.innerHTML = '';
+  if (countBadge) countBadge.innerText = pendingUploadFiles.length;
+
+  if (pendingUploadFiles.length === 0) {
+    container.classList.add('hidden');
+    if (submitBtn) submitBtn.disabled = true;
+    return;
+  }
+
+  container.classList.remove('hidden');
+  if (submitBtn) submitBtn.disabled = false;
+
+  pendingUploadFiles.forEach((file, index) => {
+    const item = document.createElement('div');
+    item.className = 'upload-queue-item';
+
+    let icon = 'fa-file';
+    if (file.name.endsWith('.tex')) icon = 'fa-file-code';
+    else if (file.name.endsWith('.bib')) icon = 'fa-book';
+    else if (file.name.endsWith('.zip')) icon = 'fa-file-zipper';
+    else if (file.name.match(/\.(png|jpg|jpeg|gif|svg)$/i)) icon = 'fa-file-image';
+
+    item.innerHTML = `
+      <div class="upload-queue-item-info">
+        <i class="fa-solid ${icon}"></i>
+        <span class="upload-queue-item-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
+        <span class="upload-queue-item-size">(${formatBytes(file.size)})</span>
+      </div>
+      <button class="upload-queue-remove-btn" type="button" onclick="removeFileFromQueue(${index})" title="Remove File">&times;</button>
+    `;
+    queueList.appendChild(item);
+  });
+}
+
+async function startProgressiveUpload() {
+  if (pendingUploadFiles.length === 0) return;
+
+  const targetFolderSelect = document.getElementById('upload-target-folder-select');
+  const targetFolder = targetFolderSelect ? targetFolderSelect.value : '';
+
+  document.getElementById('upload-modal-stage-select').classList.add('hidden');
+  document.getElementById('upload-modal-stage-progress').classList.remove('hidden');
+  document.getElementById('upload-modal-footer').classList.add('hidden');
+
+  const progressBar = document.getElementById('upload-progress-bar-inner');
+  const stepText = document.getElementById('upload-step-text');
+  const timerBadge = document.getElementById('upload-timer-badge');
+
+  let startTime = Date.now();
+  let timerInterval = setInterval(() => {
+    let elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    if (timerBadge) timerBadge.innerText = `${elapsed}s`;
+  }, 100);
+
+  const updateProgress = (pct, stepMsg) => {
+    if (progressBar) progressBar.style.width = `${pct}%`;
+    if (stepText) stepText.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px; color: var(--accent-purple);"></i> ${stepMsg}`;
+  };
+
+  updateProgress(15, `Staging ${pendingUploadFiles.length} file(s)...`);
+  await new Promise(r => setTimeout(r, 250));
+
+  let uploadedFileNames = [];
+  let mainFileToSelect = null;
+
+  try {
+    for (let i = 0; i < pendingUploadFiles.length; i++) {
+      const file = pendingUploadFiles[i];
+      let filename = file.name;
+      if (targetFolder) filename = `${targetFolder}/${filename}`;
+
+      const pct = Math.round(20 + ((i + 1) / pendingUploadFiles.length) * 60);
+      updateProgress(pct, `Reading & processing ${file.name} (${i + 1}/${pendingUploadFiles.length})...`);
+
+      if (file.name.endsWith('.zip')) {
+        try {
+          const zip = await JSZip.loadAsync(file);
+          for (const entryName of Object.keys(zip.files)) {
+            const entry = zip.files[entryName];
+            if (entry.dir) continue;
+
+            let cleanPath = entryName;
+            const parts = cleanPath.split('/');
+            if (parts.length > 1 && (parts[0].includes('template') || parts[0].includes('master') || parts[0].includes('main'))) {
+              cleanPath = parts.slice(1).join('/');
+            }
+            if (!cleanPath) continue;
+
+            if (targetFolder) cleanPath = `${targetFolder}/${cleanPath}`;
+
+            if (cleanPath.match(/\.(png|jpg|jpeg|gif|svg|pdf)$/i)) {
+              const b64 = await entry.async('base64');
+              const ext = cleanPath.split('.').pop().toLowerCase();
+              fileStore[cleanPath] = `data:image/${ext};base64,${b64}`;
+            } else {
+              const textContent = await entry.async('text');
+              fileStore[cleanPath] = textContent;
+            }
+
+            uploadedFileNames.push(cleanPath);
+            if (cleanPath.endsWith('.tex') && (!mainFileToSelect || cleanPath.endsWith('main.tex'))) {
+              mainFileToSelect = cleanPath;
+            }
+          }
+        } catch (err) {
+          console.warn(`Error extracting ZIP archive '${file.name}':`, err);
+        }
+      } else if (file.name.match(/\.(png|jpg|jpeg|gif|svg|pdf)$/i)) {
+        const dataUrl = await readFileAsDataURL(file);
+        fileStore[filename] = dataUrl;
+        uploadedFileNames.push(filename);
+      } else {
+        const textContent = await readFileAsText(file);
+        fileStore[filename] = textContent;
+        uploadedFileNames.push(filename);
+        if (filename.endsWith('.tex') && (!mainFileToSelect || filename.endsWith('main.tex'))) {
+          mainFileToSelect = filename;
+        }
+      }
+    }
+
+    updateProgress(90, 'Finalizing project workspace & saving database...');
+    await saveCurrentProjectToBackend(true);
+    if (targetFolder) expandedFolders.add(targetFolder);
+
+    if (mainFileToSelect && fileStore[mainFileToSelect]) {
+      switchActiveFile(mainFileToSelect);
+    } else {
+      renderFileList();
+    }
+
+    updateProgress(100, 'Upload Complete!');
+    clearInterval(timerInterval);
+
+    await new Promise(r => setTimeout(r, 250));
+    document.getElementById('upload-modal-stage-progress').classList.add('hidden');
+    document.getElementById('upload-modal-stage-success').classList.remove('hidden');
+    document.getElementById('upload-modal-footer-success').classList.remove('hidden');
+
+    const summaryText = document.getElementById('upload-success-summary');
+    if (summaryText) summaryText.innerText = `Successfully loaded ${uploadedFileNames.length} file(s) into project workspace.`;
+
+    const pillsContainer = document.getElementById('upload-success-file-pills');
+    if (pillsContainer) {
+      pillsContainer.innerHTML = '';
+      uploadedFileNames.forEach(fname => {
+        const pill = document.createElement('span');
+        pill.className = 'uploaded-pill';
+        pill.innerHTML = `<i class="fa-solid fa-check"></i> ${escapeHtml(fname)}`;
+        pillsContainer.appendChild(pill);
+      });
+    }
+
+    if (typeof showToast === 'function') {
+      showToast(`✅ Uploaded ${uploadedFileNames.length} file(s)!`, 'success');
+    }
+  } catch (err) {
+    clearInterval(timerInterval);
+    alert(`Upload Error: ${err.message}`);
+    closeModal('upload-file-modal');
+  }
+}
+
 // File Upload Handler
 async function handleFileUpload(e) {
   const files = e.target.files;
@@ -2277,10 +2559,8 @@ function initCodeEditor() {
   if (btnNewFolder) btnNewFolder.addEventListener('click', createNewFolder);
   
   const btnUpload = document.getElementById('btn-upload-file');
-  const fileInput = document.getElementById('file-upload-input');
-  if (btnUpload && fileInput) {
-    btnUpload.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', handleFileUpload);
+  if (btnUpload) {
+    btnUpload.addEventListener('click', openUploadFileModal);
   }
 
   setTimeout(() => {
