@@ -347,6 +347,22 @@
             </div>
           </div>
         </div>
+
+        <!-- Real-Time LaTeX Syntax Diagnostics Bar -->
+        <div id="editor-diagnostics-bar" class="editor-diagnostics-bar">
+          <div class="diagnostics-header" onclick="toggleDiagnosticsDrawer()">
+            <div class="diagnostics-summary" id="diagnostics-summary">
+              <span class="diag-badge diag-clean"><i class="fa-solid fa-circle-check"></i> 0 Syntax Problems</span>
+              <span style="color: var(--text-muted); font-size: 0.75rem;">Document syntax clean &amp; ready to compile</span>
+            </div>
+            <div class="diagnostics-actions">
+              <span class="diag-toggle-btn"><i class="fa-solid fa-chevron-up" id="diag-drawer-icon"></i> <span id="diag-drawer-text">Problems</span></span>
+            </div>
+          </div>
+          <div class="diagnostics-list hidden" id="diagnostics-list">
+            <!-- Dynamic list of errors & warnings populated by runLaTeXSyntaxDiagnostics() -->
+          </div>
+        </div>
       </section>
 
       <!-- Right Document Preview Section -->
@@ -781,6 +797,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/stex/stex.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/show-hint.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/matchbrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closebrackets.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/diff@5.1.0/dist/diff.min.js"></script>

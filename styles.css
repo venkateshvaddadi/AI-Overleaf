@@ -803,12 +803,15 @@ body.dark-theme {
 
 .editor-container {
   flex: 1;
-  height: calc(100% - 42px);
+  min-height: 0;
   position: relative;
   overflow: hidden !important;
+  display: flex;
+  flex-direction: column;
 }
 
 .CodeMirror {
+  flex: 1;
   height: 100% !important;
   font-family: var(--font-code) !important;
   font-size: 0.9rem !important;
@@ -1893,6 +1896,218 @@ li.CodeMirror-hint-active {
   background: rgba(59, 130, 246, 0.1);
   border: 1px dashed var(--accent-blue);
   border-radius: 8px;
+}
+
+/* ==========================================================================
+   CodeMirror IntelliSense & Real-Time Syntax Diagnostics System
+   ========================================================================== */
+
+/* CodeMirror Hint / Autocomplete Dropdown */
+.CodeMirror-hints {
+  background: #181b28 !important;
+  border: 1px solid rgba(168, 85, 247, 0.4) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75) !important;
+  padding: 6px !important;
+  font-family: var(--font-code) !important;
+  font-size: 0.85rem !important;
+  max-height: 250px !important;
+  z-index: 9999 !important;
+}
+
+.CodeMirror-hint {
+  color: #e2e8f0 !important;
+  padding: 6px 12px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-bottom: 2px;
+}
+
+.CodeMirror-hint-active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(168, 85, 247, 0.35)) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(168, 85, 247, 0.5) !important;
+}
+
+.cm-hint-badge {
+  font-size: 0.7rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--accent-amber);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* Syntax Errors & Warning Wavy Line Underlines */
+.cm-syntax-error {
+  text-decoration: underline wavy #ef4444 2px !important;
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  border-radius: 2px;
+}
+
+.cm-syntax-warning {
+  text-decoration: underline wavy #f59e0b 2px !important;
+  background-color: rgba(245, 158, 11, 0.12) !important;
+  border-radius: 2px;
+}
+
+/* CodeMirror Gutter Line Markers */
+.CodeMirror-gutters {
+  background-color: #121524 !important;
+  border-right: 1px solid var(--border-color) !important;
+}
+
+.CodeMirror-lint-markers {
+  width: 18px;
+}
+
+.gutter-marker-error {
+  color: #ef4444;
+  font-size: 0.82rem;
+  margin-left: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gutter-marker-warning {
+  color: #f59e0b;
+  font-size: 0.82rem;
+  margin-left: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Editor Live Diagnostics Bar Drawer */
+.editor-diagnostics-bar {
+  background-color: #111422;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.diagnostics-header {
+  height: 34px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  user-select: none;
+}
+
+.diagnostics-header:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.diagnostics-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.diag-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.diag-clean {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.diag-err-badge {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+}
+
+.diag-warn-badge {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+}
+
+.diagnostics-actions {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diagnostics-list {
+  max-height: 180px;
+  overflow-y: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: #090b12;
+}
+
+.diag-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.diag-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.diag-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.diag-line-no {
+  font-family: var(--font-code);
+  font-size: 0.72rem;
+  color: var(--accent-purple);
+  background: rgba(168, 85, 247, 0.15);
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.diag-msg {
+  color: var(--text-main);
+  font-size: 0.82rem;
+}
+
+.diag-quickfix-btn {
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #a5b4fc;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 0.73rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.diag-quickfix-btn:hover {
+  background: var(--accent-indigo);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
 }
 
 

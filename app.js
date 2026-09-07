@@ -1276,7 +1276,10 @@ function switchActiveFile(filename) {
     if (cmWrapper) cmWrapper.style.display = 'block';
     if (editor) {
       editor.setValue(fileStore[activeFile] || '');
-      setTimeout(() => editor.refresh(), 50);
+      setTimeout(() => {
+        editor.refresh();
+        if (typeof runLaTeXSyntaxDiagnostics === 'function') runLaTeXSyntaxDiagnostics();
+      }, 50);
     }
   }
 
@@ -1587,20 +1590,33 @@ function readFileAsDataURL(file) {
 
 // --- LATEX INTELLISENSE & AUTOCOMPLETE ENGINE ---
 const LATEX_AUTOCOMPLETE_COMMANDS = [
+  // Document Classes
   { text: "\\documentclass[12pt, a4paper]{article}", displayText: "\\documentclass{article} - Standard Paper Document" },
   { text: "\\documentclass{IEEEtran}", displayText: "\\documentclass{IEEEtran} - IEEE Conference / Journal" },
   { text: "\\documentclass{beamer}", displayText: "\\documentclass{beamer} - Presentation Slides" },
+
+  // Common Packages
   { text: "\\usepackage{graphicx}", displayText: "\\usepackage{graphicx} - Image Graphics" },
   { text: "\\usepackage{amsmath, amssymb}", displayText: "\\usepackage{amsmath, amssymb} - Math Symbols & Formulas" },
   { text: "\\usepackage{booktabs}", displayText: "\\usepackage{booktabs} - Professional Publication Tables" },
+  { text: "\\usepackage{multirow}", displayText: "\\usepackage{multirow} - Multi-row Tables" },
   { text: "\\usepackage{hyperref}", displayText: "\\usepackage{hyperref} - Interactive PDF Links" },
   { text: "\\usepackage{tikz}", displayText: "\\usepackage{tikz} - Vector Diagrams" },
+  { text: "\\usepackage{geometry}", displayText: "\\usepackage{geometry} - Page Layout Margins" },
+  { text: "\\usepackage{xcolor}", displayText: "\\usepackage{xcolor} - Colored Text" },
+
+  // Environments
   { text: "\\begin{document}\n  \n\\end{document}", displayText: "\\begin{document} ... \\end{document}" },
   { text: "\\begin{figure}[htbp]\n  \\centering\n  \\includegraphics[width=0.8\\linewidth]{filename}\n  \\caption{Caption}\n  \\label{fig:label}\n\\end{figure}", displayText: "\\begin{figure} - Image figure block" },
   { text: "\\begin{table}[htbp]\n  \\centering\n  \\begin{tabular}{cc}\n    \\toprule\n    Header 1 & Header 2 \\\\\n    \\midrule\n    Data 1 & Data 2 \\\\\n    \\bottomrule\n  \\end{tabular}\n  \\caption{Caption}\n  \\label{tab:label}\n\\end{table}", displayText: "\\begin{table} - Tabular data table" },
   { text: "\\begin{equation}\n  \n\\end{equation}", displayText: "\\begin{equation} - Numbered equation" },
   { text: "\\begin{align}\n  \n\\end{align}", displayText: "\\begin{align} - Aligned multi-line math" },
+  { text: "\\begin{itemize}\n  \\item \n\\end{itemize}", displayText: "\\begin{itemize} - Bulleted List" },
+  { text: "\\begin{enumerate}\n  \\item \n\\end{enumerate}", displayText: "\\begin{enumerate} - Numbered List" },
   { text: "\\begin{abstract}\n  \n\\end{abstract}", displayText: "\\begin{abstract} - Document Abstract" },
+  { text: "\\begin{center}\n  \n\\end{center}", displayText: "\\begin{center} - Centered Content" },
+
+  // Document Structure
   { text: "\\section{", displayText: "\\section{Title}" },
   { text: "\\subsection{", displayText: "\\subsection{Title}" },
   { text: "\\subsubsection{", displayText: "\\subsubsection{Title}" },
@@ -1609,10 +1625,13 @@ const LATEX_AUTOCOMPLETE_COMMANDS = [
   { text: "\\author{", displayText: "\\author{Author Name}" },
   { text: "\\date{\\today}", displayText: "\\date{\\today}" },
   { text: "\\maketitle", displayText: "\\maketitle - Render title block" },
+
+  // Formats & Figures
   { text: "\\includegraphics[width=0.8\\linewidth]{", displayText: "\\includegraphics{file}" },
   { text: "\\caption{", displayText: "\\caption{text}" },
   { text: "\\label{", displayText: "\\label{key}" },
   { text: "\\ref{", displayText: "\\ref{key}" },
+  { text: "\\pageref{", displayText: "\\pageref{key}" },
   { text: "\\cite{", displayText: "\\cite{citation}" },
   { text: "\\textbf{", displayText: "\\textbf{bold text}" },
   { text: "\\textit{", displayText: "\\textit{italic text}" },
@@ -1622,10 +1641,12 @@ const LATEX_AUTOCOMPLETE_COMMANDS = [
   { text: "\\midrule", displayText: "\\midrule - Table middle line" },
   { text: "\\bottomrule", displayText: "\\bottomrule - Table bottom line" },
   { text: "\\hline", displayText: "\\hline - Grid line" },
-  { text: "\\frac{num}{den}", displayText: "\\frac{a}{b} - Fraction" },
+
+  // Math Commands
+  { text: "\\frac{a}{b}", displayText: "\\frac{a}{b} - Fraction" },
   { text: "\\sum_{i=1}^{n}", displayText: "\\sum_{i=1}^{n} - Summation" },
   { text: "\\int_{a}^{b}", displayText: "\\int_{a}^{b} - Integral" },
-  { text: "\\sqrt{", displayText: "\\sqrt{x} - Square root" },
+  { text: "\\sqrt{x}", displayText: "\\sqrt{x} - Square root" },
   { text: "\\alpha", displayText: "\\alpha" },
   { text: "\\beta", displayText: "\\beta" },
   { text: "\\gamma", displayText: "\\gamma" },
@@ -1636,14 +1657,122 @@ const LATEX_AUTOCOMPLETE_COMMANDS = [
   { text: "\\omega", displayText: "\\omega" }
 ];
 
+const COMMON_ENVIRONMENTS = [
+  'figure', 'table', 'equation', 'align', 'gather', 'itemize', 'enumerate',
+  'description', 'abstract', 'document', 'center', 'minipage', 'tabular',
+  'lstlisting', 'verbatim', 'proof', 'theorem', 'lemma', 'matrix', 'bmatrix', 'pmatrix'
+];
+
 function latexHintProvider(cm) {
   const cursor = cm.getCursor();
   const line = cm.getLine(cursor.line);
   const start = cursor.ch;
-  
-  let lineBefore = line.slice(0, start);
+  const lineBefore = line.slice(0, start);
+
+  // 1. Check if user is inside \begin{...}
+  const beginMatch = lineBefore.match(/\\begin\{([a-zA-Z0-9_*]*)$/);
+  if (beginMatch) {
+    const query = beginMatch[1].toLowerCase();
+    const envStart = start - beginMatch[1].length;
+    const completions = COMMON_ENVIRONMENTS
+      .filter(env => env.toLowerCase().startsWith(query))
+      .map(env => ({
+        text: `${env}}\n  \n\\end{${env}}`,
+        displayText: `\\begin{${env}} ... \\end{${env}}`
+      }));
+    return {
+      list: completions,
+      from: CodeMirror.Pos(cursor.line, envStart),
+      to: CodeMirror.Pos(cursor.line, start)
+    };
+  }
+
+  // 2. Check if user is inside \cite{...}
+  const citeMatch = lineBefore.match(/\\cite\{([a-zA-Z0-9_-]*)$/);
+  if (citeMatch) {
+    const query = citeMatch[1].toLowerCase();
+    const citeStart = start - citeMatch[1].length;
+    const completions = [];
+
+    Object.keys(fileStore).filter(f => f.endsWith('.bib')).forEach(bibFile => {
+      const content = fileStore[bibFile] || '';
+      const keyRegex = /@(\w+)\s*\{\s*([^,\s]+)/g;
+      let km;
+      while ((km = keyRegex.exec(content)) !== null) {
+        const type = km[1];
+        const key = km[2];
+        if (key.toLowerCase().includes(query)) {
+          completions.push({
+            text: `${key}}`,
+            displayText: `${key} (@${type} in ${bibFile})`
+          });
+        }
+      }
+    });
+
+    if (completions.length > 0) {
+      return {
+        list: completions,
+        from: CodeMirror.Pos(cursor.line, citeStart),
+        to: CodeMirror.Pos(cursor.line, start)
+      };
+    }
+  }
+
+  // 3. Check if user is inside \ref{...} or \pageref{...}
+  const refMatch = lineBefore.match(/\\(?:ref|pageref|autoref|eqref)\{([a-zA-Z0-9_:-]*)$/);
+  if (refMatch) {
+    const query = refMatch[1].toLowerCase();
+    const refStart = start - refMatch[1].length;
+    const completions = [];
+
+    Object.keys(fileStore).filter(f => f.endsWith('.tex')).forEach(texFile => {
+      const content = fileStore[texFile] || '';
+      const lblRegex = /\\label\{([^}]+)\}/g;
+      let lm;
+      while ((lm = lblRegex.exec(content)) !== null) {
+        const labelKey = lm[1];
+        if (labelKey.toLowerCase().includes(query)) {
+          completions.push({
+            text: `${labelKey}}`,
+            displayText: `${labelKey} (Label in ${texFile})`
+          });
+        }
+      }
+    });
+
+    if (completions.length > 0) {
+      return {
+        list: completions,
+        from: CodeMirror.Pos(cursor.line, refStart),
+        to: CodeMirror.Pos(cursor.line, start)
+      };
+    }
+  }
+
+  // 4. Check if user is inside \includegraphics{...}
+  const imgMatch = lineBefore.match(/\\includegraphics(?:\[[^\]]*\])?\{([^}]*)$/);
+  if (imgMatch) {
+    const query = imgMatch[1].toLowerCase();
+    const imgStart = start - imgMatch[1].length;
+    const completions = Object.keys(fileStore)
+      .filter(f => f.match(/\.(png|jpg|jpeg|gif|svg|pdf)$/i) && f.toLowerCase().includes(query))
+      .map(img => ({
+        text: `${img}}`,
+        displayText: `${img} (Project Image)`
+      }));
+
+    if (completions.length > 0) {
+      return {
+        list: completions,
+        from: CodeMirror.Pos(cursor.line, imgStart),
+        to: CodeMirror.Pos(cursor.line, start)
+      };
+    }
+  }
+
+  // 5. General \ command completion
   const slashIdx = lineBefore.lastIndexOf('\\');
-  
   if (slashIdx === -1) return null;
 
   const query = lineBefore.slice(slashIdx);
@@ -1658,29 +1787,6 @@ function latexHintProvider(cm) {
     }
   });
 
-  // Dynamic \ref{ completions from labels in current document
-  if (query.startsWith('\\ref') || query.startsWith('\\label')) {
-    const docText = cm.getValue();
-    const labelMatches = docText.matchAll(/\\label\{([^}]+)\}/g);
-    for (const m of labelMatches) {
-      const labelKey = m[1];
-      completions.push({
-        text: `\\ref{${labelKey}}`,
-        displayText: `\\ref{${labelKey}} (Document Label)`
-      });
-    }
-  }
-
-  // Dynamic \includegraphics{ completions from uploaded image files
-  if (query.startsWith('\\include') || query.startsWith('\\fig')) {
-    Object.keys(fileStore).filter(f => f.match(/\.(png|jpg|jpeg|gif|svg|pdf)$/i)).forEach(img => {
-      completions.push({
-        text: `\\includegraphics[width=0.8\\linewidth]{${img}}`,
-        displayText: `\\includegraphics{${img}} (Project Asset)`
-      });
-    });
-  }
-
   return {
     list: completions,
     from: CodeMirror.Pos(cursor.line, slashIdx),
@@ -1692,6 +1798,394 @@ if (window.CodeMirror) {
   CodeMirror.registerHelper("hint", "stex", latexHintProvider);
 }
 
+// Global reference for active text markers
+let syntaxErrorTextMarkers = [];
+
+function clearSyntaxMarkers() {
+  if (editor) {
+    editor.clearGutter("CodeMirror-lint-markers");
+    syntaxErrorTextMarkers.forEach(m => m.clear());
+    syntaxErrorTextMarkers = [];
+  }
+}
+
+let isDiagnosticsDrawerOpen = false;
+
+function toggleDiagnosticsDrawer() {
+  const list = document.getElementById('diagnostics-list');
+  const icon = document.getElementById('diag-drawer-icon');
+  const text = document.getElementById('diag-drawer-text');
+  
+  if (!list) return;
+  isDiagnosticsDrawerOpen = !isDiagnosticsDrawerOpen;
+
+  if (isDiagnosticsDrawerOpen) {
+    list.classList.remove('hidden');
+    if (icon) icon.className = 'fa-solid fa-chevron-down';
+    if (text) text.innerText = 'Hide Problems';
+  } else {
+    list.classList.add('hidden');
+    if (icon) icon.className = 'fa-solid fa-chevron-up';
+    if (text) text.innerText = 'Problems';
+  }
+
+  if (editor) {
+    setTimeout(() => editor.refresh(), 50);
+  }
+}
+
+// REAL-TIME LATEX SYNTAX DIAGNOSTICS ENGINE
+function runLaTeXSyntaxDiagnostics(compilerLog = null) {
+  if (!editor || !activeFile || !activeFile.endsWith('.tex')) return;
+
+  clearSyntaxMarkers();
+
+  const code = editor.getValue();
+  const lines = code.split('\n');
+  const problems = [];
+
+  // 1. Gather Preamble Packages
+  const fullDocumentText = Object.keys(fileStore)
+    .filter(f => f.endsWith('.tex'))
+    .map(f => fileStore[f])
+    .join('\n');
+
+  const loadedPackages = new Set();
+  const pkgRegex = /\\usepackage(?:\[[^\]]*\])?\{([^}]+)\}/g;
+  let pkgMatch;
+  while ((pkgMatch = pkgRegex.exec(fullDocumentText)) !== null) {
+    pkgMatch[1].split(',').forEach(p => loadedPackages.add(p.trim()));
+  }
+
+  // 2. Gather BibTeX keys
+  const bibKeys = new Set();
+  Object.keys(fileStore).filter(f => f.endsWith('.bib')).forEach(bibFile => {
+    const content = fileStore[bibFile] || '';
+    const kmRegex = /@\w+\s*\{\s*([^,\s]+)/g;
+    let km;
+    while ((km = kmRegex.exec(content)) !== null) {
+      bibKeys.add(km[1].trim());
+    }
+  });
+
+  // 3. Gather Labels
+  const labelKeys = new Set();
+  Object.keys(fileStore).filter(f => f.endsWith('.tex')).forEach(texFile => {
+    const content = fileStore[texFile] || '';
+    const lmRegex = /\\label\{([^}]+)\}/g;
+    let lm;
+    while ((lm = lmRegex.exec(content)) !== null) {
+      labelKeys.add(lm[1].trim());
+    }
+  });
+
+  // 4. Environment Stack Checking
+  const envStack = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const lineText = lines[i];
+    const codePart = lineText.split('%')[0];
+
+    // Check \begin{env}
+    const beginRegex = /\\begin\{([^}]+)\}/g;
+    let bm;
+    while ((bm = beginRegex.exec(codePart)) !== null) {
+      envStack.push({ name: bm[1], line: i, ch: bm.index, matchText: bm[0] });
+    }
+
+    // Check \end{env}
+    const endRegex = /\\end\{([^}]+)\}/g;
+    let em;
+    while ((em = endRegex.exec(codePart)) !== null) {
+      const endName = em[1];
+      if (envStack.length === 0) {
+        problems.push({
+          line: i,
+          chStart: em.index,
+          chEnd: em.index + em[0].length,
+          severity: 'error',
+          message: `Unmatched \\end{${endName}} without corresponding \\begin{${endName}}`,
+          quickFixLabel: null
+        });
+      } else {
+        const top = envStack[envStack.length - 1];
+        if (top.name === endName) {
+          envStack.pop();
+        } else {
+          problems.push({
+            line: i,
+            chStart: em.index,
+            chEnd: em.index + em[0].length,
+            severity: 'error',
+            message: `Mismatched environment: Expected \\end{${top.name}} but found \\end{${endName}}`,
+            quickFixLabel: `Fix to \\end{${top.name}}`,
+            quickFixFn: (cm) => {
+              cm.replaceRange(`\\end{${top.name}}`, CodeMirror.Pos(i, em.index), CodeMirror.Pos(i, em.index + em[0].length));
+            }
+          });
+          envStack.pop();
+        }
+      }
+    }
+
+    // Check unclosed braces '{'
+    let braceBalance = 0;
+    for (let c = 0; c < codePart.length; c++) {
+      if (codePart[c] === '{' && (c === 0 || codePart[c-1] !== '\\')) braceBalance++;
+      if (codePart[c] === '}' && (c === 0 || codePart[c-1] !== '\\')) braceBalance--;
+    }
+    if (braceBalance > 0) {
+      problems.push({
+        line: i,
+        chStart: Math.max(0, lineText.lastIndexOf('{')),
+        chEnd: lineText.length,
+        severity: 'warning',
+        message: `Line has ${braceBalance} unclosed curly brace '{'`,
+        quickFixLabel: `Add '}'`,
+        quickFixFn: (cm) => cm.replaceRange('}'.repeat(braceBalance), CodeMirror.Pos(i, lineText.length))
+      });
+    }
+
+    // Check package prerequisites
+    if (codePart.includes('\\includegraphics') && !loadedPackages.has('graphicx')) {
+      const idx = codePart.indexOf('\\includegraphics');
+      problems.push({
+        line: i,
+        chStart: idx,
+        chEnd: idx + 16,
+        severity: 'error',
+        message: `\\includegraphics requires \\usepackage{graphicx} in preamble`,
+        quickFixLabel: `Add \\usepackage{graphicx}`,
+        quickFixFn: (cm) => insertPackageInPreamble('graphicx')
+      });
+    }
+
+    if ((codePart.includes('\\toprule') || codePart.includes('\\midrule') || codePart.includes('\\bottomrule')) && !loadedPackages.has('booktabs')) {
+      const idx = Math.max(codePart.indexOf('\\toprule'), codePart.indexOf('\\midrule'), codePart.indexOf('\\bottomrule'));
+      problems.push({
+        line: i,
+        chStart: idx,
+        chEnd: idx + 9,
+        severity: 'warning',
+        message: `Publication tables require \\usepackage{booktabs} in preamble`,
+        quickFixLabel: `Add \\usepackage{booktabs}`,
+        quickFixFn: (cm) => insertPackageInPreamble('booktabs')
+      });
+    }
+
+    if ((codePart.includes('\\begin{align}') || codePart.includes('\\begin{equation*}') || codePart.includes('\\bmatrix')) && !loadedPackages.has('amsmath')) {
+      const idx = Math.max(0, codePart.search(/\\(begin\{align\}|begin\{equation\*\}|bmatrix)/));
+      problems.push({
+        line: i,
+        chStart: idx,
+        chEnd: idx + 15,
+        severity: 'warning',
+        message: `Math equations require \\usepackage{amsmath} in preamble`,
+        quickFixLabel: `Add \\usepackage{amsmath}`,
+        quickFixFn: (cm) => insertPackageInPreamble('amsmath')
+      });
+    }
+
+    if ((codePart.includes('\\href') || codePart.includes('\\url')) && !loadedPackages.has('hyperref')) {
+      const idx = Math.max(codePart.indexOf('\\href'), codePart.indexOf('\\url'));
+      problems.push({
+        line: i,
+        chStart: idx,
+        chEnd: idx + 5,
+        severity: 'warning',
+        message: `Hyperlinks require \\usepackage{hyperref} in preamble`,
+        quickFixLabel: `Add \\usepackage{hyperref}`,
+        quickFixFn: (cm) => insertPackageInPreamble('hyperref')
+      });
+    }
+
+    // Check undefined citation keys
+    const citeRegex = /\\cite\{([^}]+)\}/g;
+    let cmatch;
+    while ((cmatch = citeRegex.exec(codePart)) !== null) {
+      const keys = cmatch[1].split(',').map(k => k.trim());
+      for (const key of keys) {
+        if (bibKeys.size > 0 && !bibKeys.has(key)) {
+          problems.push({
+            line: i,
+            chStart: cmatch.index,
+            chEnd: cmatch.index + cmatch[0].length,
+            severity: 'warning',
+            message: `Undefined citation key '${key}'. Not found in project .bib files!`,
+            quickFixLabel: null
+          });
+        }
+      }
+    }
+
+    // Check undefined labels
+    const refRegex = /\\(?:ref|pageref|autoref|eqref)\{([^}]+)\}/g;
+    let rmatch;
+    while ((rmatch = refRegex.exec(codePart)) !== null) {
+      const refKey = rmatch[1].trim();
+      if (labelKeys.size > 0 && !labelKeys.has(refKey)) {
+        problems.push({
+          line: i,
+          chStart: rmatch.index,
+          chEnd: rmatch.index + rmatch[0].length,
+          severity: 'warning',
+          message: `Undefined label reference '\\ref{${refKey}}'. No matching \\label{${refKey}} in project!`,
+          quickFixLabel: null
+        });
+      }
+    }
+  }
+
+  // Any unclosed environments left in stack
+  envStack.forEach(unclosed => {
+    problems.push({
+      line: unclosed.line,
+      chStart: unclosed.ch,
+      chEnd: unclosed.ch + unclosed.matchText.length,
+      severity: 'error',
+      message: `Unclosed environment: \\begin{${unclosed.name}} is missing matching \\end{${unclosed.name}}!`,
+      quickFixLabel: `Insert \\end{${unclosed.name}}`,
+      quickFixFn: (cm) => {
+        const lastLineIdx = cm.lineCount() - 1;
+        const lastLineTxt = cm.getLine(lastLineIdx);
+        cm.replaceRange(`\n\\end{${unclosed.name}}\n`, CodeMirror.Pos(lastLineIdx, lastLineTxt.length));
+      }
+    });
+  });
+
+  // Parse TeX Backend Compiler Log if provided
+  if (compilerLog) {
+    const logLines = compilerLog.split('\n');
+    for (let j = 0; j < logLines.length; j++) {
+      const logLine = logLines[j];
+      if (logLine.includes('! LaTeX Error:') || logLine.includes('! Undefined control sequence')) {
+        let lineNo = 0;
+        for (let k = j; k < Math.min(logLines.length, j + 5); k++) {
+          const lineMatch = logLines[k].match(/^l\.(\d+)/);
+          if (lineMatch) {
+            lineNo = parseInt(lineMatch[1], 10) - 1;
+            break;
+          }
+        }
+        problems.push({
+          line: Math.max(0, lineNo),
+          chStart: 0,
+          chEnd: lines[Math.max(0, lineNo)] ? lines[Math.max(0, lineNo)].length : 10,
+          severity: 'error',
+          message: `Compiler Error: ${logLine.replace('!', '').trim()}`,
+          quickFixLabel: null
+        });
+      }
+    }
+  }
+
+  renderDiagnosticsUI(problems);
+}
+
+function renderDiagnosticsUI(problems) {
+  if (!editor) return;
+
+  const listContainer = document.getElementById('diagnostics-list');
+  const summaryContainer = document.getElementById('diagnostics-summary');
+  if (!listContainer || !summaryContainer) return;
+
+  listContainer.innerHTML = '';
+
+  const errorsCount = problems.filter(p => p.severity === 'error').length;
+  const warningsCount = problems.filter(p => p.severity === 'warning').length;
+
+  if (problems.length === 0) {
+    summaryContainer.innerHTML = `
+      <span class="diag-badge diag-clean">
+        <i class="fa-solid fa-circle-check"></i> 0 Syntax Problems
+      </span>
+      <span style="color: var(--text-muted); font-size: 0.75rem;">Document syntax clean &amp; ready to compile</span>
+    `;
+  } else {
+    summaryContainer.innerHTML = `
+      ${errorsCount > 0 ? `<span class="diag-badge diag-err-badge"><i class="fa-solid fa-circle-xmark"></i> ${errorsCount} Error${errorsCount > 1 ? 's' : ''}</span>` : ''}
+      ${warningsCount > 0 ? `<span class="diag-badge diag-warn-badge"><i class="fa-solid fa-triangle-exclamation"></i> ${warningsCount} Warning${warningsCount > 1 ? 's' : ''}</span>` : ''}
+      <span style="color: var(--text-muted); font-size: 0.75rem;">Click to jump to location</span>
+    `;
+  }
+
+  problems.forEach(p => {
+    // 1. Gutter Marker
+    const marker = document.createElement('div');
+    if (p.severity === 'error') {
+      marker.className = 'gutter-marker-error';
+      marker.innerHTML = `<i class="fa-solid fa-circle-xmark" title="${escapeHtml(p.message)}"></i>`;
+    } else {
+      marker.className = 'gutter-marker-warning';
+      marker.innerHTML = `<i class="fa-solid fa-triangle-exclamation" title="${escapeHtml(p.message)}"></i>`;
+    }
+    editor.setGutterMarker(p.line, "CodeMirror-lint-markers", marker);
+
+    // 2. Wavy Text Underline
+    const cls = p.severity === 'error' ? 'cm-syntax-error' : 'cm-syntax-warning';
+    const textMarker = editor.markText(
+      CodeMirror.Pos(p.line, p.chStart),
+      CodeMirror.Pos(p.line, p.chEnd),
+      { className: cls, title: p.message }
+    );
+    syntaxErrorTextMarkers.push(textMarker);
+
+    // 3. Diagnostics Drawer Item
+    const item = document.createElement('div');
+    item.className = 'diag-item';
+    item.onclick = () => {
+      editor.setCursor(p.line, p.chStart);
+      editor.focus();
+      editor.setSelection(CodeMirror.Pos(p.line, p.chStart), CodeMirror.Pos(p.line, p.chEnd));
+    };
+
+    const icon = p.severity === 'error'
+      ? '<i class="fa-solid fa-circle-xmark" style="color: #f87171;"></i>'
+      : '<i class="fa-solid fa-triangle-exclamation" style="color: #fbbf24;"></i>';
+
+    item.innerHTML = `
+      <div class="diag-item-left">
+        ${icon}
+        <span class="diag-line-no">Ln ${p.line + 1}</span>
+        <span class="diag-msg">${escapeHtml(p.message)}</span>
+      </div>
+      <div class="diag-item-right">
+        ${p.quickFixLabel ? `<button class="diag-quickfix-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> ${escapeHtml(p.quickFixLabel)}</button>` : ''}
+      </div>
+    `;
+
+    if (p.quickFixLabel && p.quickFixFn) {
+      const qfBtn = item.querySelector('.diag-quickfix-btn');
+      if (qfBtn) {
+        qfBtn.onclick = (e) => {
+          e.stopPropagation();
+          p.quickFixFn(editor);
+          fileStore[activeFile] = editor.getValue();
+          runLaTeXSyntaxDiagnostics();
+        };
+      }
+    }
+
+    listContainer.appendChild(item);
+  });
+}
+
+function insertPackageInPreamble(pkgName) {
+  if (!editor) return;
+  const content = editor.getValue();
+  const pkgStr = `\\usepackage{${pkgName}}\n`;
+  if (content.includes(`\\usepackage{${pkgName}}`)) return;
+
+  const docClassIdx = content.indexOf('\\documentclass');
+  if (docClassIdx !== -1) {
+    const lineEnd = content.indexOf('\n', docClassIdx);
+    const pos = editor.posFromIndex(lineEnd + 1);
+    editor.replaceRange(pkgStr, pos);
+  } else {
+    editor.replaceRange(pkgStr, CodeMirror.Pos(0, 0));
+  }
+}
+
 // Initialize CodeMirror Editor
 function initCodeEditor() {
   const textarea = document.getElementById('latex-code-editor');
@@ -1701,7 +2195,8 @@ function initCodeEditor() {
     lineNumbers: true,
     lineWrapping: true,
     matchBrackets: true,
-    autoCloseBrackets: true,
+    autoCloseBrackets: "()[]{}''\"\"$$",
+    gutters: ["CodeMirror-linenumbers", "CodeMirror-lint-markers"],
     extraKeys: {
       'Ctrl-Space': function(cm) {
         CodeMirror.showHint(cm, latexHintProvider, { completeSingle: false });
@@ -1719,13 +2214,14 @@ function initCodeEditor() {
     }
   });
 
-  // Real-time typing autocomplete trigger on '\\'
+  // Real-time typing autocomplete trigger on '\\', '{', '@'
   editor.on('inputRead', (cm, change) => {
-    if (change.text[0] === '\\' || (change.text[0] && change.text[0].match(/[a-zA-Z]/))) {
+    const typedChar = change.text[0];
+    if (typedChar === '\\' || typedChar === '{' || typedChar === '@' || (typedChar && typedChar.match(/[a-zA-Z]/))) {
       const cursor = cm.getCursor();
       const line = cm.getLine(cursor.line);
       const lineBefore = line.slice(0, cursor.ch);
-      if (lineBefore.includes('\\')) {
+      if (lineBefore.includes('\\') || lineBefore.includes('{') || lineBefore.includes('@')) {
         CodeMirror.showHint(cm, latexHintProvider, { completeSingle: false });
       }
     }
@@ -1738,9 +2234,10 @@ function initCodeEditor() {
     
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => {
+      runLaTeXSyntaxDiagnostics();
       compileLaTeX();
       saveCurrentProjectToBackend();
-    }, 500);
+    }, 300);
   });
 
   const btnNewFile = document.getElementById('btn-new-file');
@@ -1756,7 +2253,10 @@ function initCodeEditor() {
     fileInput.addEventListener('change', handleFileUpload);
   }
 
-  setTimeout(() => editor.refresh(), 100);
+  setTimeout(() => {
+    editor.refresh();
+    runLaTeXSyntaxDiagnostics();
+  }, 100);
 }
 
 // Native PDF Compilation & Live Preview Engine
@@ -1815,15 +2315,18 @@ async function compileLaTeX() {
       if (hasErr) {
         if (logOutput) logOutput.innerText = `⚠️ PDF Generated with LaTeX Warnings/Errors:\n\n${decodedLog || 'Errors detected during TeX pass.'}`;
         if (statusBadge) statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-amber)"></i> PDF (with errors)';
+        if (typeof runLaTeXSyntaxDiagnostics === 'function') runLaTeXSyntaxDiagnostics(decodedLog);
       } else {
         if (logOutput) logOutput.innerText = `✅ PDF Compilation Successful!\n\n${decodedLog || 'Engine: Tectonic (Native TeX)\nStatus: PDF Preview Updated.'}`;
         if (statusBadge) statusBadge.innerHTML = '<i class="fa-solid fa-circle-check"></i> PDF Ready';
+        if (typeof runLaTeXSyntaxDiagnostics === 'function') runLaTeXSyntaxDiagnostics();
       }
     } else {
       const err = await res.json();
       const logOutput = document.getElementById('compiler-log-output');
       if (logOutput) logOutput.innerText = `❌ LaTeX Compilation Error:\n${err.error || ''}\n\n=== Compiler Log ===\n${err.log || ''}`;
       if (statusBadge) statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-red)"></i> Compile Error';
+      if (typeof runLaTeXSyntaxDiagnostics === 'function') runLaTeXSyntaxDiagnostics(err.log || err.error);
     }
   } catch (e) {
     console.warn('Compilation error:', e);
