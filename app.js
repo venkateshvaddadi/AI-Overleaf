@@ -42,9 +42,6 @@ function getSanitizedTextFilesPayload(files) {
   const clean = {};
   Object.keys(files).forEach(k => {
     const val = files[k];
-    if (typeof val === 'string' && val.startsWith('data:')) {
-      return;
-    }
     clean[k] = val;
   });
   return clean;
@@ -1281,7 +1278,7 @@ async function handleFileUpload(e) {
     renderFileList();
   }
 
-  saveCurrentProjectToBackend();
+  await saveCurrentProjectToBackend(true);
   alert(`✅ Loaded ${totalUploaded} file(s) into project!`);
   e.target.value = '';
 }
@@ -2139,7 +2136,7 @@ function copyFigureCode() {
   }
 }
 
-function insertFigureAtCursor() {
+async function insertFigureAtCursor() {
   const code = document.getElementById('fig-code-preview').value;
   if (!code) return;
   ensureLaTeXPackages(['graphicx']);
@@ -2149,8 +2146,8 @@ function insertFigureAtCursor() {
     editor.focus();
   }
   closeModal('figure-inserter-modal');
-  compileLaTeX();
-  saveCurrentProjectToBackend();
+  await saveCurrentProjectToBackend(true);
+  await compileLaTeX();
 }
 
 async function runAITool(instruction, title) {

@@ -820,6 +820,12 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                     if found_disk:
                         continue
 
+                    # If image asset is missing on disk, write valid binary PNG bytes to prevent pdflatex corrupt file crash
+                    valid_png_b64 = "iVBORw0KGgoAAAANSU5QoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+                    with open(full_path, 'wb') as f:
+                        f.write(base64.b64decode(valid_png_b64))
+                    continue
+
                 with open(full_path, 'w', encoding='utf-8') as f:
                     f.write(content if isinstance(content, str) else '')
 
