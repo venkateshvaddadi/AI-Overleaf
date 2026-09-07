@@ -161,14 +161,132 @@ function switchDashboardTab(tab) {
   fetchProjectsFromBackend(searchInput ? searchInput.value.toLowerCase() : '');
 }
 
-async function openProjectFromDashboard(projId) {
+let _loaderTimerInterval = null;
+let _loaderStartTime = 0;
+
+function showProjectLoader(projName = 'Research Project') {
+  const modal = document.getElementById('project-loading-modal');
+  const title = document.getElementById('loader-proj-title');
+  const status = document.getElementById('loader-status-text');
+  const bar = document.getElementById('loader-progress-bar');
+  const timerBadge = document.getElementById('loader-timer-badge');
+  const stepInfo = document.getElementById('loader-step-info');
+
+  if (!modal) return;
+
+  if (title) title.innerText = `Opening "${projName}"...`;
+  if (status) status.innerText = 'Connecting to workspace backend...';
+  if (bar) bar.style.width = '15%';
+  if (stepInfo) stepInfo.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px; color: var(--accent-purple);"></i> Step 1 of 3';
+  if (timerBadge) timerBadge.innerText = '0.0s';
+
+  // Reset Checklist
+  for (let i = 1; i <= 3; i++) {
+    const chk = document.getElementById(`chk-step-${i}`);
+    const icon = document.getElementById(`chk-icon-${i}`);
+    if (chk && icon) {
+      if (i === 1) {
+        chk.style.color = 'var(--text-primary)';
+        icon.className = 'fa-solid fa-circle-notch fa-spin';
+        icon.style.color = 'var(--accent-purple)';
+      } else {
+        chk.style.color = 'var(--text-muted)';
+        icon.className = 'fa-regular fa-circle';
+        icon.style.color = 'var(--text-muted)';
+      }
+    }
+  }
+
+  modal.style.display = 'flex';
+  modal.classList.add('active');
+
+  // Start Timer
+  _loaderStartTime = Date.now();
+  if (_loaderTimerInterval) clearInterval(_loaderTimerInterval);
+  _loaderTimerInterval = setInterval(() => {
+    const elapsedSec = ((Date.now() - _loaderStartTime) / 1000).toFixed(1);
+    if (timerBadge) timerBadge.innerText = `${elapsedSec}s`;
+  }, 100);
+}
+
+function updateProjectLoaderStep(step, percent, statusMsg) {
+  const status = document.getElementById('loader-status-text');
+  const bar = document.getElementById('loader-progress-bar');
+  const stepInfo = document.getElementById('loader-step-info');
+
+  if (status && statusMsg) status.innerText = statusMsg;
+  if (bar && percent !== undefined) bar.style.width = `${percent}%`;
+  if (stepInfo) stepInfo.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px; color: var(--accent-purple);"></i> Step ${step} of 3`;
+
+  for (let i = 1; i <= 3; i++) {
+    const chk = document.getElementById(`chk-step-${i}`);
+    const icon = document.getElementById(`chk-icon-${i}`);
+    if (!chk || !icon) continue;
+
+    if (i < step) {
+      chk.style.color = '#34d399';
+      icon.className = 'fa-solid fa-circle-check';
+      icon.style.color = '#34d399';
+    } else if (i === step) {
+      chk.style.color = 'var(--text-primary)';
+      icon.className = 'fa-solid fa-circle-notch fa-spin';
+      icon.style.color = 'var(--accent-purple)';
+    } else {
+      chk.style.color = 'var(--text-muted)';
+      icon.className = 'fa-regular fa-circle';
+      icon.style.color = 'var(--text-muted)';
+    }
+  }
+}
+
+function hideProjectLoader() {
+  const modal = document.getElementById('project-loading-modal');
+  const bar = document.getElementById('loader-progress-bar');
+
+  if (bar) bar.style.width = '100%';
+
+  for (let i = 1; i <= 3; i++) {
+    const chk = document.getElementById(`chk-step-${i}`);
+    const icon = document.getElementById(`chk-icon-${i}`);
+    if (chk && icon) {
+      chk.style.color = '#34d399';
+      icon.className = 'fa-solid fa-circle-check';
+      icon.style.color = '#34d399';
+    }
+  }
+
+  if (_loaderTimerInterval) {
+    clearInterval(_loaderTimerInterval);
+    _loaderTimerInterval = null;
+  }
+
+  setTimeout(() => {
+    if (modal) {
+      modal.style.display = 'none';
+      modal.classList.remove('active');
+    }
+  }, 250);
+}
+
+async function openProjectFromDashboard(projId, projNameHint) {
   try {
+    let projName = projNameHint;
+    if (!projName && typeof allProjects !== 'undefined' && Array.isArray(allProjects)) {
+      const found = allProjects.find(p => p.id === projId);
+      if (found) projName = found.name;
+    }
+
+    showProjectLoader(projName || 'Research Project');
+    updateProjectLoaderStep(1, 30, 'Retrieving source code & LaTeX files...');
+
     const res = await fetch(`/api/projects?id=${projId}`);
     if (res.ok) {
       activeProject = await res.json();
       fileStore = sanitizeFileStore(activeProject.files);
       const userKeys = Object.keys(fileStore);
       activeFile = (activeProject.main_file && isUserContentFile(activeProject.main_file)) ? activeProject.main_file : (userKeys[0] || 'main.tex');
+
+      updateProjectLoaderStep(2, 65, 'Preparing CodeMirror editor & workspace layout...');
 
       renderProjectTitle();
       renderFileList();
@@ -182,11 +300,20 @@ async function openProjectFromDashboard(projId) {
         setTimeout(() => editor.refresh(), 50);
       }
 
-      compileLaTeX();
+      updateProjectLoaderStep(3, 90, 'Compiling PDF preview & SyncTeX mapping...');
+      await compileLaTeX();
       ensurePdfViewActive();
+
+      updateProjectLoaderStep(3, 100, 'Project ready! Launching workspace...');
       switchView('editor', projId);
+
+      setTimeout(() => hideProjectLoader(), 250);
+    } else {
+      hideProjectLoader();
+      alert('Failed to load project from server.');
     }
   } catch (e) {
+    hideProjectLoader();
     alert(`Error opening project: ${e.message}`);
   }
 }
@@ -195,6 +322,9 @@ async function createNewProjectFromDashboard() {
   let projName = prompt('Enter new LaTeX Project Name:', 'QSM_Research_Paper');
   if (!projName) return;
   projName = projName.trim();
+
+  showProjectLoader(projName);
+  updateProjectLoaderStep(1, 35, 'Initializing project structure on backend...');
 
   try {
     const res = await fetch('/api/projects/create', {
@@ -211,6 +341,7 @@ async function createNewProjectFromDashboard() {
       fileStore = sanitizeFileStore(activeProject.files);
       activeFile = (activeProject.main_file && isUserContentFile(activeProject.main_file)) ? activeProject.main_file : 'main.tex';
 
+      updateProjectLoaderStep(2, 70, 'Building initial file tree & editor buffer...');
       await fetchProjectsFromBackend();
       renderFileList();
 
@@ -219,10 +350,18 @@ async function createNewProjectFromDashboard() {
         document.getElementById('active-file-indicator').innerText = activeFile;
       }
 
-      compileLaTeX();
+      updateProjectLoaderStep(3, 90, 'Compiling initial LaTeX PDF document...');
+      await compileLaTeX();
+
+      updateProjectLoaderStep(3, 100, 'Workspace ready!');
       switchView('editor');
+      setTimeout(() => hideProjectLoader(), 250);
+    } else {
+      hideProjectLoader();
+      alert('Error creating project');
     }
   } catch (e) {
+    hideProjectLoader();
     alert(`Error creating project: ${e.message}`);
   }
 }
@@ -501,9 +640,12 @@ function renderDashboard(filterQuery = '') {
     card.style.cursor = 'pointer';
     card.onclick = (e) => {
       if (!e.target.closest('button')) {
-        openProjectFromDashboard(proj.id);
+        card.classList.add('opening-pulse');
+        openProjectFromDashboard(proj.id, proj.name);
       }
     };
+
+    const safeProjName = (proj.name || 'Project').replace(/'/g, "\\'");
 
     // Action buttons based on active tab state
     let actionButtonsHtml = '';
@@ -518,7 +660,7 @@ function renderDashboard(filterQuery = '') {
       `;
     } else if (currentDashTab === 'archived') {
       actionButtonsHtml = `
-        <button class="btn btn-sm btn-primary" onclick="openProjectFromDashboard('${proj.id}')">
+        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); openProjectFromDashboard('${proj.id}', '${safeProjName}')">
           <i class="fa-solid fa-folder-open"></i> Open
         </button>
         <button class="btn btn-sm btn-secondary" onclick="restoreProjectFromDashboard('${proj.id}')" title="Restore to Active">
@@ -533,7 +675,7 @@ function renderDashboard(filterQuery = '') {
       `;
     } else { // 'active' or 'shared'
       actionButtonsHtml = `
-        <button class="btn btn-sm btn-primary" onclick="openProjectFromDashboard('${proj.id}')">
+        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); openProjectFromDashboard('${proj.id}', '${safeProjName}')">
           <i class="fa-solid fa-folder-open"></i> Open
         </button>
         <button class="btn btn-sm btn-secondary" onclick="archiveProjectFromDashboard('${proj.id}')" title="Archive Project">
@@ -1604,6 +1746,7 @@ function acceptAIDiff() {
   if (pendingAIText !== null) {
     createCommit('AI Assistant Applied Changes');
     editor.setValue(pendingAIText);
+    checkAutoPackageSupport(pendingAIText);
     compileLaTeX();
     saveCurrentProjectToBackend();
     pendingAIText = null;
@@ -1887,6 +2030,7 @@ function copyCSVTableCode() {
 function insertCSVTableAtCursor() {
   const code = document.getElementById('csv-code-preview').value;
   if (!code || code.startsWith('%')) return;
+  ensureLaTeXPackages(['booktabs', 'multirow', 'array']);
   if (editor) {
     const cursor = editor.getCursor();
     editor.replaceRange(`\n${code}\n`, cursor);
@@ -1998,6 +2142,7 @@ function copyFigureCode() {
 function insertFigureAtCursor() {
   const code = document.getElementById('fig-code-preview').value;
   if (!code) return;
+  ensureLaTeXPackages(['graphicx']);
   if (editor) {
     const cursor = editor.getCursor();
     editor.replaceRange(`\n${code}\n`, cursor);
@@ -2035,14 +2180,74 @@ async function runAITool(instruction, title) {
   }
 }
 
+// Automatic LaTeX Package Preamble Support
+function ensureLaTeXPackages(packages) {
+  if (!editor || !packages || !Array.isArray(packages) || packages.length === 0) return;
+
+  const currentCode = editor.getValue();
+  const missing = [];
+
+  packages.forEach(pkg => {
+    const regex = new RegExp(`\\\\usepackage\\s*(?:\\[[^\\]]*\\])?\\s*\\{${pkg}\\}`, 'i');
+    if (!regex.test(currentCode)) {
+      missing.push(pkg);
+    }
+  });
+
+  if (missing.length === 0) return;
+
+  const pkgLines = missing.map(p => `\\usepackage{${p}}`).join('\n');
+  let newCode = currentCode;
+
+  if (newCode.includes('\\begin{document}')) {
+    newCode = newCode.replace('\\begin{document}', `${pkgLines}\n\\begin{document}`);
+  } else if (newCode.includes('\\documentclass')) {
+    newCode = newCode.replace(/(\\documentclass\{[^}]+\}.*\n)/, `$1${pkgLines}\n`);
+  } else {
+    newCode = `${pkgLines}\n\n${newCode}`;
+  }
+
+  const cursor = editor.getCursor();
+  editor.setValue(newCode);
+  editor.setCursor({ line: cursor.line + missing.length, ch: cursor.ch });
+
+  const toastMsg = `Auto-inserted package(s): ${missing.map(p => '\\usepackage{' + p + '}').join(', ')}`;
+  if (typeof showToast === 'function') {
+    showToast(toastMsg, 'info');
+  } else {
+    console.log(toastMsg);
+  }
+}
+
+function checkAutoPackageSupport(text) {
+  if (!text) return;
+  const pkgs = [];
+  if (text.includes('\\begin{table}') || text.includes('\\toprule') || text.includes('\\multirow')) {
+    pkgs.push('booktabs', 'multirow', 'array');
+  }
+  if (text.includes('\\begin{figure}') || text.includes('\\includegraphics')) {
+    pkgs.push('graphicx');
+  }
+  if (text.includes('\\begin{equation}') || text.includes('\\begin{align}') || text.includes('\\mathbb')) {
+    pkgs.push('amsmath', 'amssymb');
+  }
+  if (pkgs.length > 0) {
+    ensureLaTeXPackages(pkgs);
+  }
+}
+
 // Helper snippet insertions
 function insertLaTeX(start, end) {
+  if (start.includes('equation') || start.includes('align')) {
+    ensureLaTeXPackages(['amsmath', 'amssymb']);
+  }
   const selection = editor.getSelection();
   editor.replaceSelection(start + selection + end);
   editor.focus();
 }
 
 function insertTableSnippet() {
+  ensureLaTeXPackages(['booktabs', 'multirow', 'array']);
   const tableSnippet = `\\begin{table}[h]
 \\centering
 \\begin{tabular}{cc}

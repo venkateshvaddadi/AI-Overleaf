@@ -1747,7 +1747,57 @@ li.CodeMirror-hint-active {
   padding: 3px 10px;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+
+/* Interactive Project Loader Modal Styles */
+.loader-avatar-ring {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(168, 85, 247, 0.1);
+  border-radius: 50%;
+  border: 2px solid rgba(168, 85, 247, 0.2);
 }
+
+.loader-icon-pulse {
+  font-size: 2rem;
+  color: #c084fc;
+  animation: pulseScale 1.5s ease-in-out infinite;
+}
+
+.loader-spinner-ring {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  right: -6px;
+  bottom: -6px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: #a855f7;
+  border-right-color: #6366f1;
+  animation: spinRing 1s linear infinite;
+}
+
+@keyframes spinRing {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulseScale {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 8px #a855f7); }
+}
+
+.project-card.opening-pulse {
+  outline: 2px solid var(--accent-purple) !important;
+  box-shadow: 0 0 25px rgba(168, 85, 247, 0.45) !important;
+  transform: scale(0.98);
+  transition: all 0.15s ease;
+}
+
 
 
 
