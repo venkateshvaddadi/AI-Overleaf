@@ -1015,7 +1015,11 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                         with open(pdf_filepath, 'rb') as f:
                             return save_and_return_pdf(f.read(), log_output, ('LaTeX errors' if has_err else None))
 
-                    return get_fallback_cached_pdf(log_output, 'Compilation error')
+                    # If PDF generation failed on current pass, return cached PDF preview if available
+                    cached_pdf_bytes, cached_log, _ = get_fallback_cached_pdf(log_output, 'Compilation error')
+                    if cached_pdf_bytes:
+                        return cached_pdf_bytes, cached_log, 'LaTeX errors'
+                    return None, log_output, 'Compilation error'
                 except Exception as e2:
                     return get_fallback_cached_pdf(log_output + f'\nCompilation pass exception: {e2}', 'Compilation exception')
             elif os.path.exists('/usr/bin/pdflatex'):
