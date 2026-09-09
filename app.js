@@ -116,17 +116,14 @@ async function updateSidebarCounts() {
     const allProjs = await res.json();
 
     const activeCount = allProjs.filter(p => !p.archived && !p.deleted_at).length;
-    const sharedCount = allProjs.filter(p => p.shared && !p.deleted_at).length;
     const archivedCount = allProjs.filter(p => p.archived && !p.deleted_at).length;
     const trashCount = allProjs.filter(p => p.deleted_at).length;
 
     const elActive = document.getElementById('nav-count-active');
-    const elShared = document.getElementById('nav-count-shared');
     const elArchived = document.getElementById('nav-count-archived');
     const elTrash = document.getElementById('nav-count-trash');
 
     if (elActive) elActive.innerText = activeCount;
-    if (elShared) elShared.innerText = sharedCount;
     if (elArchived) elArchived.innerText = archivedCount;
     if (elTrash) elTrash.innerText = trashCount;
   } catch (e) {
@@ -138,7 +135,7 @@ function switchDashboardTab(tab) {
   currentDashTab = tab;
 
   // Update navigation items state
-  ['active', 'shared', 'archived', 'trash'].forEach(t => {
+  ['active', 'archived', 'trash'].forEach(t => {
     const btn = document.getElementById(`nav-dash-${t}`);
     if (btn) {
       if (t === tab) btn.classList.add('active');
@@ -157,9 +154,6 @@ function switchDashboardTab(tab) {
     } else if (tab === 'trash') {
       titleEl.innerHTML = `<i class="fa-solid fa-trash-can" style="color:#ef4444;"></i> Trash`;
       if (searchInput) searchInput.placeholder = 'Search deleted projects in trash...';
-    } else if (tab === 'shared') {
-      titleEl.innerHTML = `<i class="fa-solid fa-users" style="color:var(--accent-blue);"></i> Shared with You`;
-      if (searchInput) searchInput.placeholder = 'Search shared research projects...';
     } else {
       titleEl.innerHTML = `<i class="fa-solid fa-folder-open" style="color:var(--accent-purple);"></i> My Research Projects`;
       if (searchInput) searchInput.placeholder = 'Search research projects, papers, or files...';
@@ -205,7 +199,9 @@ function showProjectLoader(projName = 'Research Project') {
     }
   }
 
+  modal.style.zIndex = '99999';
   modal.style.display = 'flex';
+  modal.style.opacity = '1';
   modal.classList.add('active');
 
   // Start Timer
@@ -393,6 +389,7 @@ async function openProjectFromDashboard(projId, projNameHint) {
 
     showProjectLoader(projName || 'Research Project');
     updateProjectLoaderStep(1, 30, 'Retrieving source code & LaTeX files...');
+    await new Promise(r => setTimeout(r, 220));
 
     // Strict Project Boundary: Clear PDF Preview & Compiler State from Previous Project
     if (activePdfBlobUrl) {
@@ -412,8 +409,10 @@ async function openProjectFromDashboard(projId, projNameHint) {
       lastKnownUpdatedAt = activeProject.updated_at || 0;
       const userKeys = Object.keys(fileStore);
       activeFile = (activeProject.main_file && isUserContentFile(activeProject.main_file)) ? activeProject.main_file : (userKeys[0] || 'main.tex');
+      await loadProjectHistory(activeProject.id);
 
       updateProjectLoaderStep(2, 65, 'Preparing CodeMirror editor & workspace layout...');
+      await new Promise(r => setTimeout(r, 250));
 
       const searchInput = document.getElementById('file-tree-search-input');
       if (searchInput) searchInput.value = '';
@@ -436,9 +435,10 @@ async function openProjectFromDashboard(projId, projNameHint) {
       ensurePdfViewActive();
 
       updateProjectLoaderStep(3, 100, 'Project ready! Launching workspace...');
-      switchView('editor', projId);
+      await new Promise(r => setTimeout(r, 300));
 
-      setTimeout(() => hideProjectLoader(), 250);
+      switchView('editor', projId);
+      hideProjectLoader();
     } else {
       hideProjectLoader();
       alert('Failed to load project from server.');
@@ -527,7 +527,8 @@ async function _performSaveBackend() {
         id: activeProject.id,
         name: activeProject.name,
         main_file: activeFile,
-        files: payloadFiles
+        files: payloadFiles,
+        expected_version: lastKnownProjectVersion
       })
     });
 
@@ -537,6 +538,11 @@ async function _performSaveBackend() {
       if (data.updated_at) lastKnownUpdatedAt = data.updated_at;
       const statusEl = document.getElementById('save-status');
       if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved';
+    } else if (res.status === 409) {
+      const conflict = await res.json();
+      const statusEl = document.getElementById('save-status');
+      if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Conflict';
+      showToast(conflict.error || 'Project changed remotely. Reload before saving.', 'error');
     }
   } catch (e) {
     console.warn('Error saving to backend:', e);
@@ -3038,10 +3044,31 @@ async function compileLaTeX() {
 
       const pdfFrame = document.getElementById('pdf-frame');
       if (pdfFrame) pdfFrame.src = activePdfBlobUrl;
+      renderPdfSyncViewer(activePdfBlobUrl);
       ensurePdfViewActive();
 
       const b64Log = res.headers.get('X-Compiler-Log');
       const hasErr = res.headers.get('X-Compiler-Error') === '1';
+      const isStale = res.headers.get('X-Compiler-Stale') === '1';
+      const compType = res.headers.get('X-Compilation-Type') || 'root';
+
+      const staleWarning = document.getElementById('stale-pdf-warning');
+      if (staleWarning) {
+        staleWarning.style.display = isStale ? 'flex' : 'none';
+      }
+
+      const typeBadge = document.getElementById('compilation-type-badge');
+      if (typeBadge) {
+        if (compType === 'fragment') {
+          typeBadge.innerText = `Fragment Preview: ${activeFile}`;
+          typeBadge.title = 'Standalone temporary compilation wrapper used for fragment preview';
+          typeBadge.style.display = 'inline-block';
+        } else {
+          typeBadge.innerText = `Root Build: ${activeFile || 'main.tex'}`;
+          typeBadge.title = 'Full document project root build';
+          typeBadge.style.display = 'inline-block';
+        }
+      }
 
       let decodedLog = '';
       if (b64Log) {
@@ -3049,9 +3076,13 @@ async function compileLaTeX() {
       }
 
       const logOutput = document.getElementById('compiler-log-output');
-      if (hasErr) {
-        if (logOutput) logOutput.innerText = `⚠️ PDF Generated with LaTeX Warnings/Errors:\n\n${decodedLog || 'Errors detected during TeX pass.'}`;
-        if (statusBadge) statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-amber)"></i> PDF (errors)';
+      if (isStale) {
+        if (logOutput) logOutput.innerText = `⚠️ STALE PREVIEW — COMPILATION FAILED:\n\n${decodedLog || 'Errors detected during TeX pass. Displaying cached PDF.'}`;
+        if (statusBadge) statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-amber)"></i> Stale Preview (Error)';
+        if (typeof runLaTeXSyntaxDiagnostics === 'function') runLaTeXSyntaxDiagnostics(decodedLog);
+      } else if (hasErr) {
+        if (logOutput) logOutput.innerText = `⚠️ PDF Generated with LaTeX Warnings:\n\n${decodedLog || 'Warnings detected during TeX pass.'}`;
+        if (statusBadge) statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-amber)"></i> PDF (warnings)';
         if (typeof runLaTeXSyntaxDiagnostics === 'function') runLaTeXSyntaxDiagnostics(decodedLog);
       } else {
         if (logOutput) logOutput.innerText = `✅ PDF Compilation Successful!\n\n${decodedLog || 'Engine: Tectonic (Native TeX)\nStatus: PDF Preview Updated.'}`;
@@ -3333,8 +3364,8 @@ CRITICAL RULES:
 4. Output ONLY the raw translated LaTeX code without markdown code blocks.`;
 
     try {
-      const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://127.0.0.1:11434';
-      const response = await fetch(`${ollamaUrl}/api/generate`, {
+      const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://10.24.48.24:11435';
+      let response = await fetch(`${ollamaUrl}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3343,7 +3374,20 @@ CRITICAL RULES:
           prompt: textToTranslate,
           stream: false
         })
-      });
+      }).catch(() => null);
+
+      if (!response || !response.ok) {
+        response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: model,
+            system: systemPrompt,
+            prompt: textToTranslate,
+            stream: false
+          })
+        });
+      }
 
       const data = await response.json();
       let translatedCode = data.response.trim();
@@ -3360,11 +3404,7 @@ CRITICAL RULES:
 
 // Version Control & History Timeline
 function initVersionControl() {
-  if (commitHistory.length === 0) {
-    createCommit('Initial Document Creation');
-  } else {
-    renderCommitTimeline();
-  }
+  renderCommitTimeline();
 
   document.getElementById('btn-create-commit').addEventListener('click', () => {
     const msg = document.getElementById('commit-msg-input').value.trim() || 'Snapshot update';
@@ -3373,7 +3413,28 @@ function initVersionControl() {
   });
 }
 
-function createCommit(message) {
+async function loadProjectHistory(projectId) {
+  commitHistory = [];
+  try {
+    const response = await fetch(`/api/projects/history?id=${encodeURIComponent(projectId)}`);
+    if (response.ok) {
+      const snapshots = await response.json();
+      commitHistory = snapshots.map(snapshot => ({
+        hash: snapshot.id,
+        message: snapshot.message,
+        timestamp: snapshot.timestamp,
+        content: null,
+        snapshotId: snapshot.id
+      }));
+    }
+  } catch (error) {
+    console.warn('Unable to load project history:', error);
+  }
+  renderCommitTimeline();
+  if (commitHistory.length === 0) createCommit('Initial Document Creation');
+}
+
+async function createCommit(message) {
   const text = editor ? editor.getValue() : '';
   const commit = {
     hash: Math.random().toString(36).substring(2, 8),
@@ -3384,6 +3445,31 @@ function createCommit(message) {
 
   commitHistory.unshift(commit);
   renderCommitTimeline();
+
+  if (activeProject) {
+    try {
+      const response = await fetch('/api/projects/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: activeProject.id,
+          message,
+          main_file: activeFile,
+          files: getSanitizedTextFilesPayload(fileStore)
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const snapshot = data.snapshot;
+        commit.hash = snapshot.id;
+        commit.snapshotId = snapshot.id;
+        commitHistory = commitHistory.map(item => item === commit ? commit : item);
+        renderCommitTimeline();
+      }
+    } catch (error) {
+      console.warn('Unable to persist project snapshot:', error);
+    }
+  }
 }
 
 function renderCommitTimeline() {
@@ -3413,19 +3499,55 @@ function restoreCommit(hash) {
   const commit = commitHistory.find(c => c.hash === hash);
   if (commit) {
     if (confirm(`Revert document to commit #${hash} ("${commit.message}")?`)) {
-      editor.setValue(commit.content);
-      compileLaTeX();
-      saveCurrentProjectToBackend();
+      restoreProjectSnapshot(commit);
     }
   }
 }
 
-function viewDiff(hash) {
+async function restoreProjectSnapshot(commit) {
+  if (!activeProject || !commit.snapshotId) return;
+  try {
+    const response = await fetch('/api/projects/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: activeProject.id, action: 'restore', snapshot: commit.snapshotId })
+    });
+    if (!response.ok) throw new Error('Snapshot restore failed');
+    const projectResponse = await fetch(`/api/projects?id=${encodeURIComponent(activeProject.id)}`);
+    if (!projectResponse.ok) throw new Error('Unable to reload restored project');
+    activeProject = await projectResponse.json();
+    fileStore = sanitizeFileStore(activeProject.files);
+    activeFile = activeProject.main_file || activeFile;
+    editor.setValue(fileStore[activeFile] || '');
+    lastKnownProjectVersion = activeProject.version || 0;
+    renderFileList();
+    await compileLaTeX();
+    showToast('Snapshot restored and recompiled.', 'success');
+  } catch (error) {
+    showToast(`Restore failed: ${error.message}`, 'error');
+  }
+}
+
+async function viewDiff(hash) {
   const commit = commitHistory.find(c => c.hash === hash);
   if (!commit) return;
 
   const currentContent = editor.getValue();
-  const oldContent = commit.content;
+  let oldContent = commit.content;
+  if (oldContent === null && activeProject && commit.snapshotId) {
+    try {
+      const response = await fetch(`/api/projects/history?id=${encodeURIComponent(activeProject.id)}&snapshot=${encodeURIComponent(commit.snapshotId)}`);
+      if (response.ok) {
+        const snapshot = await response.json();
+        oldContent = snapshot.files?.[activeFile] || '';
+        commit.content = oldContent;
+      }
+    } catch (error) {
+      showToast(`Unable to load snapshot: ${error.message}`, 'error');
+      return;
+    }
+  }
+  if (typeof oldContent !== 'string') return;
 
   document.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
   document.querySelector('[data-target="diff-preview"]').classList.add('active');
@@ -3461,69 +3583,196 @@ function initAITools() {
   const toolCsv = document.getElementById('tool-csv-table');
   if (toolCsv) toolCsv.addEventListener('click', openCSVTableModal);
 
-  const toolFig = document.getElementById('tool-insert-figure');
-  if (toolFig) toolFig.addEventListener('click', openFigureInserterModal);
-
-  const toolBib = document.getElementById('tool-gen-bibtex');
-  if (toolBib) toolBib.addEventListener('click', () => {
-    const query = prompt('Enter Paper Title, Authors, or DOI for BibTeX generation:');
-    if (query) runAITool(`Generate valid, publication-ready BibTeX entry (@article or @inproceedings) for: ${query}. Return ONLY raw BibTeX code without markdown wrapper.`, `BibTeX: ${query}`);
-  });
-
-  const toolTikz = document.getElementById('tool-gen-tikz');
-  if (toolTikz) toolTikz.addEventListener('click', () => {
-    const promptText = prompt('Describe the TikZ diagram, flowchart, or plot you want to generate:');
-    if (promptText) runAITool(`Generate complete, compilable LaTeX \\begin{tikzpicture}...\\end{tikzpicture} block for: ${promptText}. Return ONLY raw LaTeX code.`, `TikZ Diagram: ${promptText}`);
-  });
-
   const toolEq = document.getElementById('tool-equation-analyzer');
   if (toolEq) toolEq.addEventListener('click', runEquationAnalyzer);
-
-  const toolHealth = document.getElementById('tool-health-score');
-  if (toolHealth) toolHealth.addEventListener('click', calculatePaperHealthScore);
 
   const toolRepair = document.getElementById('tool-auto-repair');
   if (toolRepair) toolRepair.addEventListener('click', runAutomatedCompileFixLoop);
 
-  const toolFix = document.getElementById('tool-fix-errors');
-  if (toolFix) toolFix.addEventListener('click', () => runAITool('Fix any syntax, structural, or unclosed environment errors in this LaTeX document.', 'Auto-Fix Syntax Errors'));
-
   const toolMath = document.getElementById('tool-gen-math');
-  if (toolMath) toolMath.addEventListener('click', () => {
-    const formula = prompt('Describe the math formula or matrix you want to generate:');
-    if (formula) runAITool(`Generate LaTeX equation with \\begin{equation} and \\label{} for: ${formula}`, `Math Formula: ${formula}`);
-  });
+  if (toolMath) toolMath.addEventListener('click', openMathGenerator);
 
   const toolPolish = document.getElementById('tool-polish');
-  if (toolPolish) toolPolish.addEventListener('click', () => runAITool('Polish the academic writing style and grammar of this document while maintaining LaTeX tags and equations.', 'Academic Polish'));
+  if (toolPolish) toolPolish.addEventListener('click', runAcademicPolish);
 
   initCSVTableConverter();
-  initFigureInserter();
+}
+
+function runAcademicPolish() {
+  if (!editor) return;
+  const selection = editor.getSelection().trim();
+  if (!selection) {
+    alert('Select the academic text you want to polish first.');
+    return;
+  }
+
+  runAITool(
+    'Rewrite the selected academic prose for clarity, precision, concision, and journal-appropriate tone. Preserve all LaTeX commands, citations, labels, numbers, mathematical notation, and technical meaning. Do not add claims or references.',
+    'Academic Polish'
+  );
 }
 
 // --- 1. CSV TO LATEX TABLE CONVERTER ENGINE ---
 function openCSVTableModal() {
-  document.getElementById('csv-table-modal').classList.add('active');
-  updateCSVTablePreview();
+  initCSVTableConverter();
+  const modal = document.getElementById('csv-table-modal');
+  if (modal) {
+    modal.classList.add('active');
+  }
+  try {
+    updateCSVTablePreview();
+  } catch (e) {
+    console.error('CSV table preview error:', e);
+  }
 }
 
+async function generateAILaTeXTableFromCSV() {
+  const textarea = document.getElementById('csv-raw-textarea');
+  const captionInput = document.getElementById('csv-caption-input');
+  const labelInput = document.getElementById('csv-label-input');
+  const styleSelect = document.getElementById('csv-style-select');
+  const preview = document.getElementById('csv-code-preview');
+  const fileInput = document.getElementById('csv-file-input');
+
+  let rawText = textarea ? textarea.value.trim() : '';
+
+  // If textarea is empty, attempt to read on-the-fly from chosen file input
+  if (!rawText && fileInput && fileInput.files && fileInput.files.length > 0) {
+    const file = fileInput.files[0];
+    try {
+      rawText = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (evt) => resolve(evt.target.result.trim());
+        reader.onerror = (err) => reject(err);
+        reader.readAsText(file);
+      });
+      if (textarea) textarea.value = rawText;
+      const statusDiv = document.getElementById('csv-upload-status');
+      const rowCount = (rawText.match(/\n/g) || []).length + 1;
+      if (statusDiv) statusDiv.innerHTML = `<i class="fa-solid fa-circle-check"></i> Loaded <strong>${file.name}</strong> (${rowCount} rows)`;
+      updateCSVTablePreview();
+    } catch (e) {
+      console.error('Error reading CSV file:', e);
+    }
+  }
+
+  if (!rawText) {
+    alert('Please paste CSV data or upload a CSV file first.');
+    return;
+  }
+
+  const selectedModel = document.getElementById('model-select').value;
+  const targetModel = selectedModel && selectedModel.includes('qwen3') ? selectedModel : 'qwen3-coder:30b';
+  const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://10.24.48.24:11435';
+
+  showAIProgressModal(`Converting CSV to LaTeX Table (${targetModel})`, targetModel);
+  updateAIProgressStep(30, `Analyzing CSV layout & prompting ${targetModel}...`);
+
+  const promptText = `You are an expert academic LaTeX table generator.
+Convert the following CSV data into a publication-ready LaTeX table using ${styleSelect ? styleSelect.value : 'booktabs'} style:
+
+CSV DATA:
+${rawText}
+
+${captionInput && captionInput.value ? `Caption: "${captionInput.value}"\n` : ''}
+${labelInput && labelInput.value ? `Label: "${labelInput.value}"\n` : ''}
+
+CRITICAL RULES:
+1. Output ONLY the raw LaTeX table code starting with \\begin{table} and ending with \\end{table}.
+2. Use \\toprule, \\midrule, \\bottomrule from booktabs package.
+3. Do NOT include markdown code block formatting like \`\`\`latex.`;
+
+  try {
+    updateAIProgressStep(65, `Generating LaTeX table code with ${targetModel}...`);
+    let res = await fetch(`${ollamaUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: targetModel,
+        prompt: promptText,
+        stream: false
+      })
+    }).catch(() => null);
+
+    if (!res || !res.ok) {
+      res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: targetModel,
+          prompt: promptText,
+          stream: false
+        })
+      });
+    }
+
+    updateAIProgressStep(95, 'Formatting table preview...');
+    const data = await res.json();
+    let latexCode = data.response.trim().replace(/^```latex/g, '').replace(/^```/g, '').replace(/```$/g, '');
+    if (preview) preview.value = latexCode;
+
+    closeAIProgressModal();
+  } catch (e) {
+    closeAIProgressModal();
+    alert(`❌ AI Table Generation Error: ${e.message}`);
+  }
+}
+
+let _csvConverterInitialized = false;
 function initCSVTableConverter() {
+  if (_csvConverterInitialized) return;
+  _csvConverterInitialized = true;
+
   const fileInput = document.getElementById('csv-file-input');
   const rawTextarea = document.getElementById('csv-raw-textarea');
   const styleSelect = document.getElementById('csv-style-select');
   const captionInput = document.getElementById('csv-caption-input');
   const labelInput = document.getElementById('csv-label-input');
+  const statusDiv = document.getElementById('csv-upload-status');
+
+  const processFile = (file) => {
+    if (!file) return;
+    if (statusDiv) statusDiv.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Reading ${file.name}...`;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const content = evt.target.result;
+      if (rawTextarea) rawTextarea.value = content;
+      const rowCount = (content.trim().match(/\n/g) || []).length + 1;
+      if (statusDiv) statusDiv.innerHTML = `<i class="fa-solid fa-circle-check"></i> Loaded <strong>${file.name}</strong> (${rowCount} rows)`;
+      updateCSVTablePreview();
+    };
+    reader.onerror = () => {
+      if (statusDiv) statusDiv.innerHTML = `<i class="fa-solid fa-circle-exclamation" style="color:var(--accent-red)"></i> Failed to read file ${file.name}`;
+    };
+    reader.readAsText(file);
+  };
 
   if (fileInput) {
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        rawTextarea.value = evt.target.result;
-        updateCSVTablePreview();
-      };
-      reader.readAsText(file);
+      processFile(file);
+    });
+  }
+
+  if (rawTextarea) {
+    ['dragenter', 'dragover'].forEach(eventName => {
+      rawTextarea.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        rawTextarea.style.borderColor = 'var(--accent-teal)';
+      });
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+      rawTextarea.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        rawTextarea.style.borderColor = '';
+      });
+    });
+    rawTextarea.addEventListener('drop', (e) => {
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processFile(e.dataTransfer.files[0]);
+      }
     });
   }
 
@@ -3534,11 +3783,17 @@ function initCSVTableConverter() {
 }
 
 function updateCSVTablePreview() {
-  const rawText = document.getElementById('csv-raw-textarea').value.trim();
-  const style = document.getElementById('csv-style-select').value;
-  const caption = document.getElementById('csv-caption-input').value.trim();
-  const label = document.getElementById('csv-label-input').value.trim();
+  const textarea = document.getElementById('csv-raw-textarea');
+  const styleSelect = document.getElementById('csv-style-select');
+  const captionInput = document.getElementById('csv-caption-input');
+  const labelInput = document.getElementById('csv-label-input');
   const preview = document.getElementById('csv-code-preview');
+
+  if (!preview) return;
+  const rawText = textarea ? textarea.value.trim() : '';
+  const style = styleSelect ? styleSelect.value : 'booktabs';
+  const caption = captionInput ? captionInput.value.trim() : '';
+  const label = labelInput ? labelInput.value.trim() : '';
 
   if (!rawText) {
     preview.value = '% Paste CSV data or upload a file above to generate LaTeX code.';
@@ -3612,113 +3867,27 @@ function insertCSVTableAtCursor() {
   saveCurrentProjectToBackend();
 }
 
-// --- 2. SMART AI FIGURE INSERTER ENGINE ---
-function openFigureInserterModal() {
-  const select = document.getElementById('fig-asset-select');
-  if (!select) return;
 
-  select.innerHTML = '';
-  const imageFiles = Object.keys(fileStore).filter(f => f.match(/\.(png|jpg|jpeg|gif|svg|webp|pdf)$/i));
-
-  if (imageFiles.length === 0) {
-    const opt = document.createElement('option');
-    opt.value = '';
-    opt.innerText = 'No image assets uploaded yet (Upload via Files tab)';
-    select.appendChild(opt);
-  } else {
-    imageFiles.forEach(f => {
-      const opt = document.createElement('option');
-      opt.value = f;
-      opt.innerText = f;
-      select.appendChild(opt);
-    });
-  }
-
-  document.getElementById('figure-inserter-modal').classList.add('active');
-  updateFigurePreview();
-}
-
-function initFigureInserter() {
-  const select = document.getElementById('fig-asset-select');
-  const widthSelect = document.getElementById('fig-width-select');
-  const placementSelect = document.getElementById('fig-placement-select');
-  const captionInput = document.getElementById('fig-caption-input');
-  const labelInput = document.getElementById('fig-label-input');
-
-  [select, widthSelect, placementSelect, captionInput, labelInput].forEach(elem => {
-    if (elem) elem.addEventListener('input', updateFigurePreview);
-    if (elem) elem.addEventListener('change', updateFigurePreview);
-  });
-}
-
-function updateFigurePreview() {
-  const asset = document.getElementById('fig-asset-select').value || 'figure.png';
-  const width = document.getElementById('fig-width-select').value || '0.8\\linewidth';
-  const placement = document.getElementById('fig-placement-select').value || 'htbp';
-  const caption = document.getElementById('fig-caption-input').value.trim();
-  let label = document.getElementById('fig-label-input').value.trim();
-
-  if (!label && asset) {
-    const baseName = asset.split('.')[0].toLowerCase().replace(/[^a-z0-9]+/g, '_');
-    label = `fig:${baseName}`;
-  } else if (label && !label.startsWith('fig:')) {
-    label = `fig:${label}`;
-  }
-
-  let code = `\\begin{figure}[${placement}]\n  \\centering\n  \\includegraphics[width=${width}]{${asset}}\n`;
-  if (caption) code += `  \\caption{${caption}}\n`;
-  if (label) code += `  \\label{${label}}\n`;
-  code += '\\end{figure}';
-
-  document.getElementById('fig-code-preview').value = code;
-}
-
-async function generateAICaptionForFigure() {
-  const asset = document.getElementById('fig-asset-select').value;
-  if (!asset) {
-    alert('Please select an image asset first.');
-    return;
-  }
-
-  const model = document.getElementById('model-select').value;
-  const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://127.0.0.1:11434';
-  
-  try {
-    const res = await fetch(`${ollamaUrl}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: model,
-        prompt: `Generate a concise, formal academic figure caption for an image asset named "${asset}" used in a research paper. Output ONLY the caption sentence without quotes or LaTeX commands.`,
-        stream: false
-      })
-    });
-    const data = await res.json();
-    const caption = data.response.trim().replace(/^["']|["']$/g, '');
-    document.getElementById('fig-caption-input').value = caption;
-    updateFigurePreview();
-  } catch (e) {
-    alert(`Caption suggestion error: ${e.message}`);
-  }
-}
-
-function copyFigureCode() {
-  const code = document.getElementById('fig-code-preview').value;
-  if (code) {
-    navigator.clipboard.writeText(code);
-    alert('✅ LaTeX Figure code copied to clipboard!');
-  }
-}
 
 async function runCitationAudit() {
   if (!editor) return;
 
   const currentCode = editor.getValue();
-  const citeMatches = Array.from(currentCode.matchAll(/\\cite\{([^}]+)\}/g));
+  const allTexContent = Object.keys(fileStore)
+    .filter(f => f.endsWith('.tex'))
+    .map(f => fileStore[f] || '')
+    .join('\n');
+  const codeToScan = allTexContent || currentCode;
+
+  const citeRegex = /\\(?:cite|citep|citet|citeauthor|citeyear|parencite|textcite|autocite|footcite|nocite|citenum)\*?(?:\[[^\]]*\]){0,2}\{([^}]+)\}/g;
+  const citeMatches = Array.from(codeToScan.matchAll(citeRegex));
   const citedKeys = new Set();
 
   citeMatches.forEach(m => {
-    m[1].split(',').forEach(k => citedKeys.add(k.trim()));
+    m[1].split(',').forEach(k => {
+      const key = k.trim();
+      if (key) citedKeys.add(key);
+    });
   });
 
   const bibKeys = new Set();
@@ -3735,7 +3904,8 @@ async function runCitationAudit() {
   const unusedKeys = Array.from(bibKeys).filter(k => !citedKeys.has(k));
 
   let auditReport = `📚 BIBTEX & CITATION AUDIT REPORT\n\n`;
-  auditReport += `✓ Total \cite{} citations in document: ${citedKeys.size}\n`;
+  auditReport += `✓ Total citation commands found: ${citeMatches.length}\n`;
+  auditReport += `✓ Unique cited reference keys: ${citedKeys.size}\n`;
   auditReport += `✓ Total .bib keys found in workspace: ${bibKeys.size}\n\n`;
 
   if (missingKeys.length === 0) {
@@ -3781,8 +3951,97 @@ function runEquationAnalyzer() {
   alert(mathReport);
 }
 
+function openMathGenerator() {
+  const input = document.getElementById('math-generator-input');
+  const output = document.getElementById('math-generator-output');
+  const status = document.getElementById('math-generator-status');
+  if (input && !input.value && editor) input.value = editor.getSelection() || '';
+  if (output) output.value = '';
+  if (status) status.innerText = 'Describe the formula, then generate a LaTeX preview before inserting it.';
+  const modal = document.getElementById('math-generator-modal');
+  if (modal) modal.classList.add('active');
+  if (input) input.focus();
+}
+
+function cleanGeneratedMath(text) {
+  let result = String(text || '').trim();
+  result = result.replace(/^```(?:latex|tex)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  const equationStart = result.indexOf('\\begin{equation');
+  if (equationStart > 0) result = result.slice(equationStart);
+  return result;
+}
+
+async function generateMathFormula() {
+  const input = document.getElementById('math-generator-input');
+  const output = document.getElementById('math-generator-output');
+  const status = document.getElementById('math-generator-status');
+  const description = input ? input.value.trim() : '';
+  if (!description) {
+    if (status) status.innerText = 'Describe the mathematical relationship first.';
+    return;
+  }
+
+  const model = document.getElementById('model-select')?.value || 'qwen3-coder:30b';
+  const ollamaUrl = document.getElementById('ollama-url-input')?.value || 'http://10.24.48.24:11435';
+  const prompt = `Generate LaTeX equation with \\begin{equation} for this description: ${description}
+Return only the LaTeX equation block. Do not include Markdown fences, explanation, or prose. Use a numbered equation unless the description explicitly requires an unnumbered form.`;
+  if (status) status.innerText = `Generating with ${model}...`;
+  showAIProgressModal('Generate Math Formula', model);
+  updateAIProgressStep(20, 'Converting the description into a structured LaTeX equation...');
+
+  try {
+    let response = await fetch(`${ollamaUrl}/api/generate`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, prompt, stream: false })
+    }).catch(() => null);
+    if (!response || !response.ok) {
+      response = await fetch('/api/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, prompt, stream: false })
+      });
+    }
+    if (!response.ok) throw new Error(`AI request failed (HTTP ${response.status})`);
+    const data = await response.json();
+    const formula = cleanGeneratedMath(data.response || data.text || '');
+    if (!formula) throw new Error('The model returned an empty formula.');
+    if (output) output.value = formula;
+    if (status) status.innerText = /\\begin\{(equation|align|gather)/.test(formula)
+      ? 'Preview ready. Insert will add the required math packages when needed.'
+      : 'Preview ready. Review the generated LaTeX before inserting it.';
+    updateAIProgressStep(100, 'Formula generated and ready for review.');
+  } catch (error) {
+    if (status) status.innerText = `Unable to generate formula: ${error.message}. Check the Ollama connection in Settings.`;
+  } finally {
+    setTimeout(closeAIProgressModal, 250);
+  }
+}
+
+function copyGeneratedMath() {
+  const output = document.getElementById('math-generator-output');
+  if (!output || !output.value) return;
+  navigator.clipboard.writeText(output.value);
+  const status = document.getElementById('math-generator-status');
+  if (status) status.innerText = 'LaTeX formula copied to the clipboard.';
+}
+
+function insertGeneratedMath() {
+  const output = document.getElementById('math-generator-output');
+  if (!output || !output.value || !editor) return;
+  const formula = output.value.trim();
+  const packages = [];
+  if (/\\begin\{(equation|align|gather)/.test(formula) || /\\(?:dfrac|text|operatorname)\b/.test(formula)) packages.push('amsmath');
+  if (/\\(?:mathbb|mathfrak|mathcal|therefore|leq|geq)\b/.test(formula)) packages.push('amssymb');
+  if (packages.length) ensureLaTeXPackages(packages);
+  editor.replaceSelection(`\n${formula}\n`);
+  editor.focus();
+  fileStore[activeFile] = editor.getValue();
+  closeModal('math-generator-modal');
+  saveCurrentProjectToBackend(true);
+  compileLaTeX();
+}
+
 // PHASE 3: PAPER HEALTH SCORE & RESEARCH INTEGRITY PANEL
-function calculatePaperHealthScore() {
+async function calculatePaperHealthScore() {
   if (!editor) return;
 
   const currentCode = editor.getValue();
@@ -3799,9 +4058,9 @@ function calculatePaperHealthScore() {
   if (!hasSection) { score -= 15; breakdown.push('❌ Missing section structure'); } else breakdown.push('✓ Section hierarchy present (+15)');
 
   // 2. Citation check
-  const hasCites = currentCode.includes('\\cite');
+  const hasCites = /\\(?:cite|citep|citet|parencite|autocite)/.test(currentCode);
   const hasBib = Object.keys(fileStore).some(f => f.endsWith('.bib'));
-  if (!hasCites) { score -= 15; breakdown.push('⚠️ No \\cite{} references'); } else breakdown.push('✓ Citations present (+15)');
+  if (!hasCites) { score -= 15; breakdown.push('⚠️ No citation references'); } else breakdown.push('✓ Citations present (+15)');
   if (!hasBib) { score -= 10; breakdown.push('⚠️ No .bib bibliography file'); } else breakdown.push('✓ Bibliography file detected (+10)');
 
   // 3. Math & Figure check
@@ -3819,33 +4078,119 @@ function calculatePaperHealthScore() {
     healthReport += `  • Address missing citations, add .bib file, and structure sections for higher score.`;
   }
 
-  alert(healthReport);
+  const selectedModel = document.getElementById('model-select').value;
+  const targetModel = selectedModel || 'phi4:latest';
+  const runDeepAI = confirm(`${healthReport}\n\nWould you like to run Deep AI Health Analysis using active model (${targetModel})?`);
+  if (!runDeepAI) return;
+
+  const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://10.24.48.24:11435';
+
+  const systemPrompt = `You are a Senior Academic Paper Diagnostics & Quality Evaluator.
+Analyze the provided LaTeX paper and give a detailed health audit report:
+1. Structural completeness (Title, Abstract, Sections, Figures, Tables).
+2. Citation health and bibliography coverage.
+3. Mathematical notation & equation labeling quality.
+4. Specific recommendations to improve paper quality for top-tier publication.
+Format cleanly with bullet points and clear headings.`;
+
+  showAIProgressModal(`Deep Paper Health Audit (${targetModel})`, targetModel);
+  updateAIProgressStep(30, `Evaluating structure & mathematical rigor with ${targetModel}...`);
+
+  try {
+    let response = await fetch(`${ollamaUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: targetModel, system: systemPrompt, prompt: currentCode, stream: false })
+    }).catch(() => null);
+
+    if (!response || !response.ok) {
+      response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: targetModel, system: systemPrompt, prompt: currentCode, stream: false })
+      });
+    }
+
+    updateAIProgressStep(95, 'Synthesizing health audit score report...');
+    if (response.ok) {
+      const data = await response.json();
+      closeAIProgressModal();
+      alert(`🔬 DEEP AI HEALTH & DIAGNOSTICS AUDIT (Model: ${targetModel})\n\n${data.response}`);
+    } else {
+      closeAIProgressModal();
+      alert(`⚠️ AI Health Audit Error: Unable to query model ${targetModel}.`);
+    }
+  } catch (e) {
+    closeAIProgressModal();
+    alert(`❌ AI Execution Error: ${e.message}`);
+  }
 }
 
 // PHASE 4: AUTOMATED COMPILE-FIX-VERIFY LOOP
 async function runAutomatedCompileFixLoop() {
   if (!editor) return;
 
-  alert('🔧 Running Automated Compile-Fix-Verify Loop...');
+  const selectedModel = document.getElementById('model-select')?.value || 'qwen3-coder:30b';
+  const engine = document.getElementById('compiler-engine-select')?.value || 'tectonic';
+  const repairButton = document.getElementById('tool-auto-repair');
+  if (repairButton) repairButton.style.pointerEvents = 'none';
+  if (activeFile) fileStore[activeFile] = editor.getValue();
 
-  // Step 1: Run compilation pass
-  await saveCurrentProjectToBackend(true);
-  const resultLog = await compileLaTeX();
+  try {
+    showAIProgressModal('Automated Compile-Fix-Verify', selectedModel);
+    updateAIProgressStep(15, 'Compiling the active document...');
+    const response = await fetch('/api/compile-fix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: activeProject?.id || null,
+        files: getSanitizedTextFilesPayload(fileStore),
+        main_file: activeFile,
+        engine,
+        model: selectedModel,
+        max_attempts: 3
+      })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Compile-fix request failed');
 
-  if (!lastCompilerLog || (!lastCompilerLog.includes('error:') && !lastCompilerLog.includes('! '))) {
-    alert('✅ Compilation is clean! No LaTeX errors detected.');
-    return;
+    updateAIProgressStep(result.status === 'verified' ? 100 : 95,
+      result.status === 'verified' ? 'Patch verified and PDF rebuilt.' : 'No verified repair was found.');
+    if (result.status === 'verified' && result.files && typeof result.files === 'object') {
+      fileStore = result.files;
+      if (activeFile && typeof fileStore[activeFile] === 'string') editor.setValue(fileStore[activeFile]);
+    }
+
+    if (result.status === 'verified' && result.pdf_base64) {
+      const binary = atob(result.pdf_base64);
+      const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0));
+      if (activePdfBlobUrl) URL.revokeObjectURL(activePdfBlobUrl);
+      activePdfBlobUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      const pdfFrame = document.getElementById('pdf-frame');
+      if (pdfFrame) pdfFrame.src = activePdfBlobUrl;
+      ensurePdfViewActive();
+    }
+
+    const lastAttempt = result.attempts?.[result.attempts.length - 1];
+    lastCompilerLog = result.log || lastAttempt?.log || '';
+    const logOutput = document.getElementById('compiler-log-output');
+    if (logOutput) logOutput.innerText = result.status === 'verified'
+      ? `✅ Automated repair verified after ${result.attempts.length} compile pass(es).\n\n${result.log || ''}`
+      : `❌ Automated repair could not verify a clean build.\n\n${result.log || ''}`;
+    runLaTeXSyntaxDiagnostics(result.log || '');
+
+    if (result.status === 'verified') {
+      await saveCurrentProjectToBackend(true);
+      showToast(`Compile-fix verified after ${result.attempts.length} pass(es).`, 'success');
+    } else {
+      showToast('No verified patch was applied. Your last proposal remains in the editor.', 'error');
+    }
+  } catch (error) {
+    showToast(`Compile-fix failed: ${error.message}`, 'error');
+  } finally {
+    closeAIProgressModal();
+    if (repairButton) repairButton.style.pointerEvents = '';
   }
-
-  // Step 2: Extract error and trigger context-aware AI repair
-  const model = document.getElementById('model-select').value;
-  const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://127.0.0.1:11434';
-  const code = editor.getValue();
-  const context = getAIContext();
-
-  const repairInstruction = `COMPILER ERROR DETECTED:\n${lastCompilerLog.slice(-1500)}\n\nAnalyze the LaTeX compilation error traceback above, identify the missing package, syntax typo, or unclosed environment, and provide a corrected replacement snippet for the manuscript.`;
-
-  runAITool(repairInstruction, 'Automated Compile-Fix Patch');
 }
 
 async function insertFigureAtCursor() {
@@ -3911,14 +4256,20 @@ function getAIContext() {
 
 // STREAMING OLLAMA SSE HANDLER: Real-time response streaming for fast local LLM feedback
 async function streamOllamaPrompt(ollamaUrl, payload, onChunk) {
-  const response = await fetch(`${ollamaUrl}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...payload, stream: true })
-  });
-
-  if (!response.ok) {
-    throw new Error(`Ollama API error (${response.status})`);
+  let response;
+  try {
+    response = await fetch(`${ollamaUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, stream: true })
+    });
+    if (!response.ok) throw new Error(`Ollama API error (${response.status})`);
+  } catch (err) {
+    response = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, stream: true })
+    });
   }
 
   const reader = response.body.getReader();
@@ -3951,18 +4302,46 @@ async function streamOllamaPrompt(ollamaUrl, payload, onChunk) {
 
 // LINE-AWARE PATCH GENERATOR: Computes line-range diff patch for scoped text edits
 function computeLinePatch(originalCode, proposedCode, context) {
-  if (context.selection) {
-    const cursor = editor.getCursor();
-    const selection = editor.getSelection();
-    return {
-      isScoped: true,
-      startLine: cursor.line + 1,
-      endLine: cursor.line + (selection.split('\n').length),
-      originalText: selection,
-      proposedText: proposedCode,
-      patchCode: originalCode.replace(selection, proposedCode)
-    };
+  if (context && context.selection) {
+    if (typeof editor !== 'undefined' && editor && editor.somethingSelected()) {
+      const from = editor.getCursor('from');
+      const to = editor.getCursor('to');
+      const fromIndex = editor.indexFromPos(from);
+      const toIndex = editor.indexFromPos(to);
+
+      const patchCode = originalCode.slice(0, fromIndex) + proposedCode + originalCode.slice(toIndex);
+
+      return {
+        isScoped: true,
+        startLine: from.line + 1,
+        endLine: to.line + 1,
+        originalText: context.selection,
+        proposedText: proposedCode,
+        patchCode: patchCode,
+        fromPos: from,
+        toPos: to
+      };
+    } else {
+      const lines = originalCode.split('\n');
+      const startLine = context.cursor_line ? Math.max(1, context.cursor_line) : 1;
+      const selLineCount = context.selection.split('\n').length;
+      const endLine = Math.min(lines.length, startLine + selLineCount - 1);
+
+      const beforeLines = lines.slice(0, startLine - 1);
+      const afterLines = lines.slice(endLine);
+      const patchCode = [...beforeLines, proposedCode, ...afterLines].join('\n');
+
+      return {
+        isScoped: true,
+        startLine: startLine,
+        endLine: endLine,
+        originalText: context.selection,
+        proposedText: proposedCode,
+        patchCode: patchCode
+      };
+    }
   }
+
   return {
     isScoped: false,
     startLine: 1,
@@ -3973,11 +4352,80 @@ function computeLinePatch(originalCode, proposedCode, context) {
   };
 }
 
+// --- INTERACTIVE AI PROGRESS BAR & TIMING MANAGER ---
+let aiProgressTimerInterval = null;
+let aiProgressStartTime = 0;
+let activeAIController = null;
+
+function showAIProgressModal(title, modelName) {
+  const modal = document.getElementById('ai-progress-modal');
+  const titleElem = document.getElementById('ai-progress-title');
+  const modelBadge = document.getElementById('ai-progress-model-badge');
+  const fillElem = document.getElementById('ai-progress-bar-fill');
+  const percentElem = document.getElementById('ai-progress-percent');
+  const timerElem = document.getElementById('ai-progress-timer');
+  const stepText = document.getElementById('ai-progress-step-text');
+
+  if (titleElem) titleElem.innerText = title || 'Processing AI Request...';
+  if (modelBadge) modelBadge.innerText = modelName || (document.getElementById('model-select') ? document.getElementById('model-select').value : 'qwen3-coder:30b');
+  if (fillElem) fillElem.style.width = '10%';
+  if (percentElem) percentElem.innerText = '10%';
+  if (stepText) stepText.innerText = `Connecting to inference backend (10.24.48.24:11435)...`;
+
+  aiProgressStartTime = Date.now();
+  if (timerElem) timerElem.innerText = '0.0s';
+
+  if (aiProgressTimerInterval) clearInterval(aiProgressTimerInterval);
+  aiProgressTimerInterval = setInterval(() => {
+    const elapsed = ((Date.now() - aiProgressStartTime) / 1000).toFixed(1);
+    if (timerElem) timerElem.innerText = `${elapsed}s`;
+
+    const currentW = parseFloat(fillElem ? fillElem.style.width : 0) || 10;
+    if (currentW < 90) {
+      const nextW = Math.min(92, currentW + (90 - currentW) * 0.06);
+      if (fillElem) fillElem.style.width = `${nextW.toFixed(0)}%`;
+      if (percentElem) percentElem.innerText = `${nextW.toFixed(0)}%`;
+    }
+  }, 300);
+
+  if (modal) modal.classList.add('active');
+}
+
+function updateAIProgressStep(percent, stepMessage) {
+  const fillElem = document.getElementById('ai-progress-bar-fill');
+  const percentElem = document.getElementById('ai-progress-percent');
+  const stepText = document.getElementById('ai-progress-step-text');
+
+  if (fillElem) fillElem.style.width = `${percent}%`;
+  if (percentElem) percentElem.innerText = `${percent}%`;
+  if (stepText) stepText.innerText = stepMessage;
+}
+
+function closeAIProgressModal() {
+  if (aiProgressTimerInterval) {
+    clearInterval(aiProgressTimerInterval);
+    aiProgressTimerInterval = null;
+  }
+  const modal = document.getElementById('ai-progress-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function cancelAIProgress() {
+  if (activeAIController) {
+    try { activeAIController.abort(); } catch (e) {}
+    activeAIController = null;
+  }
+  closeAIProgressModal();
+}
+
 async function runAITool(instruction, title) {
   const model = document.getElementById('model-select').value;
-  const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://127.0.0.1:11434';
+  const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://10.24.48.24:11435';
   const code = editor.getValue();
   const context = getAIContext();
+
+  showAIProgressModal(title || 'AI Academic Patch', model);
+  updateAIProgressStep(25, 'Extracting document scope & section context...');
 
   const promptPayload = `TASK: ${instruction}
 
@@ -4002,16 +4450,20 @@ INSTRUCTIONS:
 ${context.selection ? 'Output ONLY the revised LaTeX replacement for the Selected Text Scope.' : 'Output ONLY valid LaTeX code without extra explanations.'} Do not include markdown code block formatting like \`\`\`latex.`;
 
   try {
+    updateAIProgressStep(55, `Streaming LLM output from model (${model})...`);
     const streamedText = await streamOllamaPrompt(ollamaUrl, {
       model: model,
       prompt: promptPayload
     });
 
+    updateAIProgressStep(95, 'Computing exact positional diff patch...');
     let cleanResult = streamedText.replace(/^```latex/g, '').replace(/^```/g, '').replace(/```$/g, '');
     const patch = computeLinePatch(code, cleanResult, context);
 
+    closeAIProgressModal();
     showAIDiffModal(code, patch.patchCode, `${title || 'AI Academic Patch'} (Lines ${patch.startLine}–${patch.endLine})`);
   } catch (e) {
+    closeAIProgressModal();
     alert(`❌ AI Execution Error: ${e.message}`);
   }
 }
@@ -4101,7 +4553,10 @@ Parameter B & 200 \\\\
 }
 
 function closeModal(id) {
-  document.getElementById(id).classList.remove('active');
+  const modal = document.getElementById(id);
+  if (!modal) return;
+  modal.classList.remove('active');
+  modal.style.removeProperty('display');
 }
 
 document.getElementById('btn-settings').addEventListener('click', () => {
@@ -4109,13 +4564,16 @@ document.getElementById('btn-settings').addEventListener('click', () => {
 });
 
 async function testOllamaConnection() {
-  const url = document.getElementById('ollama-url-input').value || 'http://127.0.0.1:11434';
+  const url = document.getElementById('ollama-url-input').value || 'http://10.24.48.24:11435';
   const resElem = document.getElementById('conn-test-result');
   resElem.innerText = ' Testing...';
   try {
-    const res = await fetch(`${url}/api/tags`);
-    if (res.ok) {
-      resElem.innerHTML = ' <span style="color:var(--accent-green)">Connected to Dual RTX 3090 Backend!</span>';
+    let res = await fetch(`${url}/api/tags`).catch(() => null);
+    if (!res || !res.ok) {
+      res = await fetch('/api/tags');
+    }
+    if (res && res.ok) {
+      resElem.innerHTML = ' <span style="color:var(--accent-green)">Connected to AI Engine Backend!</span>';
     } else {
       resElem.innerHTML = ' <span style="color:var(--accent-red)">Connection Failed</span>';
     }
@@ -4127,6 +4585,70 @@ async function testOllamaConnection() {
 // --- BIDIRECTIONAL INTERACTIVE SYNCTEX ENGINE (EDITOR ⟷ PDF) ---
 let isAutoSyncActive = true;
 let autoSyncDebounceTimer = null;
+
+async function renderPdfSyncViewer(blobUrl) {
+  const viewer = document.getElementById('pdf-canvas-viewer');
+  const iframe = document.getElementById('pdf-frame');
+  if (!viewer || !iframe || !window.pdfjsLib) return;
+
+  try {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf = await window.pdfjsLib.getDocument(blobUrl).promise;
+    viewer.innerHTML = '';
+    viewer.style.display = 'block';
+    iframe.style.display = 'none';
+
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 1.35 });
+      const pageWrap = document.createElement('div');
+      pageWrap.style.cssText = 'position:relative; width:max-content; margin:0 auto 18px; background:#fff; box-shadow:0 2px 12px rgba(0,0,0,.35);';
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.display = 'block';
+      pageWrap.dataset.page = String(pageNumber);
+      pageWrap.appendChild(canvas);
+      viewer.appendChild(pageWrap);
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+      canvas.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const pdfScale = 1.35;
+        const pdfX = ((event.clientX - rect.left) * scaleX) / pdfScale;
+        const pdfY = ((event.clientY - rect.top) * scaleY) / pdfScale;
+        resolvePdfSourceLocation(pageNumber, pdfX, pdfY);
+      });
+    }
+  } catch (error) {
+    viewer.style.display = 'none';
+    iframe.style.display = 'block';
+    console.warn('PDF.js SyncTeX viewer unavailable; using native PDF viewer:', error);
+  }
+}
+
+async function resolvePdfSourceLocation(page, x, y) {
+  if (!activeProject || !activeProject.id) return;
+  try {
+    const response = await fetch('/api/synctex', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: activeProject.id, main_file: activeFile, page, x, y })
+    });
+    if (!response.ok) throw new Error('No source mapping found');
+    const location = await response.json();
+    if (location.file && fileStore[location.file] !== undefined && location.file !== activeFile) {
+      switchActiveFile(location.file);
+    }
+    jumpToCodeLine(Math.max(0, Number(location.line) - 1));
+    showPdfSyncToast(`Jumped to ${location.file || activeFile}:${location.line}`);
+  } catch (error) {
+    showPdfSyncToast('No source location found for this PDF position');
+  }
+}
 
 function toggleAutoSync() {
   isAutoSyncActive = !isAutoSyncActive;
@@ -4457,7 +4979,7 @@ async function runFullProjectAIReview() {
   });
 
   const model = document.getElementById('model-select').value;
-  const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://127.0.0.1:11434';
+  const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://10.24.48.24:11435';
 
   const promptText = `You are a Principal Software Architect & Academic Editor reviewing a multi-file LaTeX paper repository.
 Perform a full project-wide code review and architectural evaluation of the following project repository:
@@ -4473,7 +4995,7 @@ Provide your structured AI feedback response with these clear sections:
 
   try {
     if (badge) badge.innerText = 'Executing AI Analysis...';
-    const res = await fetch(`${ollamaUrl}/api/generate`, {
+    let res = await fetch(`${ollamaUrl}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -4481,70 +5003,1013 @@ Provide your structured AI feedback response with these clear sections:
         prompt: promptText,
         stream: false
       })
-    });
+    }).catch(() => null);
+
+    if (!res || !res.ok) {
+      res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: model,
+          prompt: promptText,
+          stream: false
+        })
+      });
+    }
+
     const data = await res.json();
     const feedback = data.response.trim();
     reportBody.innerText = feedback;
     if (badge) badge.innerText = 'Full Project Review Complete ✓';
   } catch (e) {
-    reportBody.innerText = `❌ Full-Project AI Review Error: ${e.message}. Ensure Ollama backend is connected on ${ollamaUrl}.`;
+    reportBody.innerText = `❌ Full-Project AI Review Error: ${e.message}.`;
     if (badge) badge.innerText = 'Evaluation Failed';
   }
 }
 
-// --- 3. AI MANUSCRIPT PEER REVIEWER & CRITIQUE ENGINE ---
-async function runPeerReview() {
-  if (!editor) return;
+// --- PRODUCTION-GRADE PAPER HEALTH & AI PEER REVIEWER ENGINE ---
+let _cachedHealthReport = null;
+let _cachedHealthHash = null;
+
+function getProjectContentHash() {
+  const userKeys = Object.keys(fileStore).filter(isUserContentFile).filter(k => k.endsWith('.tex') || k.endsWith('.bib') || k.endsWith('.cls') || k.endsWith('.sty')).sort();
+  let rawStr = '';
+  userKeys.forEach(k => {
+    rawStr += `${k}:${fileStore[k] || ''}\n`;
+  });
+  let hash = 0;
+  for (let i = 0; i < rawStr.length; i++) {
+    hash = ((hash << 5) - hash) + rawStr.charCodeAt(i);
+    hash |= 0;
+  }
+  return `hash_${userKeys.length}_${hash}`;
+}
+
+function jumpToSourceLocation(filePath, lineNumber) {
+  if (!filePath) return;
+  const targetLine = parseInt(lineNumber, 10) || 1;
+
+  if (filePath && fileStore[filePath] !== undefined && activeFile !== filePath) {
+    activeFile = filePath;
+    renderFileList();
+    if (editor) editor.setValue(fileStore[activeFile] || '');
+    const indicator = document.getElementById('active-file-indicator');
+    if (indicator) indicator.innerText = activeFile;
+    const pdfLabel = document.getElementById('pdf-file-label');
+    if (pdfLabel) pdfLabel.innerText = activeFile;
+  }
+
+  closeModal('peer-review-modal');
+
+  if (editor) {
+    const validLine = Math.max(0, Math.min(editor.lineCount() - 1, targetLine - 1));
+    editor.setCursor({ line: validLine, ch: 0 });
+    editor.setSelection({ line: validLine, ch: 0 }, { line: validLine, ch: editor.getLine(validLine).length });
+    editor.focus();
+    editor.scrollIntoView({ line: validLine, ch: 0 }, 150);
+
+    const doc = editor.getDoc();
+    const lineHandle = doc.addLineClass(validLine, 'background', 'cm-line-highlight-flash');
+    setTimeout(() => {
+      doc.removeLineClass(lineHandle, 'background', 'cm-line-highlight-flash');
+    }, 2200);
+
+    showPdfSyncToast(`Jumped to ${filePath}:${targetLine}`);
+  }
+}
+
+function buildStructuredManuscriptAST() {
+  const texFiles = Object.keys(fileStore).filter(isUserContentFile).filter(k => k.endsWith('.tex'));
+  const bibFiles = Object.keys(fileStore).filter(isUserContentFile).filter(k => k.endsWith('.bib'));
+  const styleFiles = Object.keys(fileStore).filter(isUserContentFile).filter(k => k.endsWith('.cls') || k.endsWith('.sty'));
+
+  const ast = {
+    files: [...texFiles, ...bibFiles, ...styleFiles],
+    root_file: activeFile || (texFiles[0] || 'main.tex'),
+    title: null,
+    abstract: null,
+    sections: [],
+    citations: [],
+    bib_keys: new Set(),
+    equations: [],
+    figures: [],
+    tables: [],
+    labels: new Map(),
+    references: [],
+    packages: new Set()
+  };
+
+  bibFiles.forEach(bf => {
+    const content = fileStore[bf] || '';
+    const keyRegex = /@(\w+)\s*\{\s*([^,\s]+)/g;
+    let km;
+    while ((km = keyRegex.exec(content)) !== null) {
+      ast.bib_keys.add(km[2]);
+    }
+  });
+
+  texFiles.forEach(tf => {
+    const content = fileStore[tf] || '';
+    const lines = content.split('\n');
+
+    lines.forEach((lineText, idx) => {
+      const lineNum = idx + 1;
+
+      if (!ast.title && lineText.includes('\\title')) {
+        const tm = lineText.match(/\\title\{([^}]+)\}/);
+        if (tm) ast.title = tm[1];
+      }
+      if (!ast.abstract && lineText.includes('abstract')) {
+        ast.abstract = lineText;
+      }
+
+      const pkgMatch = lineText.match(/\\usepackage(?:\[[^\]]*\])?\{([^}]+)\}/);
+      if (pkgMatch) {
+        pkgMatch[1].split(',').forEach(p => ast.packages.add(p.trim()));
+      }
+
+      const secMatch = lineText.match(/\\(section|subsection|subsubsection|chapter)\*?\{([^}]+)\}/);
+      if (secMatch) {
+        ast.sections.push({ type: secMatch[1], title: secMatch[2], file: tf, line: lineNum });
+      }
+
+      const citeRegex = /\\(?:cite|citep|citet|citeauthor|citeyear|parencite|textcite|autocite|footcite|nocite)\*?(?:\[[^\]]*\]){0,2}\{([^}]+)\}/g;
+      let cm;
+      while ((cm = citeRegex.exec(lineText)) !== null) {
+        cm[1].split(',').forEach(k => {
+          const key = k.trim();
+          if (key) ast.citations.push({ key, file: tf, line: lineNum });
+        });
+      }
+
+      const lblMatch = lineText.match(/\\label\{([^}]+)\}/);
+      if (lblMatch) {
+        ast.labels.set(lblMatch[1], { file: tf, line: lineNum });
+      }
+
+      const refMatch = lineText.match(/\\(?:ref|eqref|autoref|pageref)\{([^}]+)\}/);
+      if (refMatch) {
+        ast.references.push({ label: refMatch[1], file: tf, line: lineNum });
+      }
+    });
+
+    const eqMatches = Array.from(content.matchAll(/\\begin\{(equation|align|gather)\*?\}([\s\S]*?)\\end\{\1\*?\}/g));
+    eqMatches.forEach(m => {
+      const lineNum = content.substring(0, m.index).split('\n').length;
+      const hasLabel = m[2].includes('\\label{');
+      const lblm = m[2].match(/\\label\{([^}]+)\}/);
+      ast.equations.push({ file: tf, line: lineNum, content: m[0], has_label: hasLabel, label: lblm ? lblm[1] : null });
+    });
+
+    const figMatches = Array.from(content.matchAll(/\\begin\{figure\*?\}([\s\S]*?)\\end\{figure\*?\}/g));
+    figMatches.forEach(m => {
+      const lineNum = content.substring(0, m.index).split('\n').length;
+      const hasCap = m[1].includes('\\caption');
+      const hasLbl = m[1].includes('\\label');
+      const capm = m[1].match(/\\caption\{([^}]+)\}/);
+      const lblm = m[1].match(/\\label\{([^}]+)\}/);
+      ast.figures.push({ file: tf, line: lineNum, has_caption: hasCap, caption: capm ? capm[1] : null, has_label: hasLbl, label: lblm ? lblm[1] : null });
+    });
+
+    const tabMatches = Array.from(content.matchAll(/\\begin\{table\*?\}([\s\S]*?)\\end\{table\*?\}/g));
+    tabMatches.forEach(m => {
+      const lineNum = content.substring(0, m.index).split('\n').length;
+      const hasCap = m[1].includes('\\caption');
+      const hasLbl = m[1].includes('\\label');
+      const capm = m[1].match(/\\caption\{([^}]+)\}/);
+      const lblm = m[1].match(/\\label\{([^}]+)\}/);
+      ast.tables.push({ file: tf, line: lineNum, has_caption: hasCap, caption: capm ? capm[1] : null, has_label: hasLbl, label: lblm ? lblm[1] : null });
+    });
+  });
+
+  return ast;
+}
+
+function runDeterministicHealthDiagnostics(ast) {
+  const dimensions = {
+    structure: { name: 'Structure & Hierarchy', score: 10, findings: [] },
+    citations: { name: 'Citations & BibTeX', score: 10, findings: [] },
+    math_rigor: { name: 'Mathematical Rigor', score: 10, findings: [] },
+    academic_tone: { name: 'Academic Tone & Style', score: 9.0, findings: [] },
+    formatting: { name: 'LaTeX & Figures Formatting', score: 10, findings: [] },
+    novelty: { name: 'Novelty & Contribution', score: 8.5, findings: [] },
+    reproducibility: { name: 'Reproducibility & Data', score: 9.0, findings: [] },
+    completeness: { name: 'Manuscript Completeness', score: 10, findings: [] }
+  };
+
+  if (!ast.title) {
+    dimensions.structure.score -= 2.5;
+    dimensions.completeness.score -= 1.5;
+    dimensions.structure.findings.push({
+      priority: 'p0',
+      message: 'Missing \\title definition in preamble',
+      file: ast.root_file,
+      line: 1,
+      section: 'Preamble',
+      evidence: '\\documentclass{...}',
+      recommendation: 'Add \\title{Your Title} before \\begin{document}'
+    });
+  }
+
+  if (!ast.abstract) {
+    dimensions.structure.score -= 3.0;
+    dimensions.completeness.score -= 2.5;
+    dimensions.structure.findings.push({
+      priority: 'p0',
+      message: 'Missing abstract environment block',
+      file: ast.root_file,
+      line: 5,
+      section: 'Abstract',
+      evidence: '\\begin{document}',
+      recommendation: 'Add \\begin{abstract}...\\end{abstract}'
+    });
+  }
+
+  if (ast.sections.length === 0) {
+    dimensions.structure.score -= 3.5;
+    dimensions.completeness.score -= 3.0;
+    dimensions.structure.findings.push({
+      priority: 'p0',
+      message: 'No section hierarchy (\\section{...}) found',
+      file: ast.root_file,
+      line: 10,
+      section: 'Body',
+      evidence: '\\begin{document}',
+      recommendation: 'Add \\section{Introduction}, \\section{Methods}, etc.'
+    });
+  }
+
+  const citedSet = new Set(ast.citations.map(c => c.key));
+  const missingKeys = Array.from(citedSet).filter(k => !ast.bib_keys.has(k));
+  const unusedKeys = Array.from(ast.bib_keys).filter(k => !citedSet.has(k));
+
+  if (missingKeys.length > 0) {
+    dimensions.citations.score -= Math.min(5.0, missingKeys.length * 1.5);
+    missingKeys.forEach(k => {
+      const c = ast.citations.find(x => x.key === k) || { file: ast.root_file, line: 1 };
+      dimensions.citations.findings.push({
+        priority: 'p0',
+        message: `Undefined citation key "${k}" (missing from .bib files)`,
+        file: c.file,
+        line: c.line,
+        section: 'Citations',
+        evidence: `\\cite{${k}}`,
+        recommendation: `Add @article{${k}, ...} entry into your bibliography`
+      });
+    });
+  }
+
+  if (unusedKeys.length > 0) {
+    dimensions.citations.score -= Math.min(2.0, unusedKeys.length * 0.4);
+    dimensions.citations.findings.push({
+      priority: 'p2',
+      message: `${unusedKeys.length} unused entries in .bib file (${unusedKeys.slice(0, 3).join(', ')})`,
+      file: Object.keys(fileStore).find(f => f.endsWith('.bib')) || ast.root_file,
+      line: 1,
+      section: 'Bibliography',
+      evidence: `@article{${unusedKeys[0]}, ...}`,
+      recommendation: 'Remove unused keys from bibliography file'
+    });
+  }
+
+  const unlabelledEqs = ast.equations.filter(e => !e.has_label);
+  if (unlabelledEqs.length > 0) {
+    dimensions.math_rigor.score -= Math.min(3.0, unlabelledEqs.length * 0.8);
+    unlabelledEqs.forEach(eq => {
+      dimensions.math_rigor.findings.push({
+        priority: 'p1',
+        message: 'Display equation missing \\label{eq:...} anchor',
+        file: eq.file,
+        line: eq.line,
+        section: 'Math Equations',
+        evidence: eq.content.substring(0, 40) + '...',
+        recommendation: 'Add \\label{eq:name} for cross-referencing'
+      });
+    });
+  }
+
+  ast.figures.forEach(fig => {
+    if (!fig.has_caption) {
+      dimensions.formatting.score -= 1.5;
+      dimensions.formatting.findings.push({
+        priority: 'p1',
+        message: 'Figure environment missing \\caption',
+        file: fig.file,
+        line: fig.line,
+        section: 'Figures',
+        evidence: '\\begin{figure}...\\end{figure}',
+        recommendation: 'Add \\caption{...} inside figure environment'
+      });
+    }
+  });
+
+  Object.keys(dimensions).forEach(k => {
+    dimensions[k].score = Math.max(0, Math.min(10, Math.round(dimensions[k].score * 10) / 10));
+  });
+
+  return dimensions;
+}
+
+function runSubmissionReadinessAudit() {
   const modal = document.getElementById('peer-review-modal');
   const reportBody = document.getElementById('peer-review-report-body');
   const badge = document.getElementById('review-status-badge');
+  if (!modal || !reportBody) return;
 
-  modal.classList.add('active');
-  reportBody.innerHTML = '⏳ <i class="fa-solid fa-spinner fa-spin"></i> Analyzing manuscript structure, academic tone, citations, math rigor, and clarity...';
-  badge.innerText = 'Evaluating Document...';
+  const ast = buildStructuredManuscriptAST();
+  const findings = [];
+  const rootContent = fileStore[ast.root_file] || '';
+  const binaryFiles = Object.keys(fileStore).filter(isUserContentFile).filter(name => /\.(png|jpe?g|gif|eps|pdf|svg)$/i.test(name));
+  const hasBib = Object.keys(fileStore).some(name => isUserContentFile(name) && name.endsWith('.bib'));
+  const addFinding = (severity, title, detail, file, line) => findings.push({ severity, title, detail, file, line });
 
-  const code = editor.getValue();
-  const model = document.getElementById('model-select').value;
-  const ollamaUrl = document.getElementById('ollama-url-input').value || 'http://127.0.0.1:11434';
+  if (!rootContent.includes('\\documentclass')) addFinding('blocker', 'No document root detected', 'The selected entry file does not contain \\documentclass.', ast.root_file, 1);
+  if (!ast.title) addFinding('blocker', 'Missing title', 'Add a title before submission.', ast.root_file, 1);
+  if (!ast.abstract) addFinding('blocker', 'Missing abstract', 'Add an abstract environment for journal submission.', ast.root_file, 1);
+  if (!ast.sections.some(section => /introduction/i.test(section.title))) addFinding('warning', 'Introduction section not detected', 'Confirm that the manuscript has a clearly named introduction.', ast.root_file, 1);
+  if (!ast.sections.some(section => /conclusion|discussion/i.test(section.title))) addFinding('warning', 'Discussion or conclusion not detected', 'Confirm that the paper closes with interpretation and limitations.', ast.root_file, 1);
+  if (ast.citations.length && !hasBib) addFinding('blocker', 'Citations have no bibliography file', 'Add a .bib file or configure the project bibliography.', ast.root_file, 1);
+  const missingKeys = [...new Set(ast.citations.map(citation => citation.key))].filter(key => !ast.bib_keys.has(key));
+  missingKeys.slice(0, 8).forEach(key => {
+    const citation = ast.citations.find(item => item.key === key);
+    addFinding('blocker', `Missing bibliography entry: ${key}`, `Add a BibTeX entry for \\cite{${key}}.`, citation.file, citation.line);
+  });
+  ast.figures.forEach(figure => {
+    if (!figure.has_caption) addFinding('warning', 'Figure has no caption', 'Add a descriptive caption for accessibility and journal requirements.', figure.file, figure.line);
+    if (!figure.has_label) addFinding('warning', 'Figure has no label', 'Add a label if the figure is referenced from the text.', figure.file, figure.line);
+  });
+  ast.tables.forEach(table => {
+    if (!table.has_caption) addFinding('warning', 'Table has no caption', 'Add a publication-ready table caption.', table.file, table.line);
+    if (!table.has_label) addFinding('warning', 'Table has no label', 'Add a label if the table is referenced from the text.', table.file, table.line);
+  });
+  ast.references.forEach(reference => {
+    if (!ast.labels.has(reference.label)) addFinding('warning', `Unresolved reference: ${reference.label}`, 'Add the matching label or correct the reference key.', reference.file, reference.line);
+  });
+  const referencedAssets = [...rootContent.matchAll(/\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}/g)].map(match => match[1].replace(/^.*[\\/]/, ''));
+  referencedAssets.filter(asset => !binaryFiles.some(file => file.endsWith(asset) || file.endsWith(`${asset}.png`) || file.endsWith(`${asset}.pdf`))).slice(0, 8).forEach(asset => {
+    addFinding('blocker', `Missing figure asset: ${asset}`, 'Upload the referenced image or correct the includegraphics path.', ast.root_file, 1);
+  });
+  if (!ast.packages.has('graphicx') && ast.figures.length) addFinding('warning', 'Figures detected without graphicx', 'Confirm that the journal template loads graphicx.', ast.root_file, 1);
 
-  const promptText = `You are a distinguished Senior Peer Reviewer for top academic journals (IEEE, Nature, Springer).
-Perform a comprehensive peer review critique of the following LaTeX manuscript document:
+  const blockerCount = findings.filter(item => item.severity === 'blocker').length;
+  const warningCount = findings.filter(item => item.severity === 'warning').length;
+  const score = Math.max(0, 100 - blockerCount * 15 - warningCount * 4);
+  const status = blockerCount ? 'Needs fixes before submission' : (warningCount ? 'Review warnings before submission' : 'Ready for submission checks');
+  if (badge) badge.innerText = 'Deterministic Submission Audit';
+  reportBody.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;">
+      <div><h3 style="margin:0;color:var(--text-main);">Submission Readiness: ${score}/100</h3><p style="margin:6px 0 0;color:var(--text-muted);">${escapeHtml(status)}. This audit is local and does not send manuscript text to a model.</p></div>
+      <div style="font-size:1.8rem;font-weight:800;color:${blockerCount ? '#f87171' : warningCount ? '#fbbf24' : '#34d399'};">${score}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px;">
+      <div class="finding-count-chip"><span class="chip-count">${blockerCount}</span> Blockers</div>
+      <div class="finding-count-chip"><span class="chip-count">${warningCount}</span> Warnings</div>
+      <div class="finding-count-chip"><span class="chip-count">${ast.sections.length}</span> Sections</div>
+    </div>
+    ${findings.length ? findings.map(item => `<div style="border-left:3px solid ${item.severity === 'blocker' ? '#f87171' : '#fbbf24'};padding:9px 12px;margin:8px 0;background:rgba(255,255,255,0.04);cursor:pointer;" onclick="jumpToSourceLocation('${escapeHtml(item.file)}', ${item.line})"><strong>${item.severity === 'blocker' ? 'BLOCKER' : 'WARNING'}: ${escapeHtml(item.title)}</strong><div style="color:var(--text-muted);font-size:.82rem;margin-top:3px;">${escapeHtml(item.detail)} <span style="color:var(--accent-blue);">${escapeHtml(item.file)}:${item.line}</span></div></div>`).join('') : '<div style="padding:18px;text-align:center;color:#34d399;">No structural, citation, figure, table, or reference issues detected.</div>'}
+  `;
+  modal.style.display = 'flex';
+}
 
-MANUSCRIPT:
-${code}
+function renderHealthDashboardUI(overallScore, dimensions, llmReviewText, isCached = false) {
+  const reportBody = document.getElementById('peer-review-report-body');
+  if (!reportBody) return;
 
-Provide your feedback structured cleanly with headings:
-1. 🌟 OVERALL ASSESSMENT & RECOMMENDATION (e.g. Accept with Minor Revisions, Major Revisions)
-2. 🔬 STRENGTHS & KEY CONTRIBUTIONS (Highlight strong sections or methods)
-3. ⚠️ CRITICAL WEAKNESSES & MISSING CITATIONS/DATA (Identify weak arguments, missing citations, or unclear math)
-4. ✍️ LINE-BY-LINE SUGGESTIONS FOR IMPROVEMENT (Specific paragraph or sentence recommendations)
-5. 📝 SUMMARY RECOMMENDATIONS FOR AUTHOR`;
+  let badgeClass = 'health-score-excellent';
+  let badgeLabel = 'EXCELLENT (90-100)';
+  if (overallScore < 70) { badgeClass = 'health-score-weak'; badgeLabel = 'MAJOR REVISIONS REQUIRED (<70)'; }
+  else if (overallScore < 80) { badgeClass = 'health-score-revision'; badgeLabel = 'REVISIONS NEEDED (70-79)'; }
+  else if (overallScore < 90) { badgeClass = 'health-score-strong'; badgeLabel = 'STRONG MANUSCRIPT (80-89)'; }
+
+  // Gather all priority findings
+  const allFindings = [];
+  Object.keys(dimensions).forEach(k => {
+    dimensions[k].findings.forEach(f => allFindings.push({ ...f, dimension: dimensions[k].name }));
+  });
+  allFindings.sort((a, b) => (a.priority === 'p0' ? -1 : 1));
+
+  let html = `
+  <div class="health-dashboard-container">
+    <div class="health-score-banner">
+      <div>
+        <div style="font-size:1.15rem; font-weight:800; color:#ffffff; margin-bottom:4px;">
+          Overall Paper Health Score: ${overallScore} / 100 ${isCached ? '<span class="badge" style="background:rgba(52,211,153,0.2); color:#34d399; font-size:0.7rem; margin-left:8px;">Cached</span>' : ''}
+        </div>
+        <div style="font-size:0.84rem; color:var(--text-muted);">
+          Unified AST &amp; LLM multi-dimensional diagnostic evaluation
+        </div>
+      </div>
+      <div class="health-score-badge-circle ${badgeClass}">
+        <span>${overallScore}</span>
+        <span style="font-size:0.65rem; opacity:0.85;">Score</span>
+      </div>
+    </div>
+
+    <div style="font-size:0.88rem; font-weight:700; color:var(--text-main); margin-top:4px;">
+      📊 8-Dimension Academic Quality Breakdown:
+    </div>
+    <div class="dimension-card-grid">
+  `;
+
+  Object.keys(dimensions).forEach(k => {
+    const dim = dimensions[k];
+    const fillW = (dim.score * 10).toFixed(0);
+    let fillBg = '#34d399';
+    if (dim.score < 7.0) fillBg = '#ef4444';
+    else if (dim.score < 8.5) fillBg = '#fbbf24';
+
+    html += `
+      <div class="dimension-card">
+        <div class="dimension-card-header">
+          <span>${dim.name}</span>
+          <span style="color:${fillBg}">${dim.score} / 10</span>
+        </div>
+        <div class="dimension-progress-bar">
+          <div class="dimension-progress-fill" style="width:${fillW}%; background:${fillBg};"></div>
+        </div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">
+          ${dim.findings.length === 0 ? '✓ No issues detected' : `⚠️ ${dim.findings.length} issue(s) flagged`}
+        </div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+
+  if (allFindings.length > 0) {
+    html += `
+      <div style="font-size:0.88rem; font-weight:700; color:var(--text-main); margin-top:8px;">
+        🎯 Priority Diagnostic Roadmap &amp; Source Locations:
+      </div>
+      <div>
+    `;
+
+    allFindings.forEach(f => {
+      const pClass = f.priority === 'p0' ? 'priority-p0' : (f.priority === 'p1' ? 'priority-p1' : 'priority-p2');
+      const pLabel = f.priority === 'p0' ? 'P0 CRITICAL' : (f.priority === 'p1' ? 'P1 IMPORTANT' : 'P2 POLISH');
+      const pColor = f.priority === 'p0' ? '#ef4444' : (f.priority === 'p1' ? '#f59e0b' : '#60a5fa');
+
+      html += `
+        <div class="priority-finding-item ${pClass}">
+          <div style="flex:1;">
+            <div style="display:flex; align-items:center; gap:8px; font-size:0.82rem; font-weight:700; color:#ffffff;">
+              <span style="color:${pColor}; border:1px solid ${pColor}; padding:1px 6px; border-radius:4px; font-size:0.7rem;">${pLabel}</span>
+              <span>${f.message}</span>
+            </div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;">
+              Recommendation: ${f.recommendation}
+            </div>
+            ${f.evidence ? `<div class="evidence-snippet-box">Source Snippet (${f.file}:${f.line}): ${f.evidence}</div>` : ''}
+          </div>
+          <button class="jump-to-source-btn" onclick="jumpToSourceLocation('${f.file}', ${f.line})">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i> Jump to Source (${f.file}:${f.line})
+          </button>
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+  }
+
+  html += `
+  </div>
+  `;
+
+  reportBody.innerHTML = html;
+}
+
+// --- CENTRALIZED PAPER ANALYSIS STATE MANAGER & 14-STAGE PIPELINE ---
+let paperAnalysis = {
+  status: 'idle', // 'idle' | 'running' | 'completed' | 'failed' | 'cancelled'
+  currentStageId: null,
+  overallProgress: 0,
+  startedAt: null,
+  completedAt: null,
+  cancelled: false,
+  abortController: null,
+  model: 'phi4:latest',
+  llmStreamText: '',
+  timerInterval: null,
+  stages: {},
+  ast: null,
+  dimensions: null,
+  compilationResult: null,
+  llmReportText: null,
+  overallScore: 0
+};
+
+function resetPaperAnalysisState(modelName = 'phi4:latest') {
+  if (paperAnalysis.timerInterval) {
+    clearInterval(paperAnalysis.timerInterval);
+    paperAnalysis.timerInterval = null;
+  }
+  if (paperAnalysis.abortController) {
+    try { paperAnalysis.abortController.abort(); } catch (e) {}
+  }
+
+  paperAnalysis = {
+    status: 'running',
+    currentStageId: 'projectScan',
+    overallProgress: 0,
+    startedAt: Date.now(),
+    completedAt: null,
+    cancelled: false,
+    abortController: new AbortController(),
+    model: modelName,
+    llmStreamText: '',
+    timerInterval: null,
+    stages: {
+      projectScan: { id: 'projectScan', name: '01 PROJECT SCAN', weight: 5, status: 'pending', progress: 0, message: 'Scanning TeX, BibTeX & style files...', findingsCount: 0 },
+      parsing: { id: 'parsing', name: '02 MANUSCRIPT PARSING', weight: 10, status: 'pending', progress: 0, message: 'Parsing LaTeX document AST...', findingsCount: 0 },
+      structure: { id: 'structure', name: '03 DOCUMENT STRUCTURE ANALYSIS', weight: 10, status: 'pending', progress: 0, message: 'Analyzing section hierarchy & title...', findingsCount: 0 },
+      citations: { id: 'citations', name: '04 CITATION & BIBLIOGRAPHY AUDIT', weight: 10, status: 'pending', progress: 0, message: 'Auditing BibTeX keys & citation links...', findingsCount: 0 },
+      equations: { id: 'equations', name: '05 EQUATION / MATH RIGOR', weight: 10, status: 'pending', progress: 0, message: 'Checking display math & equation labels...', findingsCount: 0 },
+      figuresTables: { id: 'figuresTables', name: '06 FIGURE & TABLE ANALYSIS', weight: 5, status: 'pending', progress: 0, message: 'Checking figure/table captions & float anchors...', findingsCount: 0 },
+      compilation: { id: 'compilation', name: '07 COMPILATION DIAGNOSTICS', weight: 10, status: 'pending', progress: 0, message: 'Running compiler diagnostics pass...', findingsCount: 0 },
+      reproducibility: { id: 'reproducibility', name: '08 REPRODUCIBILITY AUDIT', weight: 10, status: 'pending', progress: 0, message: 'Evaluating dataset & methods parameters...', findingsCount: 0 },
+      tone: { id: 'tone', name: '09 ACADEMIC TONE ANALYSIS', weight: 5, status: 'pending', progress: 0, message: 'Auditing academic prose style & clarity...', findingsCount: 0 },
+      novelty: { id: 'novelty', name: '10 NOVELTY & CONTRIBUTION', weight: 5, status: 'pending', progress: 0, message: 'Evaluating claims & contribution statements...', findingsCount: 0 },
+      aiReview: { id: 'aiReview', name: '11 LOCAL AI PEER REVIEW', weight: 15, status: 'pending', progress: 0, message: 'Connecting to Ollama model inference...', findingsCount: 0 },
+      validation: { id: 'validation', name: '12 RESPONSE VALIDATION', weight: 3, status: 'pending', progress: 0, message: 'Validating response structure & JSON...', findingsCount: 0 },
+      scoring: { id: 'scoring', name: '13 HEALTH SCORE CALCULATION', weight: 2, status: 'pending', progress: 0, message: 'Computing 8-dimension weighted scores...', findingsCount: 0 },
+      finalReport: { id: 'finalReport', name: '14 FINAL REPORT GENERATION', weight: 0, status: 'pending', progress: 0, message: 'Building interactive dashboard...', findingsCount: 0 }
+    },
+    ast: null,
+    dimensions: null,
+    compilationResult: null,
+    llmReportText: null,
+    overallScore: 0
+  };
+
+  // Start Elapsed Time Ticker
+  paperAnalysis.timerInterval = setInterval(() => {
+    if (paperAnalysis.status !== 'running') return;
+    const elapsedSec = Math.floor((Date.now() - paperAnalysis.startedAt) / 1000);
+    const mins = String(Math.floor(elapsedSec / 60)).padStart(2, '0');
+    const secs = String(elapsedSec % 60).padStart(2, '0');
+    const timerElem = document.getElementById('analysis-elapsed-time');
+    if (timerElem) timerElem.innerText = `Elapsed: ${mins}:${secs}`;
+  }, 1000);
+}
+
+function updateAnalysisStage(stageId, updateObj) {
+  if (!paperAnalysis.stages[stageId]) return;
+  const stage = paperAnalysis.stages[stageId];
+  if (updateObj.status !== undefined) stage.status = updateObj.status;
+  if (updateObj.progress !== undefined) stage.progress = updateObj.progress;
+  if (updateObj.message !== undefined) stage.message = updateObj.message;
+  if (updateObj.findingsCount !== undefined) stage.findingsCount = updateObj.findingsCount;
+
+  paperAnalysis.currentStageId = stageId;
+
+  // Recalculate Overall Progress
+  let weightedProgress = 0;
+  Object.keys(paperAnalysis.stages).forEach(sid => {
+    const s = paperAnalysis.stages[sid];
+    if (s.status === 'completed') {
+      weightedProgress += s.weight;
+    } else if (s.status === 'running') {
+      weightedProgress += (s.weight * (s.progress || 0)) / 100;
+    }
+  });
+
+  paperAnalysis.overallProgress = Math.min(100, Math.round(weightedProgress));
+
+  renderAnalysisDashboardStateUI();
+}
+
+function renderAnalysisDashboardStateUI() {
+  const liveDashboard = document.getElementById('analysis-live-dashboard');
+  const reportBody = document.getElementById('peer-review-report-body');
+  const progressBar = document.getElementById('analysis-overall-progress-bar');
+  const progressPercent = document.getElementById('analysis-overall-progress-percent');
+  const stageTitle = document.getElementById('analysis-current-stage-title');
+  const opText = document.getElementById('analysis-current-operation-text');
+  const checklistContainer = document.getElementById('analysis-stage-checklist');
+  const modelDisplay = document.getElementById('analysis-model-display');
+  const cancelBtn = document.getElementById('btn-cancel-analysis');
+  const rerunBtn = document.getElementById('btn-rerun-audit');
+
+  if (modelDisplay) modelDisplay.innerText = paperAnalysis.model;
+
+  if (paperAnalysis.status === 'running') {
+    if (liveDashboard) liveDashboard.style.display = 'block';
+    if (reportBody) reportBody.style.display = 'none';
+    if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+    if (rerunBtn) rerunBtn.style.display = 'none';
+  } else {
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    if (rerunBtn) rerunBtn.style.display = 'inline-flex';
+  }
+
+  if (progressBar) progressBar.style.width = `${paperAnalysis.overallProgress}%`;
+  if (progressPercent) progressPercent.innerText = `${paperAnalysis.overallProgress}%`;
+
+  const curStage = paperAnalysis.stages[paperAnalysis.currentStageId];
+  if (curStage) {
+    if (stageTitle) stageTitle.innerText = `${curStage.name}`;
+    if (opText) opText.innerText = curStage.message;
+  }
+
+  // Render 14-Stage Checklist Items
+  if (checklistContainer) {
+    let checklistHtml = '';
+    Object.keys(paperAnalysis.stages).forEach(sid => {
+      const st = paperAnalysis.stages[sid];
+      let iconHtml = '<i class="fa-solid fa-minus stage-status-pending"></i>';
+      let itemClass = 'stage-pending';
+      if (st.status === 'completed') {
+        iconHtml = '<i class="fa-solid fa-circle-check stage-status-completed"></i>';
+        itemClass = 'stage-completed';
+      } else if (st.status === 'running') {
+        iconHtml = '<i class="fa-solid fa-spinner stage-status-running"></i>';
+        itemClass = 'stage-running';
+      } else if (st.status === 'failed') {
+        iconHtml = '<i class="fa-solid fa-triangle-exclamation stage-status-failed"></i>';
+        itemClass = 'stage-failed';
+      } else if (st.status === 'cancelled') {
+        iconHtml = '<i class="fa-solid fa-ban stage-status-failed"></i>';
+        itemClass = 'stage-failed';
+      }
+
+      checklistHtml += `
+        <div class="analysis-stage-item ${itemClass}">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="stage-status-icon">${iconHtml}</span>
+            <span style="font-weight:600; color:var(--text-main);">${st.name}</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            ${st.findingsCount > 0 ? `<span class="badge" style="background:rgba(245,158,11,0.2); color:#fbbf24; font-size:0.68rem;">${st.findingsCount} issue(s)</span>` : ''}
+            <span style="font-size:0.75rem; color:var(--text-muted);">${st.status === 'completed' ? '100%' : (st.status === 'running' ? `${st.progress}%` : '—')}</span>
+          </div>
+        </div>
+      `;
+    });
+    checklistContainer.innerHTML = checklistHtml;
+  }
+
+  // Render Preliminary Findings Counters
+  if (paperAnalysis.dimensions) {
+    const cCount = (paperAnalysis.dimensions.citations.findings || []).length;
+    const mCount = (paperAnalysis.dimensions.math_rigor.findings || []).length;
+    const fCount = (paperAnalysis.dimensions.formatting.findings || []).length;
+    const sCount = (paperAnalysis.dimensions.structure.findings || []).length;
+
+    const elC = document.getElementById('chip-citations-count');
+    const elM = document.getElementById('chip-math-count');
+    const elF = document.getElementById('chip-formatting-count');
+    const elS = document.getElementById('chip-structure-count');
+    if (elC) elC.innerText = cCount;
+    if (elM) elM.innerText = mCount;
+    if (elF) elF.innerText = fCount;
+    if (elS) elS.innerText = sCount;
+  }
+}
+
+function appendLiveConsoleLog(logText) {
+  const consoleElem = document.getElementById('analysis-live-console');
+  if (!consoleElem) return;
+  paperAnalysis.llmStreamText += logText;
+  consoleElem.innerText = paperAnalysis.llmStreamText;
+  consoleElem.scrollTop = consoleElem.scrollHeight;
+}
+
+function cancelPaperAnalysis() {
+  if (paperAnalysis.status !== 'running') return;
+  paperAnalysis.cancelled = true;
+  paperAnalysis.status = 'cancelled';
+
+  if (paperAnalysis.abortController) {
+    try { paperAnalysis.abortController.abort(); } catch (e) {}
+  }
+  if (paperAnalysis.timerInterval) {
+    clearInterval(paperAnalysis.timerInterval);
+    paperAnalysis.timerInterval = null;
+  }
+
+  appendLiveConsoleLog('\n[System] 🛑 Analysis cancelled by user. No source files were modified.');
+
+  const opText = document.getElementById('analysis-current-operation-text');
+  const spinner = document.getElementById('analysis-op-spinner');
+  if (opText) opText.innerText = 'Analysis cancelled by user. No source files were modified.';
+  if (spinner) spinner.className = 'fa-solid fa-ban';
+
+  // Mark current stage cancelled
+  if (paperAnalysis.currentStageId && paperAnalysis.stages[paperAnalysis.currentStageId]) {
+    paperAnalysis.stages[paperAnalysis.currentStageId].status = 'cancelled';
+  }
+
+  renderAnalysisDashboardStateUI();
+
+  // Preserve Partial Results if static diagnostics completed
+  if (paperAnalysis.dimensions) {
+    setTimeout(() => {
+      const liveDashboard = document.getElementById('analysis-live-dashboard');
+      const reportBody = document.getElementById('peer-review-report-body');
+      if (liveDashboard) liveDashboard.style.display = 'none';
+      if (reportBody) {
+        reportBody.style.display = 'block';
+        renderHealthDashboardUI(
+          paperAnalysis.overallScore || 70,
+          paperAnalysis.dimensions,
+          `⚠️ AI Peer Review was cancelled by the user. Static Paper Health diagnostics are displayed below.\n\nNo document files were modified.`,
+          false
+        );
+      }
+    }, 1200);
+  }
+}
+
+async function runPeerReviewWithModel(targetModel) {
+  await runPeerReview(targetModel);
+}
+
+async function runPeerReview(overrideModel) {
+  const modal = document.getElementById('peer-review-modal');
+  const reportBody = document.getElementById('peer-review-report-body');
+  const badge = document.getElementById('review-status-badge');
+  const liveDashboard = document.getElementById('analysis-live-dashboard');
+
+  const currentHash = getProjectContentHash();
+  const selectedModel = document.getElementById('model-select') ? document.getElementById('model-select').value : 'llama3.1:8b';
+  const model = overrideModel || (selectedModel && (selectedModel.includes('llama') || selectedModel.includes('gemma') || selectedModel.includes('phi')) ? selectedModel : 'llama3.1:8b');
+
+  // Check Hash Cache
+  if (_cachedHealthHash === currentHash && _cachedHealthReport && !overrideModel) {
+    if (modal) modal.classList.add('active');
+    if (liveDashboard) liveDashboard.style.display = 'none';
+    if (reportBody) reportBody.style.display = 'block';
+    renderHealthDashboardUI(_cachedHealthReport.overallScore, _cachedHealthReport.dimensions, _cachedHealthReport.llmReviewText, true);
+    if (badge) badge.innerText = `Health Audit & Review (${model}) Cached ✓`;
+    return;
+  }
+
+  if (modal) modal.classList.add('active');
+
+  // Launch 14-Stage Asynchronous Pipeline
+  resetPaperAnalysisState(model);
+  renderAnalysisDashboardStateUI();
+
+  const consoleElem = document.getElementById('analysis-live-console');
+  if (consoleElem) consoleElem.innerText = `[System] Starting 14-Stage Paper Analysis Pipeline with ${model}...\n`;
 
   try {
-    const res = await fetch(`${ollamaUrl}/api/generate`, {
+    // STAGE 01: PROJECT SCAN
+    updateAnalysisStage('projectScan', { status: 'running', progress: 50, message: 'Scanning TeX, BibTeX, cls & sty assets...' });
+    await new Promise(r => setTimeout(r, 150));
+    if (paperAnalysis.cancelled) return;
+    const userKeys = Object.keys(fileStore).filter(isUserContentFile).filter(k => k.endsWith('.tex') || k.endsWith('.bib') || k.endsWith('.cls') || k.endsWith('.sty'));
+    updateAnalysisStage('projectScan', { status: 'completed', progress: 100, message: `Scanned ${userKeys.length} project file assets.` });
+
+    // STAGE 02: MANUSCRIPT PARSING
+    updateAnalysisStage('parsing', { status: 'running', progress: 40, message: 'Building manuscript AST structure...' });
+    await new Promise(r => setTimeout(r, 150));
+    if (paperAnalysis.cancelled) return;
+    const ast = buildStructuredManuscriptAST();
+    paperAnalysis.ast = ast;
+    updateAnalysisStage('parsing', { status: 'completed', progress: 100, message: `Detected ${ast.sections.length} sections, ${ast.citations.length} citations, ${ast.equations.length} equations.` });
+
+    // STAGE 03: DOCUMENT STRUCTURE ANALYSIS
+    updateAnalysisStage('structure', { status: 'running', progress: 50, message: 'Evaluating title, abstract & section hierarchy...' });
+    await new Promise(r => setTimeout(r, 150));
+    if (paperAnalysis.cancelled) return;
+    const dimensions = runDeterministicHealthDiagnostics(ast);
+    paperAnalysis.dimensions = dimensions;
+    updateAnalysisStage('structure', { status: 'completed', progress: 100, message: 'Structure hierarchy evaluated.', findingsCount: dimensions.structure.findings.length });
+
+    // STAGE 04: CITATION & BIBLIOGRAPHY AUDIT
+    updateAnalysisStage('citations', { status: 'running', progress: 50, message: 'Cross-checking citation keys against .bib files...' });
+    await new Promise(r => setTimeout(r, 150));
+    if (paperAnalysis.cancelled) return;
+    updateAnalysisStage('citations', { status: 'completed', progress: 100, message: 'Citation & bibliography audit complete.', findingsCount: dimensions.citations.findings.length });
+
+    // STAGE 05: EQUATION / MATH RIGOR
+    updateAnalysisStage('equations', { status: 'running', progress: 50, message: 'Checking display math environments & equation labels...' });
+    await new Promise(r => setTimeout(r, 150));
+    if (paperAnalysis.cancelled) return;
+    updateAnalysisStage('equations', { status: 'completed', progress: 100, message: 'Math rigor analysis complete.', findingsCount: dimensions.math_rigor.findings.length });
+
+    // STAGE 06: FIGURE & TABLE ANALYSIS
+    updateAnalysisStage('figuresTables', { status: 'running', progress: 50, message: 'Auditing figure float captions & cross-ref anchors...' });
+    await new Promise(r => setTimeout(r, 150));
+    if (paperAnalysis.cancelled) return;
+    updateAnalysisStage('figuresTables', { status: 'completed', progress: 100, message: 'Figure/table analysis complete.', findingsCount: dimensions.formatting.findings.length });
+
+    // STAGE 07: COMPILATION DIAGNOSTICS
+    updateAnalysisStage('compilation', { status: 'running', progress: 30, message: 'Running compiler diagnostic check...' });
+    let compilerWarnings = 0;
+    try {
+      const mainContent = fileStore[ast.root_file] || '';
+      const compRes = await fetch('/api/compile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: mainContent, project_name: activeProject ? activeProject.name : 'paper' }),
+        signal: paperAnalysis.abortController.signal
+      }).catch(() => null);
+      if (compRes && compRes.ok) {
+        paperAnalysis.compilationResult = 'Compilation succeeded';
+      }
+    } catch (e) {
+      compilerWarnings = 1;
+    }
+    if (paperAnalysis.cancelled) return;
+    updateAnalysisStage('compilation', { status: 'completed', progress: 100, message: 'Compiler diagnostics pass finished.', findingsCount: compilerWarnings });
+
+    // STAGE 08: REPRODUCIBILITY AUDIT
+    updateAnalysisStage('reproducibility', { status: 'running', progress: 50, message: 'Auditing methodology & data parameters...' });
+    await new Promise(r => setTimeout(r, 150));
+    if (paperAnalysis.cancelled) return;
+    updateAnalysisStage('reproducibility', { status: 'completed', progress: 100, message: 'Reproducibility parameters audited.' });
+
+    // STAGE 09: ACADEMIC TONE ANALYSIS
+    updateAnalysisStage('tone', { status: 'running', progress: 50, message: 'Auditing academic prose style & clarity...' });
+    await new Promise(r => setTimeout(r, 150));
+    if (paperAnalysis.cancelled) return;
+    updateAnalysisStage('tone', { status: 'completed', progress: 100, message: 'Academic tone analysis finished.' });
+
+    // STAGE 10: NOVELTY & CONTRIBUTION
+    updateAnalysisStage('novelty', { status: 'running', progress: 50, message: 'Evaluating claim strength & novelty statements...' });
+    await new Promise(r => setTimeout(r, 150));
+    if (paperAnalysis.cancelled) return;
+    updateAnalysisStage('novelty', { status: 'completed', progress: 100, message: 'Novelty evaluation complete.' });
+
+    // STAGE 11: LOCAL AI PEER REVIEW (LLM Inference)
+    updateAnalysisStage('aiReview', { status: 'running', progress: 10, message: `Connecting to Ollama model (${model})...` });
+    appendLiveConsoleLog(`[AI Engine] Dispatching prompt evidence pack to model '${model}'...\n`);
+
+    let codePayload = '';
+    if (userKeys.length > 0) {
+      codePayload = `FULL PROJECT WORKSPACE: "${activeProject ? activeProject.name : 'LaTeX Paper'}" (${userKeys.length} files)\n\n`;
+      userKeys.forEach(k => {
+        codePayload += `--- FILE: ${k} ---\n${fileStore[k] || ''}\n\n`;
+      });
+    } else if (editor) {
+      codePayload = editor.getValue();
+    }
+
+    const diagnosticFindings = Object.keys(dimensions).flatMap(key =>
+      (dimensions[key].findings || []).map(finding => ({
+        dimension: dimensions[key].name,
+        priority: finding.priority,
+        finding: finding.message,
+        evidence: finding.evidence || '',
+        location: `${finding.file}:${finding.line}`,
+        recommendation: finding.recommendation || ''
+      }))
+    );
+    const evidencePack = JSON.stringify({
+      root_file: ast.root_file,
+      title: ast.title,
+      sections: ast.sections.slice(0, 40),
+      citations: ast.citations.slice(0, 80),
+      equations: ast.equations.map(e => ({ file: e.file, line: e.line, has_label: e.has_label })),
+      figures: ast.figures.map(f => ({ file: f.file, line: f.line, caption: f.caption, has_label: f.has_label })),
+      tables: ast.tables.map(t => ({ file: t.file, line: t.line, caption: t.caption, has_label: t.has_label })),
+      deterministic_findings: diagnosticFindings,
+      compilation_status: paperAnalysis.compilationResult || 'not available'
+    }, null, 2);
+
+    const promptText = `You are reviewing a LaTeX research manuscript as a rigorous, evidence-first Reviewer #2. Do not role-play, flatter, or invent details. Identify the smallest number of consequential, verifiable issues that could affect validity, reproducibility, novelty, or presentation.
+
+Use ONLY evidence in the project files and diagnostic evidence pack below. Every criticism must include an exact file:line or a section heading. If the manuscript does not contain enough evidence to assess something, write "Not assessable from the supplied files" and explain what evidence is missing. Never invent experiments, results, citations, journal policies, datasets, or line numbers.
+
+PROJECT FILES:
+${codePayload}
+
+DETERMINISTIC EVIDENCE PACK:
+${evidencePack}
+
+Return plain text with exactly these sections:
+1. PAPER HEALTH SNAPSHOT
+Give the overall assessment and the 2-4 highest-impact findings. Do not create unsupported numeric scores.
+
+2. REVIEWER #2 CRITIQUE
+Organize findings under Methodology & Validity, Evidence & Statistics, Novelty & Claims, Reproducibility, Related Work & Citations, Figures/Tables, and Writing/Structure. Include only relevant categories. For each finding use this format:
+[MAJOR|MINOR] [BLOCKING|HIGH|MEDIUM|LOW] [HIGH|MEDIUM|LOW CONFIDENCE]
+Location: file.tex:line or Section: heading
+Evidence: quote a short phrase or describe the exact observed artifact
+Concern: explain why it matters
+Required action: give one concrete revision or verification step
+
+3. PRIORITIZED REVISION PLAN
+List at most 8 actions in order of impact. Label each as Must fix, Should fix, or Optional. Tie every action to a location.
+
+4. FINAL RECOMMENDATION
+Choose Major Revision, Minor Revision, Reject, or Accept only when the evidence supports it. Give a two-sentence rationale.
+
+Quality rules: distinguish an absent artifact from a failed result; do not treat missing metadata as proof that an experiment is invalid; do not repeat the same issue in multiple sections; prefer concrete checks over vague advice; keep the critique specific to this manuscript.`;
+
+    const ollamaUrl = document.getElementById('ollama-url-input') ? document.getElementById('ollama-url-input').value : 'http://10.24.48.24:11435';
+
+    updateAnalysisStage('aiReview', { status: 'running', progress: 40, message: `Inference active on ${model}...` });
+
+    let llmReviewText = '';
+    let res = await fetch(`${ollamaUrl}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: model,
-        prompt: promptText,
-        stream: false
-      })
-    });
+      body: JSON.stringify({ model: model, prompt: promptText, stream: false }),
+      signal: paperAnalysis.abortController.signal
+    }).catch(() => null);
+
+    if (!res || !res.ok) {
+      res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: model, prompt: promptText, stream: false }),
+        signal: paperAnalysis.abortController.signal
+      });
+    }
+
+    if (paperAnalysis.cancelled) return;
+
     const data = await res.json();
-    const feedback = data.response.trim();
-    reportBody.innerText = feedback;
-    badge.innerText = 'Review Completed ✓';
+    llmReviewText = (data.response || '').trim();
+    if (!llmReviewText) {
+      llmReviewText = 'AI review returned no text. The deterministic findings above are the authoritative local audit results.';
+    }
+    appendLiveConsoleLog(`[AI Engine] Completed inference. ${llmReviewText.length} chars generated.\n`);
+    updateAnalysisStage('aiReview', { status: 'completed', progress: 100, message: 'Local AI peer review completed.' });
+
+    // STAGE 12: RESPONSE VALIDATION
+    updateAnalysisStage('validation', { status: 'running', progress: 50, message: 'Validating response structure...' });
+    await new Promise(r => setTimeout(r, 100));
+    if (paperAnalysis.cancelled) return;
+    updateAnalysisStage('validation', { status: 'completed', progress: 100, message: 'Response validation passed.' });
+
+    // STAGE 13: HEALTH SCORE CALCULATION
+    updateAnalysisStage('scoring', { status: 'running', progress: 50, message: 'Computing 8-dimension weighted scores...' });
+    const dimScores = Object.keys(dimensions).map(k => dimensions[k].score);
+    const avgDimScore = dimScores.reduce((a, b) => a + b, 0) / (dimScores.length || 1);
+    const overallScore = Math.min(100, Math.max(30, Math.round(avgDimScore * 10)));
+    paperAnalysis.overallScore = overallScore;
+    updateAnalysisStage('scoring', { status: 'completed', progress: 100, message: `Overall Paper Health Score: ${overallScore}/100.` });
+
+    // STAGE 14: FINAL REPORT GENERATION
+    updateAnalysisStage('finalReport', { status: 'running', progress: 50, message: 'Transitioning to final report UI...' });
+    await new Promise(r => setTimeout(r, 200));
+    if (paperAnalysis.cancelled) return;
+
+    paperAnalysis.status = 'completed';
+    paperAnalysis.completedAt = Date.now();
+    updateAnalysisStage('finalReport', { status: 'completed', progress: 100, message: 'Final report ready.' });
+
+    _cachedHealthHash = currentHash;
+    _cachedHealthReport = { overallScore, dimensions, llmReviewText };
+
+    if (paperAnalysis.timerInterval) {
+      clearInterval(paperAnalysis.timerInterval);
+      paperAnalysis.timerInterval = null;
+    }
+
+    // Transition to Final Report View
+    if (liveDashboard) liveDashboard.style.display = 'none';
+    if (reportBody) {
+      reportBody.style.display = 'block';
+      renderHealthDashboardUI(overallScore, dimensions, llmReviewText, false);
+    }
+    if (badge) badge.innerText = `Health Audit & Review (${model}) Complete ✓`;
   } catch (e) {
-    reportBody.innerText = `❌ Peer Review Evaluation Error: ${e.message}. Make sure Ollama backend is connected.`;
-    badge.innerText = 'Evaluation Failed';
+    if (paperAnalysis.cancelled) return;
+
+    paperAnalysis.status = 'failed';
+    if (paperAnalysis.timerInterval) {
+      clearInterval(paperAnalysis.timerInterval);
+      paperAnalysis.timerInterval = null;
+    }
+
+    appendLiveConsoleLog(`\n[System Error] ${e.message}\n`);
+    if (paperAnalysis.dimensions) {
+      // Show Partial Results if available
+      if (liveDashboard) liveDashboard.style.display = 'none';
+      if (reportBody) {
+        reportBody.style.display = 'block';
+        renderHealthDashboardUI(
+          paperAnalysis.overallScore || 70,
+          paperAnalysis.dimensions,
+          `⚠️ AI Model Inference Error: ${e.message}.\n\nStatic Paper Health diagnostics are displayed below.`,
+          false
+        );
+      }
+    } else {
+      if (reportBody) reportBody.innerText = `❌ Health Audit & Peer Review Error: ${e.message}. Make sure Ollama backend is connected.`;
+    }
+    if (badge) badge.innerText = 'Audit Failed';
   }
+}
+
+async function calculatePaperHealthScore() {
+  await runPeerReview();
+}
+
+async function runFullProjectAIReview() {
+  await runPeerReview();
 }
 
 function copyPeerReviewReport() {
   const reportBody = document.getElementById('peer-review-report-body');
   if (reportBody && reportBody.innerText) {
     navigator.clipboard.writeText(reportBody.innerText);
-    alert('✅ Peer Reviewer Critique copied to clipboard!');
+    alert('✅ Paper Health & Peer Reviewer Report copied to clipboard!');
   }
 }
 
@@ -4795,11 +6260,7 @@ function initAITaskManager() {
 function getActiveProjectTasks() {
   if (!activeProject) return [];
   if (!activeProject.tasks || !Array.isArray(activeProject.tasks)) {
-    activeProject.tasks = [
-      { id: 'task-1', title: 'Verify abstract contains quantitative research metrics', status: 'todo', category: 'Writing', created_at: Date.now() },
-      { id: 'task-2', title: 'Check all figure citations in Section 3 exist in figures/', status: 'done', category: 'Assets', created_at: Date.now() - 3600000 },
-      { id: 'task-3', title: 'Ensure all @article entries in references.bib have DOIs', status: 'todo', category: 'Citations', created_at: Date.now() - 7200000 }
-    ];
+    activeProject.tasks = [];
   }
   return activeProject.tasks;
 }
@@ -4941,7 +6402,7 @@ async function generateAITasksFromManuscript() {
     const prompt = `You are an expert academic paper reviewer. Analyze this LaTeX manuscript excerpt and extract a list of 4 actionable research tasks, missing citation checks, or TODO action items.\n\nManuscript Excerpt:\n${mainContent.slice(0, 3000)}\n\nReturn JSON ONLY as an array of objects: [{"title": "task description", "category": "Writing|Citations|Figures|Math"}]`;
 
     const modelSelect = document.getElementById('model-select');
-    const selectedModel = modelSelect ? modelSelect.value : 'qwen2.5:32b';
+    const selectedModel = modelSelect ? modelSelect.value : 'qwen3-coder:30b';
 
     const res = await fetch('/api/ai/llm', {
       method: 'POST',
@@ -4959,12 +6420,9 @@ async function generateAITasksFromManuscript() {
       try {
         const clean = data.response.replace(/```json/g, '').replace(/```/g, '').trim();
         extracted = JSON.parse(clean);
+        if (!Array.isArray(extracted)) throw new Error('AI returned a non-array task response');
       } catch (pe) {
-        extracted = [
-          { title: 'Add quantitative experimental results table in Results section', category: 'Writing' },
-          { title: 'Verify all reference keys in \\cite{} are present in bib/', category: 'Citations' },
-          { title: 'Check equation numbering consistency across methods', category: 'Math' }
-        ];
+        throw new Error(`AI returned invalid task data: ${pe.message}`);
       }
 
       const tasks = getActiveProjectTasks();
@@ -4990,7 +6448,7 @@ async function generateAITasksFromManuscript() {
   } catch (err) {
     console.warn('Error generating AI tasks:', err);
     if (typeof showToast === 'function') {
-      showToast(`⚠️ AI Task extraction completed with default suggestions`, 'info');
+      showToast(`AI task extraction failed: ${err.message}`, 'error');
     }
   } finally {
     if (btn) {

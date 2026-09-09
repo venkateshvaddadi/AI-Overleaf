@@ -8,11 +8,22 @@ import subprocess
 import tempfile
 import time
 import urllib.parse
+import urllib.request
 import threading
+import re
 
 PORT = 8090
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
-TECTONIC_BIN = '/home/medimg/.gemini/antigravity/scratch/texenv/bin/tectonic'
+ANTIGRAVITY_BASE_URL = os.environ.get('ANTIGRAVITY_BASE_URL', 'http://127.0.0.1:8000/v1').rstrip('/')
+ANTIGRAVITY_API_KEY = os.environ.get('ANTIGRAVITY_API_KEY', '')
+home_dir = os.path.expanduser('~')
+local_tectonic = os.path.join(DIRECTORY, 'tools', 'tectonic', 'tectonic')
+default_tectonic = os.path.join(home_dir, '.gemini/antigravity/scratch/texenv/bin/tectonic')
+TECTONIC_BIN = (
+    shutil.which('tectonic')
+    or (local_tectonic if os.path.exists(local_tectonic) else None)
+    or (default_tectonic if os.path.exists(default_tectonic) else default_tectonic)
+)
 
 # Thread-safe status map for GitHub background sync
 sync_status_map = {}
@@ -142,6 +153,41 @@ def load_metadata():
 def save_metadata(data):
     with open(METADATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
+
+def history_dir(project_id):
+    return os.path.join(DB_DIR, project_id, '.history')
+
+def create_project_snapshot(project_id, message, files, main_file):
+    snapshot_root = history_dir(project_id)
+    os.makedirs(snapshot_root, exist_ok=True)
+    snapshot_id = f'{int(time.time() * 1000)}_{os.urandom(3).hex()}'
+    snapshot = {
+        'id': snapshot_id,
+        'message': message or 'Snapshot update',
+        'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
+        'main_file': main_file,
+        'files': {k: v for k, v in files.items() if is_user_content_file(k)}
+    }
+    snapshot_path = safe_project_path(snapshot_root, f'{snapshot_id}.json')
+    with open(snapshot_path, 'w', encoding='utf-8') as f:
+        json.dump(snapshot, f)
+    return {k: snapshot[k] for k in ('id', 'message', 'timestamp', 'main_file')}
+
+def list_project_snapshots(project_id):
+    root = history_dir(project_id)
+    if not os.path.isdir(root):
+        return []
+    snapshots = []
+    for filename in sorted(os.listdir(root), reverse=True):
+        if not filename.endswith('.json'):
+            continue
+        try:
+            with open(os.path.join(root, filename), 'r', encoding='utf-8') as f:
+                snapshot = json.load(f)
+            snapshots.append({k: snapshot.get(k) for k in ('id', 'message', 'timestamp', 'main_file')})
+        except (OSError, ValueError):
+            continue
+    return snapshots
 
 def run_bg_github_sync(proj_id, token, repo_url, commit_msg, auto_sync, files):
     def update_status(status=None, progress=None, step=None, synced_count=None, files_count=None, error=None, log=None, last_synced=None):
@@ -402,6 +448,25 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             self.send_json(404, {'error': 'File not found'})
             return
 
+        elif parsed.path == '/api/projects/history':
+            params = urllib.parse.parse_qs(parsed.query)
+            proj_id = params.get('id', [None])[0]
+            metadata = load_metadata()
+            if not proj_id or proj_id not in metadata:
+                self.send_json(404, {'error': 'Project not found'})
+                return
+            snapshot_id = params.get('snapshot', [None])[0]
+            if snapshot_id:
+                snapshot_path = safe_project_path(history_dir(proj_id), f'{snapshot_id}.json')
+                if not os.path.exists(snapshot_path):
+                    self.send_json(404, {'error': 'Snapshot not found'})
+                    return
+                with open(snapshot_path, 'r', encoding='utf-8') as f:
+                    self.send_json(200, json.load(f))
+            else:
+                self.send_json(200, list_project_snapshots(proj_id))
+            return
+
         elif parsed.path == '/api/projects/download':
             params = urllib.parse.parse_qs(parsed.query)
             proj_id = params.get('id', [None])[0]
@@ -449,6 +514,28 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             self.send_json(200, st)
             return
 
+        elif parsed.path == '/api/tags':
+            try:
+                req = urllib.request.Request('http://10.24.48.24:11435/api/tags', headers={'User-Agent': 'AI-Overleaf-Server'})
+                with urllib.request.urlopen(req, timeout=1.5) as res:
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(res.read())
+                    return
+            except Exception:
+                pass
+            self.send_json(200, {
+                'models': [
+                    {'name': 'qwen2.5:latest', 'details': {'family': 'qwen2', 'parameter_size': '7B'}},
+                    {'name': 'deepseek-r1:latest', 'details': {'family': 'deepseek', 'parameter_size': '8B'}},
+                    {'name': 'llama3.3:latest', 'details': {'family': 'llama', 'parameter_size': '70B'}},
+                    {'name': 'ai-overleaf-local:latest', 'details': {'family': 'academic', 'parameter_size': 'Native'}}
+                ]
+            })
+            return
+
         elif parsed.path == '/favicon.ico':
             self.send_response(204)
             self.end_headers()
@@ -468,7 +555,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             return {}
 
     def do_POST(self):
-        if self.path == '/api/projects/create':
+        if self.path in ['/api/projects/create', '/api/projects/new']:
             data = self.read_body_json()
             name = data.get('name', 'New_Project').strip()
             description = data.get('description', 'LaTeX Research Paper').strip()
@@ -510,9 +597,18 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             files = data.get('files', {})
             main_file = data.get('main_file', 'main.tex')
             name = data.get('name')
+            expected_version = data.get('expected_version')
 
             metadata = load_metadata()
             if proj_id and proj_id in metadata:
+                current_version = metadata[proj_id].get('version', 0)
+                if expected_version is not None and int(expected_version) != current_version:
+                    self.send_json(409, {
+                        'error': 'Project changed on the server. Reload or merge the newer version before saving.',
+                        'version': current_version,
+                        'updated_at': metadata[proj_id].get('updated_at', 0)
+                    })
+                    return
                 proj_dir = os.path.join(DB_DIR, proj_id)
                 # Safely update files without nuking existing binary disk assets
                 os.makedirs(proj_dir, exist_ok=True)
@@ -560,6 +656,39 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                 self.send_json(200, {'status': 'saved', 'modified_at': 'Just now', 'updated_at': now_ms, 'version': metadata[proj_id]['version']})
             else:
                 self.send_json(404, {'error': 'Project not found'})
+            return
+
+        elif self.path == '/api/projects/history':
+            data = self.read_body_json()
+            proj_id = data.get('id')
+            metadata = load_metadata()
+            if not proj_id or proj_id not in metadata:
+                self.send_json(404, {'error': 'Project not found'})
+                return
+            if data.get('action') == 'restore':
+                snapshot_id = data.get('snapshot')
+                snapshot_path = safe_project_path(history_dir(proj_id), f'{snapshot_id}.json')
+                if not os.path.exists(snapshot_path):
+                    self.send_json(404, {'error': 'Snapshot not found'})
+                    return
+                with open(snapshot_path, 'r', encoding='utf-8') as f:
+                    snapshot = json.load(f)
+                for rel_path, content in snapshot.get('files', {}).items():
+                    full_path = safe_project_path(os.path.join(DB_DIR, proj_id), rel_path)
+                    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                    if isinstance(content, str):
+                        with open(full_path, 'w', encoding='utf-8') as f:
+                            f.write(content)
+                metadata[proj_id]['main_file'] = snapshot.get('main_file', metadata[proj_id].get('main_file', 'main.tex'))
+                metadata[proj_id]['version'] = metadata[proj_id].get('version', 0) + 1
+                metadata[proj_id]['updated_at'] = int(time.time() * 1000)
+                save_metadata(metadata)
+                self.send_json(200, {'status': 'restored', 'version': metadata[proj_id]['version']})
+                return
+
+            files = data.get('files', {})
+            snapshot = create_project_snapshot(proj_id, data.get('message'), files, data.get('main_file', 'main.tex'))
+            self.send_json(200, {'status': 'created', 'snapshot': snapshot})
             return
 
         elif self.path == '/api/projects/archive':
@@ -820,8 +949,65 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                 daemon=True
             )
             t.start()
+            self.send_json(200, {'status': 'syncing', 'message': 'Background GitHub sync started successfully.'})
+            return
 
-            self.send_json(200, {'status': 'started', 'message': 'GitHub sync started in background thread.'})
+        elif self.path in ['/api/generate', '/api/ai/llm']:
+            data = self.read_body_json()
+            prompt = data.get('prompt', '') or data.get('system', '')
+            is_stream = data.get('stream', False)
+            model = data.get('model', '')
+
+            if model == 'gpt-oss-120b-medium':
+                antigravity_prompt = prompt
+                if data.get('system'):
+                    antigravity_prompt = f"{data['system']}\n\n{prompt}"
+                antigravity_payload = {
+                    'model': model,
+                    'prompt': antigravity_prompt,
+                    'max_tokens': data.get('max_tokens', 512),
+                    'temperature': data.get('temperature', 0.2),
+                    'stream': False
+                }
+                antigravity_headers = {'Content-Type': 'application/json'}
+                if ANTIGRAVITY_API_KEY:
+                    antigravity_headers['Authorization'] = f'Bearer {ANTIGRAVITY_API_KEY}'
+                try:
+                    antigravity_req = urllib.request.Request(
+                        f'{ANTIGRAVITY_BASE_URL}/completions',
+                        data=json.dumps(antigravity_payload).encode('utf-8'),
+                        headers=antigravity_headers
+                    )
+                    with urllib.request.urlopen(antigravity_req, timeout=120.0) as res:
+                        response_data = json.loads(res.read().decode('utf-8'))
+                    choices = response_data.get('choices') or []
+                    generated_text = choices[0].get('text', '') if choices else ''
+                    self.send_json(200, {'response': generated_text, 'done': True, 'provider': 'antigravity'})
+                    return
+                except Exception as exc:
+                    self.send_json(502, {'error': f'Antigravity GPT-OSS request failed: {exc}'})
+                    return
+
+            # Try proxying to local Ollama first with extended 60s timeout for local models
+            try:
+                ollama_req = urllib.request.Request(
+                    'http://10.24.48.24:11435/api/generate',
+                    data=json.dumps(data).encode('utf-8'),
+                    headers={'Content-Type': 'application/json'}
+                )
+                with urllib.request.urlopen(ollama_req, timeout=60.0) as res:
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/x-ndjson' if is_stream else 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    shutil.copyfileobj(res, self.wfile)
+                    return
+            except Exception:
+                pass
+
+            self.send_json(503, {
+                'error': 'AI backend unavailable. Start the configured Ollama service and try again.'
+            })
             return
 
         elif self.path == '/api/compile':
@@ -843,19 +1029,86 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             
             if pdf_bytes:
                 import base64
-                b64_log = base64.b64encode((log_output or '').encode('utf-8')).decode('utf-8')
+                # Keep response headers below common HTTP header-size limits.
+                # The complete log remains available to the compiler workflow.
+                header_log = (log_output or '')[-12000:]
+                b64_log = base64.b64encode(header_log.encode('utf-8')).decode('utf-8')
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/pdf')
                 self.send_header('Content-Disposition', f'attachment; filename="{title}.pdf"')
                 self.send_header('Content-Length', str(len(pdf_bytes)))
                 self.send_header('Access-Control-Allow-Origin', '*')
-                self.send_header('Access-Control-Expose-Headers', 'X-Compiler-Log, X-Compiler-Error')
+                self.send_header('Access-Control-Expose-Headers', 'X-Compiler-Log, X-Compiler-Error, X-Compiler-Stale, X-Compilation-Type')
                 self.send_header('X-Compiler-Log', b64_log)
                 self.send_header('X-Compiler-Error', '1' if err else '0')
+                self.send_header('X-Compiler-Stale', '1' if err else '0')
+                is_frag = main_file and main_file in files and '\\documentclass' not in str(files.get(main_file, ''))
+                self.send_header('X-Compilation-Type', 'fragment' if is_frag else 'root')
                 self.end_headers()
                 self.wfile.write(pdf_bytes)
             else:
                 self.send_json(400, {'error': err or 'Compilation failed completely', 'log': log_output or ''})
+            return
+
+        elif self.path == '/api/synctex':
+            data = self.read_body_json()
+            proj_id = data.get('id')
+            main_file = data.get('main_file', 'main.tex')
+            page = int(data.get('page', 1))
+            x = float(data.get('x', 0))
+            y = float(data.get('y', 0))
+            if not proj_id:
+                self.send_json(400, {'error': 'Project id is required'})
+                return
+
+            safe_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', main_file or 'main.tex')
+            synctex_path = os.path.join(DB_DIR, proj_id, f'compiled_{safe_name}.synctex.gz')
+            pdf_path = os.path.join(DB_DIR, proj_id, f'compiled_{safe_name}.pdf')
+            if not os.path.exists(synctex_path) or not os.path.exists(pdf_path):
+                self.send_json(404, {'error': 'No SyncTeX mapping is available. Compile the document first.'})
+                return
+
+            try:
+                result = subprocess.run(
+                    ['synctex', 'edit', '-o', f'{page}:{x}:{y}:{pdf_path}'],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    timeout=10, env={**os.environ, 'SYNCTEX': synctex_path}
+                )
+                output = result.stdout.decode('utf-8', errors='replace')
+                match = re.search(r'Input:\s*(.+?)\s*\nLine:\s*(\d+)', output)
+                if not match:
+                    self.send_json(404, {'error': 'No source location found', 'raw': output[-2000:]})
+                    return
+                raw_source = match.group(1).strip().replace('\\', '/')
+                source_file = raw_source
+                project_dir = os.path.dirname(pdf_path)
+                candidates = []
+                for root, _, filenames in os.walk(project_dir):
+                    for filename in filenames:
+                        relative = os.path.relpath(os.path.join(root, filename), project_dir).replace('\\', '/')
+                        if is_user_content_file(relative):
+                            candidates.append(relative)
+                for candidate in candidates:
+                    if raw_source.endswith('/' + candidate) or raw_source == candidate:
+                        source_file = candidate
+                        break
+                if source_file == raw_source and os.path.basename(raw_source) == os.path.basename(main_file):
+                    source_file = main_file.replace('\\', '/')
+                self.send_json(200, {'file': source_file, 'line': int(match.group(2)), 'raw': output[-2000:]})
+            except Exception as exc:
+                self.send_json(500, {'error': f'SyncTeX lookup failed: {exc}'})
+            return
+
+        elif self.path == '/api/compile-fix':
+            data = self.read_body_json()
+            files = data.get('files', {})
+            main_file = data.get('main_file', 'main.tex')
+            proj_id = data.get('id')
+            engine = data.get('engine', 'tectonic')
+            model = data.get('model', 'qwen3-coder:30b')
+            max_attempts = max(1, min(int(data.get('max_attempts', 3)), 5))
+            result = self.run_compile_fix_loop(files, main_file, proj_id, engine, model, max_attempts)
+            self.send_json(200, result)
             return
 
     def send_json(self, status, payload):
@@ -864,6 +1117,77 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(json.dumps(payload).encode('utf-8'))
+
+    def run_compile_fix_loop(self, files, main_file, proj_id, engine, model, max_attempts):
+        """Compile, request one bounded line patch from Ollama, and verify it."""
+        import base64
+        working_files = dict(files) if isinstance(files, dict) else {}
+        attempts = []
+
+        for attempt in range(1, max_attempts + 1):
+            pdf_bytes, log_output, err = self.compile_latex_project(
+                working_files, main_file, proj_id=proj_id, engine=engine
+            )
+            attempt_info = {'attempt': attempt, 'error': err, 'log': log_output or ''}
+            if not err:
+                return {
+                    'status': 'verified', 'attempts': attempts + [attempt_info],
+                    'files': working_files, 'main_file': main_file,
+                    'pdf_base64': base64.b64encode(pdf_bytes or b'').decode('ascii'),
+                    'log': log_output or ''
+                }
+
+            attempts.append(attempt_info)
+            if attempt == max_attempts:
+                break
+
+            source = working_files.get(main_file, '')
+            if not isinstance(source, str):
+                break
+            prompt = f'''You are a LaTeX compiler repair agent. Return ONLY valid JSON.
+Schema: {{"file":"{main_file}","start_line":number,"end_line":number,"replacement":"string","explanation":"string"}}
+Rules: make the smallest necessary line-range patch; preserve user content; do not rewrite the document; line numbers are 1-based and inclusive; replacement may contain newlines.
+Compiler log:
+{(log_output or '')[-10000:]}
+
+Failing file ({main_file}):
+```latex
+{source}
+```'''
+            try:
+                request = urllib.request.Request(
+                    'http://10.24.48.24:11435/api/generate',
+                    data=json.dumps({'model': model, 'prompt': prompt, 'stream': False, 'format': 'json'}).encode('utf-8'),
+                    headers={'Content-Type': 'application/json'}
+                )
+                with urllib.request.urlopen(request, timeout=120.0) as response:
+                    ai_payload = json.loads(response.read().decode('utf-8'))
+                patch_text = ai_payload.get('response', '')
+                patch_text = patch_text.strip().removeprefix('```json').removesuffix('```').strip()
+                patch = json.loads(patch_text)
+                patch_file = patch.get('file', main_file)
+                start_line = int(patch['start_line'])
+                end_line = int(patch['end_line'])
+                replacement = patch['replacement']
+                target = working_files.get(patch_file)
+                if not isinstance(target, str) or not isinstance(replacement, str):
+                    raise ValueError('Patch file or replacement is invalid')
+                lines = target.split('\n')
+                if start_line < 1 or end_line < start_line or end_line > len(lines):
+                    raise ValueError('Patch line range is outside the target file')
+                working_files[patch_file] = '\n'.join(lines[:start_line - 1] + replacement.split('\n') + lines[end_line:])
+                attempt_info['patch'] = {
+                    'file': patch_file, 'start_line': start_line, 'end_line': end_line,
+                    'replacement': replacement, 'explanation': patch.get('explanation', '')
+                }
+            except Exception as exc:
+                attempt_info['patch_error'] = str(exc)
+                break
+
+        return {
+            'status': 'failed', 'attempts': attempts, 'files': working_files,
+            'main_file': main_file, 'log': attempts[-1]['log'] if attempts else ''
+        }
 
     def compile_latex_project(self, files, main_file, proj_id=None, engine='tectonic'):
         if 'sn-jnl.cls' not in files:
@@ -931,7 +1255,10 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                             break
 
             for filepath, content in files.items():
-                full_path = os.path.join(tmpdir, filepath)
+                try:
+                    full_path = safe_project_path(tmpdir, filepath)
+                except ValueError:
+                    continue
                 os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
                 ext = os.path.splitext(filepath)[1].lower()
@@ -990,13 +1317,62 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
             main_filepath = os.path.join(tmpdir, compilation_entry_file)
             pdf_filepath = os.path.splitext(main_filepath)[0] + '.pdf'
 
+            def persist_synctex_mapping():
+                if not proj_id:
+                    return
+                source_synctex = os.path.splitext(main_filepath)[0] + '.synctex.gz'
+                if not os.path.exists(source_synctex):
+                    return
+                safe_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', main_file or 'main.tex')
+                target_synctex = os.path.join(DB_DIR, proj_id, f'compiled_{safe_name}.synctex.gz')
+                try:
+                    shutil.copy2(source_synctex, target_synctex)
+                except Exception:
+                    pass
+
             if not os.path.exists(main_filepath):
                 return get_fallback_cached_pdf('', f'Main TeX file {target_main_file} not found')
+
+            has_bibliography_workflow = any(
+                isinstance(content, str) and (
+                    '\\bibliography{' in content or
+                    '\\addbibresource{' in content or
+                    '\\printbibliography' in content
+                )
+                for content in files.values()
+            )
+
+            # A bibliography needs an auxiliary-tool pass between LaTeX runs.
+            # latexmk detects whether the project needs BibTeX or Biber and
+            # repeats the TeX pass until the references stabilize.
+            if has_bibliography_workflow and shutil.which('latexmk'):
+                latexmk_engine = {
+                    'pdflatex': '-pdf',
+                    'xelatex': '-xelatex',
+                    'lualatex': '-lualatex'
+                }.get(engine, '-pdf')
+                try:
+                    cmd = [
+                        'latexmk', '-f', latexmk_engine, '-interaction=nonstopmode',
+                        '-outdir=' + tmpdir, main_filepath
+                    ]
+                    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180)
+                    stdout_str = res.stdout.decode('utf-8', errors='ignore')
+                    stderr_str = res.stderr.decode('utf-8', errors='ignore')
+                    log_output = f'Engine: latexmk ({latexmk_engine})\n\n' + stdout_str + '\n' + stderr_str
+
+                    if os.path.exists(pdf_filepath):
+                        has_err = res.returncode != 0 or 'error:' in log_output.lower() or '! ' in log_output
+                        persist_synctex_mapping()
+                        with open(pdf_filepath, 'rb') as f:
+                            return save_and_return_pdf(f.read(), log_output, ('LaTeX errors' if has_err else None))
+                except subprocess.TimeoutExpired:
+                    pass
 
             # Select Engine (pdflatex, xelatex, lualatex, or tectonic)
             if engine in ['pdflatex', 'xelatex', 'lualatex'] and shutil.which(engine):
                 try:
-                    cmd = [engine, '-interaction=nonstopmode', '-output-directory', tmpdir, main_filepath]
+                    cmd = [engine, '-synctex=1', '-interaction=nonstopmode', '-output-directory', tmpdir, main_filepath]
                     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
                     stdout_str = res.stdout.decode('utf-8', errors='ignore')
                     stderr_str = res.stderr.decode('utf-8', errors='ignore')
@@ -1004,6 +1380,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
 
                     if os.path.exists(pdf_filepath):
                         with open(pdf_filepath, 'rb') as f:
+                            persist_synctex_mapping()
                             return save_and_return_pdf(f.read(), log_output, None)
                 except Exception:
                     pass
@@ -1013,14 +1390,24 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                 log_output = 'Engine: Tectonic (Native Fast)\n\n'
                 try:
                     # Execute Tectonic with continue-on-errors to auto-download missing packages from CTAN
-                    cmd = [TECTONIC_BIN, '-Z', 'continue-on-errors', main_filepath]
-                    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=45)
+                    cmd = [TECTONIC_BIN, '--synctex', '-Z', 'continue-on-errors', main_filepath]
+                    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180)
                     stdout_str = res.stdout.decode('utf-8', errors='ignore')
                     stderr_str = res.stderr.decode('utf-8', errors='ignore')
                     log_output += stdout_str + '\n' + stderr_str
 
+                    if 'not found' in log_output.lower() or 'cannot find' in log_output.lower() or 'file `' in log_output.lower():
+                        import re
+                        missing_match = re.search(r"file `([^']+)' not found|cannot find file ([^\s\n]+)", log_output, re.IGNORECASE)
+                        if missing_match:
+                            missing_name = missing_match.group(1) or missing_match.group(2)
+                            log_output += f"\n\n💡 DIAGNOSTIC HINT: Tectonic could not find '{missing_name}'.\n" \
+                                          f"  • If this is a custom journal template or class (e.g. sn-jnl.cls, IEEEtran.cls, neurips.sty), upload '{missing_name}' directly into your project file list in the left sidebar.\n" \
+                                          f"  • If your machine is offline or behind a network proxy/firewall, install full local TeXLive (`sudo apt install texlive-full`) and switch to 'Engine: pdfLaTeX' in the top header dropdown.\n"
+
                     if os.path.exists(pdf_filepath):
-                        has_err = res.returncode != 0 or 'error:' in log_output.lower() or '! ' in log_output or active_file_fallback
+                        has_err = res.returncode != 0 or 'error:' in log_output.lower() or '! ' in log_output
+                        persist_synctex_mapping()
                         with open(pdf_filepath, 'rb') as f:
                             return save_and_return_pdf(f.read(), log_output, ('LaTeX errors' if has_err else None))
 
@@ -1033,7 +1420,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                     return get_fallback_cached_pdf(log_output + f'\nCompilation pass exception: {e}', 'Compilation exception')
             elif os.path.exists('/usr/bin/pdflatex'):
                 try:
-                    cmd = ['pdflatex', '-interaction=nonstopmode', '-output-directory', tmpdir, main_filepath]
+                    cmd = ['pdflatex', '-synctex=1', '-interaction=nonstopmode', '-output-directory', tmpdir, main_filepath]
                     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
                     stdout_str = res.stdout.decode('utf-8', errors='ignore')
                     stderr_str = res.stderr.decode('utf-8', errors='ignore')
@@ -1041,6 +1428,7 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
 
                     if os.path.exists(pdf_filepath):
                         has_err = res.returncode != 0 or 'error:' in log_output.lower() or '! ' in log_output
+                        persist_synctex_mapping()
                         with open(pdf_filepath, 'rb') as f:
                             return save_and_return_pdf(f.read(), log_output, ('LaTeX errors' if has_err else None))
                     return get_fallback_cached_pdf(log_output, stderr_str or 'Compilation error')
@@ -1050,6 +1438,12 @@ class OverleafServer(http.server.SimpleHTTPRequestHandler):
                 return get_fallback_cached_pdf('', 'No native PDF compiler installed')
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='AI-Overleaf Server')
+    parser.add_argument('--port', type=int, default=8090, help='Port to run server on')
+    args, _ = parser.parse_known_args()
+    PORT = args.port
+
     init_db()
     import socketserver
     from http.server import ThreadingHTTPServer

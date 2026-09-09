@@ -62,11 +62,6 @@
             <span>Your Projects</span>
             <span class="dash-nav-badge" id="nav-count-active">0</span>
           </button>
-          <button class="dash-nav-item" id="nav-dash-shared" onclick="switchDashboardTab('shared')">
-            <i class="fa-solid fa-users nav-icon" style="color:var(--accent-blue);"></i>
-            <span>Shared with You</span>
-            <span class="dash-nav-badge" id="nav-count-shared">0</span>
-          </button>
           <button class="dash-nav-item" id="nav-dash-archived" onclick="switchDashboardTab('archived')">
             <i class="fa-solid fa-box-archive nav-icon" style="color:var(--accent-amber);"></i>
             <span>Archived Projects</span>
@@ -137,12 +132,15 @@
       <div class="header-actions">
         <div class="model-select-wrapper">
           <i class="fa-solid fa-microchip"></i>
-          <select id="model-select" title="Active Dual GPU Ollama LLM">
-            <option value="qwen2.5:32b">Qwen 2.5 (32B) - High Precision</option>
-            <option value="qwen2.5-coder:32b">Qwen 2.5 Coder (32B)</option>
-            <option value="deepseek-r1:32b">DeepSeek-R1 (32B - Reasoning)</option>
-            <option value="llama3.2-vision:11b">Llama 3.2 Vision (11B)</option>
-            <option value="llama3.3:70b">Llama 3.3 (70B)</option>
+          <select id="model-select" title="Active AI model">
+            <option value="gpt-oss-120b-medium">GPT-OSS 120B Medium — Antigravity OpenAI-Compatible Server</option>
+            <option value="qwen3-coder:30b">Qwen 3 Coder (30B) — Code, Tables, Line Patches &amp; Auto-Repair</option>
+            <option value="llama3.1:8b">Llama 3.1 (8B) — Academic Writing, Proofreading &amp; Review Critiques</option>
+            <option value="gemma2:9b">Gemma 2 (9B) — Fast Light Prose &amp; Abstract Editing</option>
+            <option value="phi4:latest">Phi 4 (Latest) — Paper Health Score &amp; Peer Reviewer</option>
+            <option value="llama3.2:3b">Llama 3.2 (3B) — Fast Text Editing</option>
+            <option value="command-r:latest">Command R (Latest) — RAG &amp; Citations</option>
+            <option value="llava:13b">LLaVA (13B) — Multimodal Figure Code Generation &amp; Vision Captioning</option>
           </select>
         </div>
 
@@ -155,6 +153,18 @@
             <option value="xelatex">Engine: XeLaTeX (Unicode &amp; Fonts)</option>
             <option value="lualatex">Engine: LuaLaTeX (Lua Scripted)</option>
           </select>
+        </div>
+
+        <div class="editor-view-switcher" style="display:flex; align-items:center; gap:3px; background:var(--bg-sidebar); padding:2px 4px; border-radius:6px; border:1px solid var(--border-color);">
+          <button class="btn-layout-toggle btn-layout-editor" title="Full Code Editor Only View" onclick="setEditorLayoutMode('editor')">
+            <i class="fa-solid fa-code"></i>
+          </button>
+          <button class="btn-layout-toggle btn-layout-split active" title="Dual Split Screen View (Code + PDF)" onclick="setEditorLayoutMode('split')">
+            <i class="fa-solid fa-columns"></i>
+          </button>
+          <button class="btn-layout-toggle btn-layout-pdf" title="Full PDF / Preview Only View" onclick="setEditorLayoutMode('pdf')">
+            <i class="fa-solid fa-file-pdf"></i>
+          </button>
         </div>
       </div>
     </header>
@@ -233,15 +243,23 @@
             <h3><i class="fa-solid fa-wand-magic-sparkles"></i> AI Assistant Tools</h3>
           </div>
           <div class="ai-tools-body">
-            <div class="tool-card" id="tool-project-review" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%); border: 1px solid rgba(168, 85, 247, 0.35);">
-              <i class="fa-solid fa-brain" style="color:#c084fc;"></i>
+            <div class="tool-card" id="tool-health-score" onclick="runPeerReview()" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.18) 0%, rgba(236, 72, 153, 0.18) 100%); border: 1px solid rgba(168, 85, 247, 0.4); cursor: pointer;">
+              <i class="fa-solid fa-heart-pulse" style="color:#c084fc;"></i>
               <div>
-                <h4 style="color:#ffffff; font-weight:700;">Full-Project AI Architecture Review</h4>
-                <p>AI scans all TeX, BibTeX &amp; style files across the whole project for feedback.</p>
+                <h4 style="color:#ffffff; font-weight:700;">Paper Health Score &amp; Peer Reviewer</h4>
+                <p>Scans all project TeX/BibTeX assets, evaluates 8 academic dimensions &amp; simulates journal Reviewer #2 peer critique.</p>
               </div>
             </div>
 
-            <div class="tool-card" id="tool-citation-audit" style="background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.3);">
+            <div class="tool-card" id="tool-submission-readiness" onclick="runSubmissionReadinessAudit()" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.35); cursor: pointer;">
+              <i class="fa-solid fa-clipboard-check" style="color:#fbbf24;"></i>
+              <div>
+                <h4 style="color:#ffffff;">Submission Readiness Audit</h4>
+                <p>Check manuscript structure, references, figures, tables, labels, assets, and journal-template risks before submission.</p>
+              </div>
+            </div>
+
+            <div class="tool-card" id="tool-citation-audit" onclick="runCitationAudit()" style="background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.3); cursor: pointer;">
               <i class="fa-solid fa-book-open-reader" style="color:#34d399;"></i>
               <div>
                 <h4 style="color:#ffffff;">BibTeX &amp; Citation Auditor</h4>
@@ -249,15 +267,7 @@
               </div>
             </div>
 
-            <div class="tool-card" id="tool-peer-review">
-              <i class="fa-solid fa-clipboard-check"></i>
-              <div>
-                <h4>Reviewer #2 Simulator &amp; Health Score</h4>
-                <p>Simulate journal review, check claims &amp; grade manuscript health.</p>
-              </div>
-            </div>
-
-            <div class="tool-card" id="tool-csv-table">
+            <div class="tool-card" id="tool-csv-table" onclick="openCSVTableModal()" style="cursor: pointer;">
               <i class="fa-solid fa-file-csv"></i>
               <div>
                 <h4>CSV to LaTeX Table</h4>
@@ -265,69 +275,6 @@
               </div>
             </div>
 
-            <div class="tool-card" id="tool-insert-figure">
-              <i class="fa-solid fa-image"></i>
-              <div>
-                <h4>Smart Figure Inserter</h4>
-                <p>Embed project image assets with scaling, captions & labels.</p>
-              </div>
-            </div>
-
-            <div class="tool-card" id="tool-gen-bibtex">
-              <i class="fa-solid fa-book-bookmark"></i>
-              <div>
-                <h4>BibTeX Citation Generator</h4>
-                <p>Generate clean @article or @book entries from paper titles/DOIs.</p>
-              </div>
-            </div>
-
-            <div class="tool-card" id="tool-gen-tikz">
-              <i class="fa-solid fa-diagram-project"></i>
-              <div>
-                <h4>TikZ / Vector Diagram</h4>
-                <p>Generate flowcharts, diagrams, & graphs with AI prompts.</p>
-              </div>
-            </div>
-
-            <div class="tool-card" id="tool-equation-analyzer" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
-              <i class="fa-solid fa-calculator" style="color:#60a5fa;"></i>
-              <div>
-                <h4 style="color:#ffffff;">Equation &amp; Notation Analyzer</h4>
-                <p>Verify math environments, notation consistency &amp; symbol definitions.</p>
-              </div>
-            </div>
-
-            <div class="tool-card" id="tool-health-score" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3);">
-              <i class="fa-solid fa-heart-pulse" style="color:#fbbf24;"></i>
-              <div>
-                <h4 style="color:#ffffff;">Paper Health Score &amp; Integrity Panel</h4>
-                <p>Evaluate 8 academic dimensions &amp; generate research integrity score.</p>
-              </div>
-            </div>
-
-            <div class="tool-card" id="tool-auto-repair" style="background: rgba(236, 72, 153, 0.1); border: 1px solid rgba(236, 72, 153, 0.3);">
-              <i class="fa-solid fa-wrench" style="color:#f472b6;"></i>
-              <div>
-                <h4 style="color:#ffffff;">Automated Compile-Fix-Verify Loop</h4>
-                <p>Detect LaTeX errors, propose line patches &amp; auto-recompile paper.</p>
-              </div>
-            </div>
-
-            <div class="tool-card" id="tool-gen-math">
-              <i class="fa-solid fa-calculator"></i>
-              <div>
-                <h4>Generate Math Formula</h4>
-                <p>Converts natural language math into equation blocks.</p>
-              </div>
-            </div>
-
-            <div class="tool-card" id="tool-polish">
-              <i class="fa-solid fa-pen-nib"></i>
-              <div>
-                <h4>Academic Polish</h4>
-                <p>Refines writing tone to journal standards.</p>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -342,7 +289,7 @@
           <div class="ai-tasks-body" style="padding:14px; display:flex; flex-direction:column; gap:12px;">
             <div style="background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.25); padding:10px 12px; border-radius:8px; font-size:0.8rem; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
               <i class="fa-solid fa-lightbulb" style="color:var(--accent-purple); font-size:1.1rem;"></i>
-              <span>Manage research tasks &amp; section TODOs. Click <strong>Auto-Generate</strong> to extract missing citations, figures &amp; action items using Ollama.</span>
+              <span>Manage research tasks &amp; section TODOs. Click <strong>Auto-Generate</strong> to extract missing citations, figures &amp; action items using the selected AI model.</span>
             </div>
 
             <!-- Add Manual Task Input -->
@@ -374,18 +321,6 @@
         <div class="section-toolbar">
           <div style="display:flex; align-items:center; gap:10px;">
             <span class="file-name-indicator" id="active-file-indicator">main.tex</span>
-            <!-- Editor View Switcher in Editor Header (Visible in Code Only Mode) -->
-            <div class="editor-view-switcher" style="display:flex; align-items:center; gap:3px; background:var(--bg-sidebar); padding:2px 4px; border-radius:6px; border:1px solid var(--border-color);">
-              <button class="btn-layout-toggle btn-layout-editor" title="Full Code Editor Only View" onclick="setEditorLayoutMode('editor')">
-                <i class="fa-solid fa-code"></i>
-              </button>
-              <button class="btn-layout-toggle btn-layout-split active" title="Dual Split Screen View (Code + PDF)" onclick="setEditorLayoutMode('split')">
-                <i class="fa-solid fa-columns"></i>
-              </button>
-              <button class="btn-layout-toggle btn-layout-pdf" title="Full PDF / Preview Only View" onclick="setEditorLayoutMode('pdf')">
-                <i class="fa-solid fa-file-pdf"></i>
-              </button>
-            </div>
           </div>
           <div class="editor-quick-tools">
             <button title="Bold (\textbf)" onclick="insertLaTeX('\\textbf{', '}')"><b>B</b></button>
@@ -479,19 +414,6 @@
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
-            <!-- Workspace Layout Mode Switcher (Icon-Only: Code | Split | PDF) -->
-            <div class="editor-view-switcher" style="display:flex; align-items:center; gap:3px; background:var(--bg-sidebar); padding:2px 4px; border-radius:6px; border:1px solid var(--border-color);">
-              <button class="btn-layout-toggle btn-layout-editor" title="Full Code Editor Only View" onclick="setEditorLayoutMode('editor')">
-                <i class="fa-solid fa-code"></i>
-              </button>
-              <button class="btn-layout-toggle btn-layout-split active" title="Dual Split Screen View (Code + PDF)" onclick="setEditorLayoutMode('split')">
-                <i class="fa-solid fa-columns"></i>
-              </button>
-              <button class="btn-layout-toggle btn-layout-pdf" title="Full PDF / Preview Only View" onclick="setEditorLayoutMode('pdf')">
-                <i class="fa-solid fa-file-pdf"></i>
-              </button>
-            </div>
-
             <button id="btn-github-sync" class="btn btn-sm btn-github" title="Sync Project to GitHub Private/Public Repository">
               <i class="fa-brands fa-github"></i> GitHub Sync
             </button>
@@ -509,12 +431,19 @@
         <div class="preview-viewport">
           <!-- Native PDF Viewer Pane -->
           <div class="preview-pane active" id="pdf-preview" style="width:100%; height:100%; position:relative;">
+            <div id="stale-pdf-warning" style="display:none; position:absolute; top:12px; left:50%; transform:translateX(-50%); background:rgba(239, 68, 68, 0.95); color:#ffffff; padding:6px 16px; border-radius:20px; font-size:12px; font-weight:600; box-shadow:0 4px 12px rgba(0,0,0,0.4); z-index:100;">
+              ⚠️ STALE PREVIEW — Compilation failed. Displaying last successful PDF build.
+            </div>
+            <div id="compilation-type-badge" style="display:none; position:absolute; bottom:16px; right:20px; background:rgba(15, 23, 42, 0.85); color:#64748b; border:1px solid var(--border-color); padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600; z-index:90;">
+              Root Build: main.tex
+            </div>
             <div id="pdf-sync-toast-badge" class="pdf-sync-toast-badge" style="display:none;">
               <i class="fa-solid fa-crosshairs" style="color:var(--accent-teal);"></i> <span id="pdf-sync-toast-text">Jumped to Page 1</span>
             </div>
             <div id="pdf-pointer-bar" class="pdf-pointer-bar" style="display:none;">
               <span class="pdf-pointer-badge" id="pdf-pointer-text">🎯 Line 1</span>
             </div>
+            <div id="pdf-canvas-viewer" style="display:none; width:100%; height:100%; overflow:auto; background:#525659; padding:18px 0;"></div>
             <iframe id="pdf-frame" style="width:100%; height:100%; border:none; background:#525659;" src="about:blank"></iframe>
           </div>
 
@@ -601,9 +530,9 @@
       <div class="modal-body">
         <div class="form-group">
           <label for="ollama-url-input">Ollama Server Base URL:</label>
-          <input type="text" id="ollama-url-input" value="http://127.0.0.1:11434">
+          <input type="text" id="ollama-url-input" value="http://10.24.48.24:11435">
         </div>
-        <p class="help-text">Direct connection to your local Dual RTX 3090 inference backend.</p>
+        <p class="help-text">Connection to your hosted Ollama inference backend (10.24.48.24:11435).</p>
         <button class="btn btn-primary" onclick="testOllamaConnection()">Test Connection</button>
         <span id="conn-test-result"></span>
       </div>
@@ -784,6 +713,7 @@
           <div class="form-group">
             <label><i class="fa-solid fa-upload"></i> Upload CSV File:</label>
             <input type="file" id="csv-file-input" accept=".csv, .txt, .tsv">
+            <div id="csv-upload-status" style="font-size: 0.78rem; margin-top: 4px; color: var(--accent-teal); font-weight: 500; min-height: 18px;"></div>
           </div>
           <div class="form-group">
             <label><i class="fa-solid fa-paintbrush"></i> Table Style:</label>
@@ -812,8 +742,11 @@
         </div>
 
         <div class="form-group">
-          <label><i class="fa-solid fa-code"></i> Generated LaTeX Code Preview:</label>
-          <textarea id="csv-code-preview" rows="6" readonly style="font-family:'Fira Code', monospace; background:var(--dark-bg); color:var(--accent-teal);"></textarea>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <label style="margin:0;"><i class="fa-solid fa-code"></i> Generated LaTeX Code Preview:</label>
+            <button class="btn btn-sm btn-primary" onclick="generateAILaTeXTableFromCSV()"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate AI Table with qwen3-coder:30b</button>
+          </div>
+          <textarea id="csv-code-preview" rows="6" style="font-family:'Fira Code', monospace; background:var(--dark-bg); color:var(--accent-teal);"></textarea>
         </div>
       </div>
       <div class="modal-footer">
@@ -824,98 +757,146 @@
     </div>
   </div>
 
-  <!-- Smart AI Figure Inserter Modal -->
-  <div class="modal-overlay" id="figure-inserter-modal">
-    <div class="modal-box modal-lg">
+  <!-- AI Paper Health & Peer Reviewer Dashboard Modal -->
+  <div class="modal-overlay" id="peer-review-modal">
+    <div class="modal-box modal-lg" style="max-width: 960px;">
       <div class="modal-header">
-        <h3><i class="fa-solid fa-image"></i> Smart Figure & Image Inserter</h3>
-        <button class="modal-close" onclick="closeModal('figure-inserter-modal')">&times;</button>
+        <h3><i class="fa-solid fa-heart-pulse" style="color:var(--accent-purple);"></i> Paper Health &amp; Live AI Peer Reviewer</h3>
+        <span class="badge" id="review-status-badge">Multi-Dimensional Audit Mode</span>
+        <button class="modal-close" onclick="closeModal('peer-review-modal')">&times;</button>
       </div>
-      <div class="modal-body">
-        <div class="form-grid-2">
-          <div class="form-group">
-            <label><i class="fa-solid fa-folder-open"></i> Select Project Image Asset:</label>
-            <select id="fig-asset-select">
-              <!-- Dynamically populated with images -->
-            </select>
-          </div>
-          <div class="form-group">
-            <label><i class="fa-solid fa-down-left-and-up-right-to-center"></i> Image Width / Scale:</label>
-            <select id="fig-width-select">
-              <option value="0.8\linewidth" selected>0.8 \linewidth (Recommended)</option>
-              <option value="0.5\linewidth">0.5 \linewidth (Half width)</option>
-              <option value="1.0\linewidth">1.0 \linewidth (Full column width)</option>
-              <option value="12cm">12 cm (Fixed width)</option>
-              <option value="8cm">8 cm (Fixed compact)</option>
-            </select>
+      <div class="modal-body" style="max-height: 75vh; overflow-y: auto; padding: 20px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; background:var(--dark-bg); padding:10px 14px; border-radius:8px; margin-bottom:16px; border:1px solid var(--border-color);">
+          <span style="font-size:0.82rem; font-weight:600; color:var(--text-muted);"><i class="fa-solid fa-microchip"></i> Inference Model Engine:</span>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="btn btn-sm btn-secondary" onclick="runPeerReviewWithModel('llama3.1:8b')">Llama 3.1 (8B)</button>
+            <button class="btn btn-sm btn-secondary" onclick="runPeerReviewWithModel('gemma2:9b')">Gemma 2 (9B)</button>
+            <button class="btn btn-sm btn-secondary" onclick="runPeerReviewWithModel('phi4:latest')">Phi 4 (Latest)</button>
+            <button class="btn btn-sm btn-primary" onclick="runPeerReviewWithModel('qwen3-coder:30b')">Qwen 3 Coder (30B)</button>
           </div>
         </div>
 
-        <div class="form-grid-2">
-          <div class="form-group">
-            <label>Placement Specifier:</label>
-            <select id="fig-placement-select">
-              <option value="htbp" selected>[htbp] (Here / Top / Bottom / Page)</option>
-              <option value="h!">[h!] (Here strictly)</option>
-              <option value="t">[t] (Top of page)</option>
-              <option value="b">[b] (Bottom of page)</option>
-            </select>
+        <!-- LIVE ANALYSIS DASHBOARD PANEL (Active during analysis) -->
+        <div id="analysis-live-dashboard" style="display:none; background:var(--dark-bg); border:1px solid var(--border-color); border-radius:10px; padding:20px; margin-bottom:16px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <div>
+              <div style="font-size:1rem; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-microscope" style="color:var(--accent-purple);"></i> Live Manuscript &amp; AI Analysis Engine
+              </div>
+              <div style="font-size:0.8rem; color:var(--text-muted);" id="analysis-project-name">Analyzing: Active Workspace Manuscript</div>
+            </div>
+            <div style="text-align:right;">
+              <span style="font-size:1.25rem; font-weight:800; color:var(--accent-purple);" id="analysis-overall-progress-percent">0%</span>
+              <div style="font-size:0.75rem; color:var(--text-muted);" id="analysis-elapsed-time">Elapsed: 00:00</div>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Figure Label:</label>
-            <input type="text" id="fig-label-input" placeholder="fig:architecture">
+
+          <!-- Overall Progress Bar -->
+          <div style="background:rgba(255,255,255,0.06); height:10px; border-radius:5px; overflow:hidden; margin-bottom:16px;">
+            <div id="analysis-overall-progress-bar" style="background:linear-gradient(90deg, #6366f1, #a855f7, #ec4899); height:100%; width:0%; transition:width 0.3s ease;"></div>
+          </div>
+
+          <!-- Current Operation Banner -->
+          <div style="background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.3); border-radius:6px; padding:10px 14px; margin-bottom:16px; display:flex; align-items:center; gap:10px;">
+            <i class="fa-solid fa-spinner fa-spin" id="analysis-op-spinner" style="color:#818cf8; font-size:1.1rem;"></i>
+            <div style="flex:1;">
+              <div style="font-size:0.82rem; font-weight:700; color:#c7d2fe;" id="analysis-current-stage-title">Stage 1: Project Scan</div>
+              <div style="font-size:0.78rem; color:#a5b4fc;" id="analysis-current-operation-text">Initializing project scan across TeX, BibTeX &amp; style files...</div>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+            <!-- 14-Stage Checklist -->
+            <div>
+              <div style="font-size:0.82rem; font-weight:700; color:var(--text-main); margin-bottom:8px;">
+                📋 14-Stage Pipeline Progress:
+              </div>
+              <div class="analysis-stage-list" id="analysis-stage-checklist">
+                <!-- Dynamically populated by app.js -->
+              </div>
+            </div>
+
+            <!-- Live AI Reviewer Console & Preliminary Findings -->
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div>
+                <div style="font-size:0.82rem; font-weight:700; color:var(--text-main); margin-bottom:6px;">
+                  🤖 Local AI Reviewer Console (<span id="analysis-model-display">phi4:latest</span>):
+                </div>
+                <div class="live-reviewer-console" id="analysis-live-console">
+                  <div style="color:var(--text-muted);">[System] Initializing model inference worker...</div>
+                </div>
+              </div>
+
+              <div>
+                <div style="font-size:0.82rem; font-weight:700; color:var(--text-main); margin-bottom:6px;">
+                  ⚡ Preliminary Diagnostic Findings Discovered:
+                </div>
+                <div class="findings-counter-grid" id="analysis-live-findings-summary">
+                  <div class="finding-count-chip"><span class="chip-count" id="chip-citations-count">0</span> Citation Issues</div>
+                  <div class="finding-count-chip"><span class="chip-count" id="chip-math-count">0</span> Math Label Issues</div>
+                  <div class="finding-count-chip"><span class="chip-count" id="chip-formatting-count">0</span> Figure Issues</div>
+                  <div class="finding-count-chip"><span class="chip-count" id="chip-structure-count">0</span> Structure Checks</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="form-group">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-            <label style="margin:0;">Figure Caption:</label>
-            <button class="btn-sm" onclick="generateAICaptionForFigure()"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Suggest Caption</button>
+        <!-- FINAL PAPER HEALTH REPORT & PEER REVIEW BODY -->
+        <div id="peer-review-report-body">
+          <div style="text-align:center; padding:40px; color:var(--text-muted);">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size:2rem; color:var(--accent-purple); margin-bottom:12px;"></i>
+            <div>Click "Launch Live Audit" or select a model to launch the Live Analysis Pipeline...</div>
           </div>
-          <input type="text" id="fig-caption-input" placeholder="e.g. Detailed workflow architecture of the system.">
-        </div>
-
-        <div class="form-group">
-          <label><i class="fa-solid fa-code"></i> Generated Figure LaTeX Code:</label>
-          <textarea id="fig-code-preview" rows="6" readonly style="font-family:'Fira Code', monospace; background:var(--dark-bg); color:var(--accent-teal);"></textarea>
         </div>
       </div>
+
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal('figure-inserter-modal')">Close</button>
-        <button class="btn btn-secondary" onclick="copyFigureCode()"><i class="fa-solid fa-copy"></i> Copy Code</button>
-        <button class="btn btn-primary" onclick="insertFigureAtCursor()"><i class="fa-solid fa-arrow-right-to-bracket"></i> Insert at Cursor</button>
+        <button class="btn btn-secondary" style="background:#dc2626; color:#ffffff; border:none; display:none;" id="btn-cancel-analysis" onclick="cancelPaperAnalysis()">
+          <i class="fa-solid fa-ban"></i> Cancel Analysis
+        </button>
+        <button class="btn btn-secondary" onclick="closeModal('peer-review-modal')">Close Dashboard</button>
+        <button class="btn btn-secondary" id="btn-rerun-audit" onclick="runPeerReview()"><i class="fa-solid fa-rotate-right"></i> Launch Live Audit</button>
+        <button class="btn btn-secondary" onclick="copyPeerReviewReport()"><i class="fa-solid fa-copy"></i> Copy Report</button>
+        <button class="btn btn-primary" onclick="autoFixPaperFromReview()"><i class="fa-solid fa-wand-magic-sparkles"></i> Ask AI to Fix Issues</button>
       </div>
     </div>
   </div>
 
-  <!-- AI Manuscript Peer Reviewer Report Modal -->
-  <div class="modal-overlay" id="peer-review-modal">
-    <div class="modal-box modal-lg">
-      <div class="modal-header">
-        <h3><i class="fa-solid fa-clipboard-check"></i> AI Peer Review & Manuscript Critique Report</h3>
-        <span class="badge" id="review-status-badge">IEEE / Nature Reviewer Mode</span>
-        <button class="modal-close" onclick="closeModal('peer-review-modal')">&times;</button>
+  <!-- Interactive AI Generation Progress Bar Modal -->
+  <div class="modal-overlay" id="ai-progress-modal">
+    <div class="modal-box" style="max-width:520px; text-align:center; padding:24px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent-purple); font-size:1.3rem;"></i>
+          <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#ffffff;" id="ai-progress-title">Processing AI Generation...</h3>
+        </div>
+        <span class="badge" id="ai-progress-model-badge" style="background:rgba(99,102,241,0.2); color:var(--accent-teal); border:1px solid var(--accent-teal);">qwen3-coder:30b</span>
       </div>
-      <div class="modal-body">
-        <div class="status-box" style="margin-bottom:12px; background:rgba(168,85,247,0.1); border-color:var(--accent-purple); color:var(--text-main);">
-          <i class="fa-solid fa-graduation-cap" style="font-size:1.2rem; color:var(--accent-purple);"></i>
-          <div>
-            <strong>AI Academic Peer Reviewer Assessment</strong>
-            <div style="font-size:0.8rem; color:var(--text-muted);">Evaluated for Structure, Clarity, Citation Completeness, Math Rigor & Formatting.</div>
-          </div>
+
+      <!-- Animated Progress Section -->
+      <div style="margin:16px 0; padding:16px; background:rgba(15,23,42,0.6); border-radius:12px; border:1px solid var(--border-color);">
+        <div style="font-size:0.88rem; font-weight:600; color:var(--text-main); margin-bottom:12px; display:flex; align-items:center; justify-content:center; gap:8px;" id="ai-progress-step">
+          <i class="fa-solid fa-circle-notch fa-spin" style="color:var(--accent-blue);"></i>
+          <span id="ai-progress-step-text">Sending request to inference backend (10.24.48.24:11435)...</span>
         </div>
 
-        <div class="form-group">
-          <label><i class="fa-solid fa-file-lines"></i> Detailed Reviewer Feedback & Comments:</label>
-          <div id="peer-review-report-body" style="font-family:var(--font-ui); font-size:0.9rem; line-height:1.6; background:var(--dark-bg); color:var(--text-main); border:1px solid var(--border-color); border-radius:8px; padding:16px; min-height:220px; max-height:360px; overflow-y:auto; white-space:pre-wrap;">
-            Generating peer review critique...
-          </div>
+        <!-- Progress Track -->
+        <div style="width:100%; height:10px; background:rgba(255,255,255,0.08); border-radius:10px; overflow:hidden; position:relative; box-shadow:inset 0 1px 3px rgba(0,0,0,0.5);">
+          <div id="ai-progress-bar-fill" style="width:0%; height:100%; background:linear-gradient(90deg, #6366f1, #a855f7, #38bdf8); border-radius:10px; transition:width 0.3s ease; box-shadow:0 0 12px rgba(168,85,247,0.6);"></div>
+        </div>
+
+        <!-- Timer & Percentage Display -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:0.8rem; color:var(--text-muted);">
+          <span>⏱️ Elapsed: <strong id="ai-progress-timer" style="color:#ffffff;">0.0s</strong></span>
+          <span id="ai-progress-percent" style="font-weight:700; color:var(--accent-purple);">0%</span>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal('peer-review-modal')">Close Report</button>
-        <button class="btn btn-secondary" onclick="copyPeerReviewReport()"><i class="fa-solid fa-copy"></i> Copy Feedback</button>
-        <button class="btn btn-primary" onclick="autoFixPaperFromReview()"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Apply AI Improvements</button>
+
+      <div style="display:flex; justify-content:center; gap:10px; margin-top:12px;">
+        <button class="btn btn-secondary" onclick="cancelAIProgress()" style="font-size:0.82rem; padding:6px 16px;">
+          <i class="fa-solid fa-xmark"></i> Cancel Request
+        </button>
       </div>
     </div>
   </div>
@@ -1051,6 +1032,7 @@
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/diff@5.1.0/dist/diff.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- JSZip Library for Zip Template Extraction -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="app.js"></script>

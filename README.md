@@ -15,11 +15,10 @@
 - **Async Thread Execution**: GitHub repository synchronization runs on dedicated background Python threads, keeping HTTP responses instant (< 5ms) without freezing the UI.
 - **Interactive UI Feedback**: Real-time progress bar (0% -> 100%), live file count counter (*e.g., Files: 4 / 6*), step messages, and a floating glassmorphic status toast pill.
 
-### 🏠 **3. Dual Dashboard Views & Multi-Tab Project Lifecycle**
+### 🏠 **3. Dashboard Views & Project Lifecycle**
 - **Grid Card View vs. Horizontal Row View**: Switch between visual project cards and compact list rows with persistent layout state.
-- **Multi-Tab Dashboard Sidebar**:
+- **Dashboard Sidebar**:
   - 📁 **Your Projects**: Active workspace papers and active research.
-  - 👥 **Shared with You**: Collaborative papers shared across teams.
   - 📦 **Archived Projects**: Dedicated separate dashboard view for completed or inactive projects.
   - 🗑️ **Trash**: Safe 2-stage soft trash bin protecting projects before permanent deletion.
 - **Reversible Lifecycle Operations**: Soft archive, soft trash, restore, and permanent deletion.
@@ -29,6 +28,7 @@
 - 💻 **Code Only (100%)**: Maximize editor focused workspace for pure writing.
 - 🌓 **Split View (50/50)**: Classic side-by-side editing and PDF preview.
 - 📄 **PDF Only (100%)**: Full-screen paper reading and presentation mode.
+- **Persistent view switcher**: The Code, Split, and PDF controls remain available in the top workspace header in every mode.
 - **Smooth Layout Reflow**: CodeMirror automatically recalculates line height and column layout (`editor.refresh()`) on view mode transitions.
 
 ### 🛡️ **5. Strict User-Content File Filtering**
@@ -43,8 +43,12 @@
 - **1-Click Individual File Download**: Download any `.tex`, `.bib`, `.cls`, `.sty`, or image asset directly from the file list using the download button (<i class="fa-solid fa-download"></i>).
 - **Asset Upload**: Drag and drop or upload `.png`, `.jpg`, `.pdf`, `.bib`, or `.zip` template archives directly into disk storage.
 
-### 🤖 **7. Local AI Assistant & Peer Reviewer**
-- **Ollama LLM Integration**: Connects locally with **Qwen 2.5**, **DeepSeek-R1**, or **Llama 3.3** for automated manuscript peer review, equation generation, grammar polishing, and LaTeX syntax error resolution.
+### 🤖 **7. AI Assistant & Research Analysis**
+- **Configured model integration**: AI tools send requests to the configured Ollama-compatible backend or the server's configured AI provider. They do not generate canned results when the backend is unavailable; an error is reported instead.
+- **Paper Health & Peer Reviewer**: Scans project TeX, BibTeX, class, and style files, performs deterministic structure/citation/figure/equation checks, and can request an evidence-based Reviewer #2 critique from the selected model.
+- **Submission Readiness Audit**: Performs a local audit of document structure, citations, labels, references, figures, tables, and referenced assets. It is a general checklist, not a journal-specific acceptance decision.
+- **BibTeX & Citation Auditor**: Reports cited keys, unused bibliography keys, and citation keys missing from project BibTeX files. It is not a full BibTeX parser or DOI verification service.
+- **CSV to LaTeX Table**: Converts simple CSV or pasted tabular data into LaTeX table code with Booktabs-style rules. Complex quoted CSV and LaTeX escaping should be checked before publication.
 
 ---
 
@@ -98,22 +102,22 @@ AI-Overleaf/
 
 ```text
                          HOME / DASHBOARD
-                                │
-       ┌────────────────────────┼────────────────────────┐
-       ▼                        ▼                        ▼
-  Your Projects            Archived Projects           Shared
-       │                        │                        │
-  ┌────┴────┐              ┌────┴────┐                   │
-  ▼         ▼              ▼         ▼                   ▼
-Grid View  Row View    Grid View  Row View           Shared Papers
-  │         │              │         │
-  └────┬────┘              └────┬────┘
-       │                        │
-       ▼                        ▼
- ┌───────────┐            ┌───────────┐
- │  Editor   │            │ Restore / │
- │ Workspace │            │ Delete    │
- └───────────┘            └───────────┘
+                            │
+                    ┌────────────────┼────────────────┐
+                    ▼                ▼                ▼
+                    Your Projects    Archived Projects     Trash
+                    │                │                │
+                  ┌────┴────┐      ┌────┴────┐      ┌────┴────┐
+                  ▼         ▼      ▼         ▼      ▼         ▼
+                  Grid View  Row View Grid View Row View Restore  Delete
+                  │         │         │         │
+                  └────┬────┘         └────┬────┘
+                    │                   │
+                    ▼                   ▼
+                  ┌───────────┐       ┌───────────┐
+                  │  Editor   │       │ Restore / │
+                  │ Workspace │       │ Delete    │
+                  └───────────┘       └───────────┘
 ```
 
 ---
